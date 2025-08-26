@@ -1,0 +1,14 @@
+# Core dependencies
+fastapi
+uvicorn
+pydantic
+sqlite3
+
+# Streamlit adapter dependencies
+streamlit
+requests
+tenacity
+
+# Development dependencies
+pytest
+pytest-asyncio

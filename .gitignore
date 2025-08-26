@@ -1,0 +1,53 @@
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Python cache & artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Byte-compiled / temporary files
+*.log
+*.pot
+*.pyc
+*.tmp
+*.swp
+*.swo
+
+# SQLite & other local DBs
+*.db
+*.sqlite
+*.sqlite3
+
+# Jupyter / IPython
+.ipynb_checkpoints/
+*.ipynb
+
+# VS Code / IDE settings
+.vscode/
+.idea/
+*.iml
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+
+# Streamlit
+.streamlit/secrets.toml
+.streamlit/config.toml
+
+# Test / coverage
+.coverage
+coverage.xml
+htmlcov/
+.pytest_cache/

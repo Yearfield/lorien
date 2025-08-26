@@ -1,0 +1,10 @@
+[server]
+fileWatcherType = "poll"
+runOnSave = false
+maxUploadSize = 200
+
+[client]
+showErrorDetails = true
+
+[theme]
+base="light"

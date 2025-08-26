@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>com.lorien.api</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/env</string><string>bash</string><string>-lc</string>
+    <string>cd "$HOME/Lorien" && . .venv/bin/activate && uvicorn api.server:app --host 127.0.0.1 --port 8000</string>
+  </array>
+  <key>EnvironmentVariables</key><dict>
+    <key>DB_PATH</key><string>$HOME/Library/Application Support/lorien/app.db</string>
+  </dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>$HOME/Library/Logs/lorien-api.out</string>
+  <key>StandardErrorPath</key><string>$HOME/Library/Logs/lorien-api.err</string>
+</dict></plist>

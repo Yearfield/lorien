@@ -1,0 +1,382 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../../state/repository_providers.dart';
+import '../../state/action_providers.dart';
+import '../../data/dto/child_slot_dto.dart';
+
+class ParentDetailScreen extends ConsumerStatefulWidget {
+  final int parentId;
+
+  const ParentDetailScreen({super.key, required this.parentId});
+
+  @override
+  ConsumerState<ParentDetailScreen> createState() => _ParentDetailScreenState();
+}
+
+class _ParentDetailScreenState extends ConsumerState<ParentDetailScreen> {
+  final List<TextEditingController> _controllers = List.generate(
+    5,
+    (index) => TextEditingController(),
+  );
+
+  @override
+  void dispose() {
+    for (final controller in _controllers) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Watch the children provider
+    final childrenAsync = ref.watch(childrenProvider(widget.parentId));
+    
+    // Watch the upsert action state
+    final upsertState = ref.watch(upsertChildrenProvider);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Parent ${widget.parentId}'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.go('/editor'),
+        ),
+        actions: [
+          IconButton(
+            icon: upsertState.isLoading 
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.save),
+            onPressed: upsertState.isLoading ? null : _saveChildren,
+          ),
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Parent info
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  children: [
+                    const Icon(Icons.account_tree, color: Colors.blue),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Parent ${widget.parentId}',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          Text(
+                            'Vital Measurement',
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            
+            const SizedBox(height: 24),
+            
+            // Children slots
+            Text(
+              'Children (Slots 1-5)',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 16),
+            
+            Expanded(
+              child: childrenAsync.when(
+                data: (children) {
+                  // Populate controllers with existing data
+                  _populateControllers(children);
+                  
+                  return GridView.builder(
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 16,
+                      mainAxisSpacing: 16,
+                      childAspectRatio: 1.5,
+                    ),
+                    itemCount: 5,
+                    itemBuilder: (context, index) {
+                      final slot = index + 1;
+                      return _buildSlotCard(context, slot, children);
+                    },
+                  );
+                },
+                loading: () => const Center(
+                  child: CircularProgressIndicator(),
+                ),
+                error: (error, stack) => Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.error, size: 64, color: Colors.red[300]),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Error loading children',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        error.toString(),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Colors.grey[600],
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: () {
+                          ref.invalidate(childrenProvider(widget.parentId));
+                        },
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            
+            // Show error message if save failed
+            if (upsertState.error != null) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red[200]!),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.error, color: Colors.red[600]),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        upsertState.error!,
+                        style: TextStyle(color: Colors.red[800]),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            
+            // Show success message if save succeeded
+            if (upsertState.data != null) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.green[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.green[200]!),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.check_circle, color: Colors.green[600]),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Children saved successfully!',
+                        style: TextStyle(color: Colors.green[800]),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            
+            const SizedBox(height: 16),
+            
+            // Triage section
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.medical_services, color: Colors.green),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Diagnostic Triage & Actions',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    TextField(
+                      decoration: const InputDecoration(
+                        labelText: 'Diagnostic Triage',
+                        hintText: 'Enter diagnostic triage information...',
+                        border: OutlineInputBorder(),
+                      ),
+                      maxLines: 3,
+                    ),
+                    
+                    const SizedBox(height: 16),
+                    
+                    TextField(
+                      decoration: const InputDecoration(
+                        labelText: 'Actions',
+                        hintText: 'Enter recommended actions...',
+                        border: OutlineInputBorder(),
+                      ),
+                      maxLines: 3,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _populateControllers(List<ChildSlotDTO> children) {
+    // Clear all controllers first
+    for (final controller in _controllers) {
+      controller.clear();
+    }
+    
+    // Populate with existing data
+    for (final child in children) {
+      if (child.slot >= 1 && child.slot <= 5) {
+        _controllers[child.slot - 1].text = child.label;
+      }
+    }
+  }
+
+  void _saveChildren() {
+    final List<ChildSlotDTO> childrenToSave = [];
+    
+    for (int i = 0; i < _controllers.length; i++) {
+      final label = _controllers[i].text.trim();
+      if (label.isNotEmpty) {
+        childrenToSave.add(
+          ChildSlotDTO(
+            slot: i + 1,
+            label: label,
+          ),
+        );
+      }
+    }
+
+    // Call the upsert action
+    ref.read(upsertChildrenProvider.notifier).upsertChildren(
+      widget.parentId,
+      childrenToSave,
+    );
+  }
+
+  Widget _buildSlotCard(BuildContext context, int slot, List<ChildSlotDTO> children) {
+    final existingChild = children.where((child) => child.slot == slot).firstOrNull;
+    final controller = _controllers[slot - 1];
+
+    return Card(
+      child: InkWell(
+        onTap: () {
+          // Show dialog to edit slot
+          _showEditSlotDialog(context, slot, controller);
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[100],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'Slot $slot',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.blue[800],
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                  Icon(
+                    existingChild != null ? Icons.check_circle : Icons.add_circle_outline,
+                    color: existingChild != null ? Colors.green : Colors.grey,
+                    size: 20,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Child Node',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                existingChild?.label ?? 'Empty',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Colors.grey[500],
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showEditSlotDialog(BuildContext context, int slot, TextEditingController controller) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Edit Slot $slot'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            labelText: 'Child Label',
+            hintText: 'Enter child node label',
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              // The controller is already bound to the text field
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+}

@@ -1,0 +1,13 @@
+[Unit]
+Description=Lorien API (FastAPI + Uvicorn)
+After=network.target
+
+[Service]
+Type=simple
+Environment=DB_PATH=%h/.local/share/lorien/app.db
+WorkingDirectory=%h/Lorien
+ExecStart=%h/Lorien/.venv/bin/python -m uvicorn api.server:app --host 127.0.0.1 --port 8000
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
