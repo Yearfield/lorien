@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../state/repository_providers.dart';
-import '../../data/dto/incomplete_parent_dto.dart';
 
 class EditorScreen extends ConsumerWidget {
   const EditorScreen({super.key});
@@ -84,16 +83,16 @@ class EditorScreen extends ConsumerWidget {
                           ),
                         );
                       },
-                      loading: () => const SizedBox(
+                      loading: () => SizedBox(
                         width: double.infinity,
                         child: ElevatedButton.icon(
                           onPressed: null,
-                          icon: SizedBox(
+                          icon: const SizedBox(
                             width: 16,
                             height: 16,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           ),
-                          label: Text('Loading...'),
+                          label: const Text('Loading...'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.grey,
                             foregroundColor: Colors.white,

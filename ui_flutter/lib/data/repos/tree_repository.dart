@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import '../api_client.dart';
+import '../api_paths.dart';
 import '../dto/children_upsert_dto.dart';
 import '../dto/child_slot_dto.dart';
 import '../dto/incomplete_parent_dto.dart';
@@ -12,18 +13,30 @@ class TreeRepository {
   /// Get all children of a parent node
   Future<List<ChildSlotDTO>> getChildren(int parentId) async {
     try {
-      final response = await _apiClient.get('/api/v1/tree/$parentId/children');
-      
-      if (response.statusCode == 200) {
-        final data = response.data as Map<String, dynamic>;
-        final childrenList = data['children'] as List;
-        
-        return childrenList
-            .map((child) => ChildSlotDTO.fromJson(child))
-            .toList();
+      final response = await _apiClient.get(ApiPaths.treeChildren(parentId));
+      final sc = response.statusCode ?? 0;
+      if (sc == 204) return const <ChildSlotDTO>[];
+      final body = response.data;
+      if (body == null) return const <ChildSlotDTO>[];
+
+      // Accept either a bare list or a wrapped object with 'children'
+      List<dynamic> list;
+      if (body is List) {
+        list = body;
+      } else if (body is Map && body['children'] is List) {
+        list = body['children'] as List;
+      } else if (body is Map && body['data'] is List) {
+        // fallback if backend uses 'data'
+        list = body['data'] as List;
+      } else {
+        // ignore: avoid_print
+        print('[getChildren] Unexpected body shape: $body');
+        return const <ChildSlotDTO>[];
       }
-      
-      throw Exception('Failed to get children: ${response.statusCode}');
+      return list
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .map(ChildSlotDTO.fromJson)
+          .toList();
     } on DioException catch (e) {
       throw Exception('Network error: ${e.message}');
     }
@@ -37,7 +50,7 @@ class TreeRepository {
     try {
       final dto = ChildrenUpsertDTO(children: children);
       final response = await _apiClient.post(
-        '/api/v1/tree/$parentId/children',
+        ApiPaths.treeUpsertChildren(parentId),
         data: dto.toJson(),
       );
       
@@ -59,15 +72,36 @@ class TreeRepository {
   /// Get the next incomplete parent
   Future<IncompleteParentDTO?> getNextIncompleteParent() async {
     try {
-      final response = await _apiClient.get('/api/v1/tree/next-incomplete-parent');
-      
-      if (response.statusCode == 200) {
-        return IncompleteParentDTO.fromJson(response.data);
-      } else if (response.statusCode == 404) {
-        return null; // No incomplete parents found
+      final response = await _apiClient.get(ApiPaths.treeNextIncomplete);
+      final sc = response.statusCode ?? 0;
+      if (sc == 204) return null;
+      final body = response.data;
+      if (body == null) return null;
+      if (body is String && body.trim().isEmpty) return null;
+      try {
+        final map = Map<String, dynamic>.from(body as Map);
+        return IncompleteParentDTO.fromJson(map);
+      } catch (e, st) {
+        // Fallback: manual tolerant parse if codegen disagrees
+        // ignore: avoid_print
+        print('[next-incomplete] parse error: $e\n$st\nbody=$body');
+        try {
+          final map = (body as Map).map((k, v) => MapEntry(k.toString(), v));
+          final parentId = (map['parent_id'] ?? map['parentId']) as int;
+          final slots = map['missing_slots'] ?? map['missingSlots'];
+          List<int> missing;
+          if (slots is List) {
+            missing = slots.map((e) => e is int ? e : int.tryParse('$e') ?? 0).where((x) => x > 0).toList();
+          } else if (slots is String) {
+            missing = slots.split(',').map((s) => int.tryParse(s.trim()) ?? 0).where((x) => x > 0).toList();
+          } else {
+            missing = const <int>[];
+          }
+          return IncompleteParentDTO(parentId: parentId, missingSlots: missing);
+        } catch (_) {
+          rethrow;
+        }
       }
-      
-      throw Exception('Failed to get next incomplete parent: ${response.statusCode}');
     } on DioException catch (e) {
       if (e.response?.statusCode == 404) {
         return null; // No incomplete parents found

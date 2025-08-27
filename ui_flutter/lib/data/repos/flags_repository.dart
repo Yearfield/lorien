@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import '../api_client.dart';
+import '../api_paths.dart';
 
 class RedFlagDTO {
   final int id;
@@ -50,7 +51,7 @@ class FlagsRepository {
   Future<List<RedFlagDTO>> searchFlags(String query) async {
     try {
       final response = await _apiClient.get(
-        '/api/v1/flags/search',
+        ApiPaths.flagsSearch,
         queryParameters: {'q': query},
       );
       
@@ -81,7 +82,7 @@ class FlagsRepository {
       );
       
       final response = await _apiClient.post(
-        '/api/v1/flags/assign',
+        ApiPaths.flagsAssign,
         data: assignment.toJson(),
       );
       

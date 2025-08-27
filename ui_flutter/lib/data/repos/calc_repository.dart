@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import '../api_client.dart';
+import '../api_paths.dart';
 
 class CalcRepository {
   final ApiClient _apiClient;
@@ -10,7 +11,7 @@ class CalcRepository {
   Future<String> exportCsv() async {
     try {
       final response = await _apiClient.get(
-        '/api/v1/calc/export',
+        ApiPaths.calcExport,
         options: Options(
           responseType: ResponseType.plain,
           headers: {
@@ -32,7 +33,7 @@ class CalcRepository {
   /// Get health information including version
   Future<Map<String, dynamic>> getHealth() async {
     try {
-      final response = await _apiClient.get('/api/v1/health');
+      final response = await _apiClient.get(ApiPaths.health);
       
       if (response.statusCode == 200) {
         return response.data as Map<String, dynamic>;

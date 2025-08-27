@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import '../api_client.dart';
+import '../api_paths.dart';
 import '../dto/triage_dto.dart';
 
 class TriageRepository {
@@ -10,7 +11,7 @@ class TriageRepository {
   /// Get triage information for a node
   Future<TriageDTO?> getTriage(int nodeId) async {
     try {
-      final response = await _apiClient.get('/api/v1/triage/$nodeId');
+      final response = await _apiClient.get(ApiPaths.triage(nodeId));
       
       if (response.statusCode == 200) {
         return TriageDTO.fromJson(response.data);
@@ -31,7 +32,7 @@ class TriageRepository {
   Future<void> updateTriage(int nodeId, TriageDTO triage) async {
     try {
       final response = await _apiClient.put(
-        '/api/v1/triage/$nodeId',
+        ApiPaths.triage(nodeId),
         data: triage.toJson(),
       );
       

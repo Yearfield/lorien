@@ -28,16 +28,30 @@ class ApiClient {
       InterceptorsWrapper(
         onError: (error, handler) {
           // Handle specific error cases
+          String msg;
           if (error.type == DioExceptionType.connectionTimeout) {
-            error.error = 'Connection timeout. Please check your network connection.';
+            msg = 'Connection timeout. Please check your network connection.';
           } else if (error.type == DioExceptionType.connectionError) {
-            error.error = 'Unable to connect to server. Please check the API URL.';
+            msg = 'Unable to connect to server. Please check the API URL.';
           } else if (error.response?.statusCode == 422) {
-            error.error = 'Validation error: ${error.response?.data?['detail'] ?? 'Invalid data'}';
+            final detail = error.response?.data is Map ? (error.response?.data['detail'] ?? '') : '';
+            msg = 'Validation error: ${detail.toString().isEmpty ? 'Invalid data' : detail}';
           } else if (error.response?.statusCode == 409) {
-            error.error = 'Conflict: ${error.response?.data?['detail'] ?? 'Resource conflict'}';
+            final detail = error.response?.data is Map ? (error.response?.data['detail'] ?? '') : '';
+            msg = 'Conflict: ${detail.toString().isEmpty ? 'Resource conflict' : detail}';
+          } else {
+            msg = error.message ?? 'Request failed';
           }
-          handler.next(error);
+          
+          // Create a new DioException with the custom message
+          final customError = DioException(
+            requestOptions: error.requestOptions,
+            response: error.response,
+            type: error.type,
+            error: msg,
+          );
+          
+          handler.next(customError);
         },
       ),
     );
@@ -45,6 +59,9 @@ class ApiClient {
   
   void setBaseUrl(String baseUrl) {
     _dio.options.baseUrl = baseUrl;
+    // DEBUG: verify the base URL used by the client
+    // ignore: avoid_print
+    print('[ApiClient] baseUrl=${_dio.options.baseUrl}');
   }
   
   Dio get dio => _dio;

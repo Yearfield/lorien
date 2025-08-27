@@ -56,14 +56,14 @@ async def global_exception_handler(request: Request, exc: Exception):
     )
 
 # Include routes
-app.include_router(router, prefix="/api/v1")
-app.include_router(health_router, prefix="/api/v1")
+app.include_router(router, prefix="")
+app.include_router(health_router, prefix="")
 
 # Conditionally include LLM router if enabled
 if os.getenv("LLM_ENABLED", "false").lower() == "true":
     try:
         from .routers.llm import router as llm_router
-        app.include_router(llm_router, prefix="/api/v1")
+        app.include_router(llm_router, prefix="")
     except ImportError:
         # LLM dependencies not available, skip silently
         pass
@@ -76,7 +76,7 @@ async def root():
         "message": "Decision Tree API",
         "version": "1.0.0",
         "docs": "/docs",
-        "health": "/api/v1/health"
+        "health": "/health"
     }
 
 # Health check at root level
