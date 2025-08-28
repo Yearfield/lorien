@@ -9,6 +9,13 @@ Uses only core/services or FastAPI API calls - no direct DB or Google Sheets acc
 """
 
 from __future__ import annotations
+
+# --- Robust import guard: ensure repo root is on sys.path when Streamlit runs a subdir script ---
+import sys, pathlib  # noqa: E402
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 import streamlit as st
 from ui_streamlit.components import top_health_banner
 
