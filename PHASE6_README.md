@@ -1,314 +1,212 @@
-# Phase 6: Red-Flag Audit + CSV Export Implementation
+# Phase 6 README - Lorien Decision Tree Platform
 
-## 🎯 Overview
+## Quick Commands
 
-This phase implements an append-only Red-Flag Audit system and CSV export functionality for the Lorien decision tree application. The audit system tracks all flag assignments and removals, while CSV export provides data export capabilities for both Symptoms and Calculator screens.
-
-## 📦 Features Implemented
-
-### 1. Red-Flag Audit System
-- **Append-only audit table** with proper indexing
-- **Dual-mount API endpoints** at `/flags/audit` and `/api/v1/flags/audit`
-- **Internal audit calls** integrated into flag assignment/removal services
-- **Comprehensive filtering** by node, flag, user, and time
-
-### 2. CSV Export System
-- **API endpoints** for calculator and tree data export
-- **Flutter UI components** with platform-specific behavior
-- **Desktop save** and **mobile share sheet** support
-- **Frozen header contract** ensuring consistency
-
-### 3. Enhanced API
-- **Dual-mount support** for all endpoints
-- **Improved CORS configuration** with environment toggle
-- **Better error handling** and validation
-
-## 🛠 Installation & Setup
-
-### Prerequisites
-- Python 3.8+
-- Flutter SDK
-- SQLite3
-
-### 1. Apply Database Migration
-
+### API Server
 ```bash
-# Run the migration script
-cd /home/jharm/Lorien
-source venv/bin/activate
-python storage/migrate.py
-```
-
-**Expected Output:**
-```
-🔄 Lorien Database Migration Runner
-========================================
-Database: /home/jharm/.local/share/lorien/app.db
-Found 1 migration(s) to apply
-Running migration: 001_add_red_flag_audit.sql
-✅ Migration 001_add_red_flag_audit.sql applied successfully
-========================================
-Migration Summary: 1/1 successful
-🎉 All migrations completed successfully!
-```
-
-### 2. Start the API Server
-
-```bash
-# Start the FastAPI server
+# Start the API server
 cd /home/jharm/Lorien
 source venv/bin/activate
 python main.py
+
+# Or use uvicorn directly
+uvicorn api.app:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-**Expected Output:**
-```
-Starting Decision Tree API server...
-Host: 127.0.0.1
-Port: 8000
-Reload: true
-Version: v6.7.0
-Docs: http://127.0.0.1:8000/docs
-API v1 Health: http://127.0.0.1:8000/api/v1/health
-```
-
-## 🧪 Testing & Verification
-
-### 1. Run All Tests
-
+### Streamlit UI
 ```bash
-# Run the complete test suite
+# Start Streamlit interface
 cd /home/jharm/Lorien
 source venv/bin/activate
+streamlit run ui_streamlit/main.py --server.port 8501
+```
+
+### Testing
+```bash
+# Run all tests
 python -m pytest tests/ -v
+
+# Run specific test suites
+python -m pytest tests/test_phase6b.py -v
+python -m pytest tests/test_ui_parity.py -v
 ```
 
-### 2. Test Audit Endpoints
+## LAN Testing Tips
 
+### CORS Configuration
 ```bash
-# Test audit list (should be empty initially)
-curl -s http://localhost:8000/flags/audit/ | jq .
-curl -s http://localhost:8000/api/v1/flags/audit/ | jq .
+# Allow all origins for LAN testing
+export CORS_ALLOW_ALL=true
 
-# Create an audit record
-curl -s -X POST http://localhost:8000/flags/audit/ \
-  -H 'Content-Type: application/json' \
-  -d '{"node_id":1,"flag_id":1,"action":"assign","user":"test"}' | jq .
-
-# Verify the record was created
-curl -s "http://localhost:8000/flags/audit/?node_id=1&limit=5" | jq .
+# Start server with CORS enabled
+python main.py
 ```
 
-### 3. Test CSV Export
+### Emulator & Device IPs
+- **Android Emulator**: `10.0.2.2:8000`
+- **iOS Simulator**: `127.0.0.1:8000`
+- **LAN Devices**: Use your machine's LAN IP (e.g., `192.168.1.100:8000`)
+- **WSL2**: Use `localhost:8000` from Windows, or your WSL2 IP
 
+### Health Check
 ```bash
-# Test calculator export
-curl -s http://localhost:8000/calc/export -o calc_export.csv
-head -5 calc_export.csv
+# Check API health
+curl http://localhost:8000/health | jq .
+curl http://localhost:8000/api/v1/health | jq .
 
-# Test tree export
-curl -s http://localhost:8000/tree/export -o tree_export.csv
-head -5 tree_export.csv
-
-# Verify headers
-grep "Diagnosis,Node 1,Node 2,Node 3,Node 4,Node 5" *.csv
+# Check LLM status
+curl http://localhost:8000/api/v1/llm/health | jq .
 ```
 
-## 📱 Flutter Integration
+## New Phase 6B Endpoints
 
-### 1. Dependencies
-
-Add these to your `pubspec.yaml`:
-
-```yaml
-dependencies:
-  http: ^1.1.0
-  path_provider: ^2.1.1
-  share_plus: ^7.2.1
-```
-
-### 2. Usage Example
-
-```dart
-import 'package:your_app/widgets/csv_export_button.dart';
-
-// Calculator export
-final calcEndpoint = Uri.parse('$baseUrl/calc/export');
-CsvExportButton(
-  endpoint: calcEndpoint,
-  fileName: 'lorien_calc_export.csv',
-  label: 'Export Calculator CSV',
-);
-
-// Tree export
-final treeEndpoint = Uri.parse('$baseUrl/tree/export');
-CsvExportButton(
-  endpoint: treeEndpoint,
-  fileName: 'lorien_tree_export.csv',
-  label: 'Export Tree CSV',
-);
-```
-
-### 3. Platform Behavior
-
-- **Desktop**: Files saved to temporary directory with success dialog
-- **Mobile**: Opens native share sheet for file sharing
-- **Error Handling**: Shows error messages for failed exports
-
-## 🌐 LAN Configuration Tips
-
-### Android Emulator
-```
-API Base URL: http://10.0.2.2:8000
-```
-
-### Physical Device (Same Network)
-```
-API Base URL: http://<LAN-IP>:8000
-```
-
-### iOS Simulator
-```
-API Base URL: http://localhost:8000
-```
-
-### Physical iOS Device (Same Network)
-```
-API Base URL: http://<LAN-IP>:8000
-```
-
-## 🔧 Configuration
-
-### Environment Variables
-
+### Excel Export
 ```bash
-# CORS Configuration
-CORS_ALLOW_ALL=true  # Allow all origins (development)
-CORS_ALLOW_ALL=false # Restrict to localhost (production)
+# Calculator data as Excel
+GET /calc/export.xlsx
+GET /api/v1/calc/export.xlsx
 
-# LLM Configuration
-LLM_ENABLED=true     # Enable LLM features
-LLM_ENABLED=false    # Disable LLM features
-
-# Database Configuration
-LORIEN_DB_PATH=/path/to/custom/database.db
+# Tree data as Excel  
+GET /tree/export.xlsx
+GET /api/v1/tree/export.xlsx
 ```
 
-### API Base URL Configuration
+### Root Management
+```bash
+# Create new vital measurement with 5 child slots
+POST /tree/roots
+POST /api/v1/tree/roots
 
-The Flutter app can be configured with different API base URLs:
+# Request body
+{
+  "label": "Blood Pressure",
+  "children": ["High", "Normal", "Low"]
+}
+```
 
-1. **Development**: `http://localhost:8000`
-2. **Android Emulator**: `http://10.0.2.2:8000`
-3. **Physical Device**: `http://<your-lan-ip>:8000`
+### Tree Statistics
+```bash
+# Get completeness metrics
+GET /tree/stats
+GET /api/v1/tree/stats
 
-## 📊 API Endpoints
+# Response includes: nodes, roots, leaves, complete_paths, incomplete_parents
+```
 
-### Health & Status
-- `GET /health` - Root health check
-- `GET /api/v1/health` - API v1 health check
-- `GET /llm/health` - LLM health check
-- `GET /api/v1/llm/health` - API v1 LLM health check
+### LLM Integration
+```bash
+# Fill triage actions (feature-flagged)
+POST /llm/fill-triage-actions
+POST /api/v1/llm/fill-triage-actions
 
-### Red Flag Audit
-- `GET /flags/audit/` - List audit records
-- `POST /flags/audit/` - Create audit record
-- `GET /api/v1/flags/audit/` - API v1 list audit records
-- `POST /api/v1/flags/audit/` - API v1 create audit record
+# Check LLM status
+GET /llm/health
+GET /api/v1/llm/health
+```
 
-### CSV Export
-- `GET /calc/export` - Calculator CSV export
-- `GET /tree/export` - Tree data CSV export
-- `GET /api/v1/calc/export` - API v1 calculator export
-- `GET /api/v1/tree/export` - API v1 tree export
+### Conflict Validation
+```bash
+# Duplicate labels under same parent
+GET /tree/conflicts/duplicate-labels?limit=100&offset=0
 
-### Flag Management
-- `POST /flags/assign` - Assign red flag to node
-- `DELETE /flags/remove` - Remove red flag from node
-- `GET /flags/search?q=<query>` - Search red flags
-- `POST /api/v1/flags/assign` - API v1 assign flag
-- `DELETE /api/v1/flags/remove` - API v1 remove flag
+# Orphan nodes with invalid parent references
+GET /tree/conflicts/orphans?limit=100&offset=0
 
-## 🚨 Troubleshooting
+# Depth anomalies (invalid depth values)
+GET /tree/conflicts/depth-anomalies?limit=100&offset=0
+```
+
+## The 8-Column Contract
+
+**CSV/Excel headers are frozen at exactly 8 columns:**
+
+```
+Vital Measurement,Node 1,Node 2,Node 3,Node 4,Node 5,Diagnostic Triage,Actions
+```
+
+**Column Details:**
+- **Vital Measurement**: Root node label (depth=0)
+- **Node 1-5**: Child node labels (depth=1-5)
+- **Diagnostic Triage**: Clinical assessment for leaf nodes
+- **Actions**: Recommended actions for leaf nodes
+
+**Export Formats:**
+- CSV: `/calc/export` and `/tree/export`
+- Excel: `/calc/export.xlsx` and `/tree/export.xlsx`
+
+## Feature Flags
+
+### LLM Integration
+- **Default**: OFF (disabled)
+- **Control**: `LLM_ENABLED=true` environment variable
+- **Health Check**: `/llm/health` returns 503 when disabled
+- **Safety**: AI suggestions are guidance-only; no auto-apply
+
+### CORS
+- **Default**: Restricted origins
+- **LAN Mode**: `CORS_ALLOW_ALL=true` for cross-device testing
+
+## Streamlit "Where to Click"
+
+### 🏢 Workspace Page
+- **Excel Import**: Upload `.xlsx` files for bulk data import
+- **New Vital Measurement**: Create root nodes with 5 child slots
+- **Export Buttons**: Download CSV/XLSX with 8-column headers
+- **Completeness Summary**: View tree statistics and jump to incomplete parents
+- **Health Check**: Monitor API status and database path
+
+### ⚠️ Conflicts Page  
+- **Validation Options**: Toggle duplicate labels, orphans, depth anomalies
+- **Conflict Tables**: Paginated results with search/filter
+- **Jump Links**: Navigate directly to problematic nodes/parents
+- **Missing Slots**: Find parents needing more children
+- **Next Incomplete**: Jump to next parent requiring attention
+
+### 📋 Outcomes Page
+- **Search & Filter**: Find triage records by criteria
+- **LLM Fill**: AI-powered triage suggestions (when enabled)
+- **Inline Editing**: Edit triage data for leaf nodes only
+- **Multi-Select**: Compare multiple outcomes side-by-side
+- **Safety Notice**: AI guidance-only warnings
+
+### 🧮 Calculator Page
+- **Chained Dropdowns**: Root → Node1 → Node2 → Node3 → Node4 → Node5
+- **Path Selection**: Navigate tree structure sequentially
+- **Outcomes Display**: Show triage data when leaf is reached
+- **Path Export**: Download single path as CSV/XLSX
+- **Header Preview**: Verify 8-column canonical format
+
+## Architecture Notes
+
+### Dual Mount Strategy
+- **Root Paths**: All endpoints at `/` (e.g., `/calc/export.xlsx`)
+- **Versioned Paths**: Same endpoints at `/api/v1` (e.g., `/api/v1/calc/export.xlsx`)
+- **Consistency**: Identical responses and behavior at both paths
+
+### Streamlit Adapter Pattern
+- **API-Only**: No direct database access
+- **HTTP Client**: Uses `ui_streamlit/api_client.py` for all backend communication
+- **State Management**: Session state for navigation and selections
+
+### Database Constraints
+- **5 Children Rule**: Each parent must have exactly 5 children
+- **Depth Validation**: Nodes must have depth = parent.depth + 1
+- **Foreign Keys**: Maintained with CASCADE operations
+
+## Troubleshooting
 
 ### Common Issues
+1. **CORS Errors**: Set `CORS_ALLOW_ALL=true` for LAN testing
+2. **LLM 503**: Normal when `LLM_ENABLED=false` (default)
+3. **Import Failures**: Check Excel file format and 8-column headers
+4. **Navigation Issues**: Use "Jump to Editor" buttons for direct navigation
 
-1. **Migration Fails**
-   - Ensure database exists and is writable
-   - Check SQLite version compatibility
-   - Verify migration file exists
+### Performance
+- **Pagination**: Use `limit` and `offset` for large datasets
+- **Search**: Client-side filtering for small result sets
+- **Caching**: Streamlit session state for user selections
 
-2. **API Endpoints Return 404**
-   - Check if server is running
-   - Verify endpoint paths are correct
-   - Check router mounting in `api/app.py`
-
-3. **CSV Export Fails**
-   - Verify database has data
-   - Check file permissions for temporary directory
-   - Ensure proper content-type headers
-
-4. **Flutter Export Issues**
-   - Verify API base URL configuration
-   - Check network connectivity
-   - Ensure proper permissions for file access
-
-### Debug Commands
-
-```bash
-# Check database schema
-sqlite3 /home/jharm/.local/share/lorien/app.db ".schema red_flag_audit"
-
-# Check audit records
-sqlite3 /home/jharm/.local/share/lorien/app.db "SELECT * FROM red_flag_audit LIMIT 5;"
-
-# Check API routes
-curl -s http://localhost:8000/docs | grep -i "flags/audit"
-
-# Test CORS
-curl -H "Origin: http://localhost:3000" \
-  -H "Access-Control-Request-Method: GET" \
-  -H "Access-Control-Request-Headers: X-Requested-With" \
-  -X OPTIONS http://localhost:8000/health
-```
-
-## 📈 Performance Considerations
-
-### Audit Table
-- **Indexes**: Optimized for node_id, flag_id, and timestamp queries
-- **Retention**: Consider implementing cleanup for old audit records
-- **Bulk Operations**: Audit logging adds minimal overhead
-
-### CSV Export
-- **Streaming Response**: Large exports don't consume memory
-- **Caching**: Consider implementing response caching for static data
-- **Compression**: Large exports can benefit from gzip compression
-
-## 🔒 Security Notes
-
-- **Audit Trail**: All flag operations are logged for compliance
-- **Input Validation**: All endpoints validate input data
-- **CORS**: Configurable CORS policy for different environments
-- **User Tracking**: Audit records include user identification when provided
-
-## 📝 Future Enhancements
-
-1. **Audit Cleanup**: Automated cleanup of old audit records
-2. **Export Formats**: Additional export formats (Excel, JSON)
-3. **Bulk Operations**: Batch flag assignments with audit logging
-4. **User Management**: Enhanced user authentication and authorization
-5. **Audit Reports**: Web-based audit report generation
-
-## 📞 Support
-
-For issues or questions:
-1. Check the troubleshooting section above
-2. Review the test output for specific error messages
-3. Verify all prerequisites are met
-4. Check the API documentation at `/docs` endpoint
-
----
-
-**Phase 6 Complete!** 🎉
-
-The Lorien application now has comprehensive audit logging and CSV export capabilities, making it ready for production use with proper compliance tracking.
+### Development
+- **Hot Reload**: Both API (`--reload`) and Streamlit support hot reloading
+- **Logs**: Check terminal output for detailed error messages
+- **Database**: SQLite file location shown in `/health` response

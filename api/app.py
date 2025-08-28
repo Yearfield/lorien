@@ -11,17 +11,19 @@ import logging
 from .routes import router as api_router
 from .routers.health import router as health_router
 from .routers.flags_audit import router as flags_audit_router
+from .additional_routes import router as additional_router
 from .exceptions import (
     DecisionTreeAPIException, handle_value_error, handle_integrity_error,
     handle_decision_tree_api_exception
 )
+from core.version import __version__
 import os
 
 # Create FastAPI app
 app = FastAPI(
     title="Decision Tree API",
     description="API for managing decision tree structures with strict 5-children rule",
-    version="1.0.0",
+    version=__version__,
     docs_url="/docs",
     redoc_url="/redoc"
 )
@@ -73,6 +75,13 @@ API_PREFIX = "/api/v1"
 app.include_router(api_router, prefix=API_PREFIX)
 app.include_router(health_router, prefix=API_PREFIX)
 app.include_router(flags_audit_router, prefix=API_PREFIX)
+app.include_router(additional_router, prefix=API_PREFIX)
+
+# Also mount at root for dual-mount requirement
+app.include_router(api_router)
+app.include_router(health_router)
+app.include_router(flags_audit_router)
+app.include_router(additional_router)
 
 # Always include LLM router for health endpoint, but functionality controlled by LLM_ENABLED
 try:

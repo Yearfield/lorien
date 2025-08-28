@@ -7,5 +7,5 @@ Production UIs are Flutter/Kivy.
 Uses only core/services or FastAPI API calls - no direct DB or Google Sheets access.
 """
 
-__version__ = "1.0.0"
+from core.version import __version__
 __description__ = "Streamlit adapter for Decision Tree Manager"

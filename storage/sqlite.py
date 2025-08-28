@@ -944,3 +944,209 @@ class SQLiteRepository:
                 pass
         finally:
             pass  # SQLite connections are automatically closed when using context manager
+
+    def create_root_node(self, label: str) -> int:
+        """Create a new root node (depth=0, no parent)."""
+        with self._get_connection() as conn:
+            try:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    INSERT INTO nodes (label, parent_id, slot, depth, is_leaf, created_at, updated_at)
+                    VALUES (?, NULL, 0, 0, 0, ?, ?)
+                """, (
+                    label,
+                    self._datetime_to_iso(datetime.now()),
+                    self._datetime_to_iso(datetime.now())
+                ))
+                
+                root_id = cursor.lastrowid
+                conn.commit()
+                return root_id
+                
+            except sqlite3.IntegrityError as e:
+                conn.rollback()
+                raise ValueError(f"Failed to create root node: {e}")
+
+    def create_child_node(self, parent_id: int, slot: int, label: str, depth: int) -> int:
+        """Create a child node under a parent."""
+        with self._get_connection() as conn:
+            try:
+                cursor = conn.cursor()
+                
+                # Determine if this will be a leaf (depth 5)
+                is_leaf = 1 if depth == 5 else 0
+                
+                cursor.execute("""
+                    INSERT INTO nodes (label, parent_id, slot, depth, is_leaf, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    label,
+                    parent_id,
+                    slot,
+                    depth,
+                    is_leaf,
+                    self._datetime_to_iso(datetime.now()),
+                    self._datetime_to_iso(datetime.now())
+                ))
+                
+                child_id = cursor.lastrowid
+                conn.commit()
+                return child_id
+                
+            except sqlite3.IntegrityError as e:
+                conn.rollback()
+                raise ValueError(f"Failed to create child node: {e}")
+
+    def get_tree_stats(self) -> Dict[str, Any]:
+        """Get tree completeness statistics."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Get node counts
+            cursor.execute("SELECT COUNT(*) FROM nodes")
+            total_nodes = cursor.fetchone()[0]
+            
+            cursor.execute("SELECT COUNT(*) FROM nodes WHERE parent_id IS NULL")
+            total_roots = cursor.fetchone()[0]
+            
+            cursor.execute("SELECT COUNT(*) FROM nodes WHERE is_leaf = 1")
+            total_leaves = cursor.fetchone()[0]
+            
+            # Get complete paths (roots that have complete paths to leaves)
+            cursor.execute("""
+                WITH RECURSIVE path_check AS (
+                    SELECT id, label, 0 as depth
+                    FROM nodes 
+                    WHERE parent_id IS NULL
+                    
+                    UNION ALL
+                    
+                    SELECT n.id, n.label, pc.depth + 1
+                    FROM nodes n
+                    JOIN path_check pc ON n.parent_id = pc.id
+                    WHERE pc.depth < 5
+                )
+                SELECT COUNT(DISTINCT pc.id) 
+                FROM path_check pc
+                WHERE pc.depth = 0
+                AND EXISTS (
+                    SELECT 1 FROM path_check pc2 
+                    WHERE pc2.depth = 5 
+                    AND pc2.id IN (
+                        SELECT n5.id FROM nodes n1
+                        JOIN nodes n2 ON n2.parent_id = n1.id
+                        JOIN nodes n3 ON n3.parent_id = n2.id  
+                        JOIN nodes n4 ON n4.parent_id = n3.id
+                        JOIN nodes n5 ON n5.parent_id = n4.id
+                        WHERE n1.parent_id = pc.id
+                    )
+                )
+            """)
+            complete_paths = cursor.fetchone()[0]
+            
+            # Get incomplete parents (have fewer than 5 children)
+            cursor.execute("""
+                SELECT COUNT(*)
+                FROM (
+                    SELECT p.id
+                    FROM nodes p
+                    LEFT JOIN nodes c ON p.id = c.parent_id
+                    WHERE p.parent_id IS NOT NULL
+                    GROUP BY p.id
+                    HAVING COUNT(c.id) < 5
+                )
+            """)
+            incomplete_parents = cursor.fetchone()[0]
+            
+            return {
+                "nodes": total_nodes,
+                "roots": total_roots,
+                "leaves": total_leaves,
+                "complete_paths": complete_paths,
+                "incomplete_parents": incomplete_parents
+            }
+
+    def get_duplicate_labels(self, limit: int = 100, offset: int = 0) -> List[Dict[str, Any]]:
+        """Get nodes with duplicate labels under the same parent."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT n.parent_id, p.label AS parent_label, n.label, COUNT(*) AS cnt,
+                       GROUP_CONCAT(n.id) AS child_ids
+                FROM nodes n
+                JOIN nodes p ON p.id = n.parent_id
+                GROUP BY n.parent_id, n.label
+                HAVING COUNT(*) > 1
+                ORDER BY cnt DESC, n.parent_id ASC
+                LIMIT ? OFFSET ?
+            """, (limit, offset))
+            
+            rows = cursor.fetchall()
+            result = []
+            for row in rows:
+                parent_id, parent_label, label, count, child_ids_str = row
+                child_ids = [int(id_str) for id_str in child_ids_str.split(',') if id_str] if child_ids_str else []
+                result.append({
+                    "parent_id": parent_id,
+                    "parent_label": parent_label,
+                    "label": label,
+                    "count": count,
+                    "child_ids": child_ids
+                })
+            return result
+
+    def get_orphan_nodes(self, limit: int = 100, offset: int = 0) -> List[Dict[str, Any]]:
+        """Get orphan nodes with invalid parent_id references."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT n.id, n.parent_id, n.label, n.depth
+                FROM nodes n
+                LEFT JOIN nodes p ON p.id = n.parent_id
+                WHERE n.parent_id IS NOT NULL AND p.id IS NULL
+                ORDER BY n.id
+                LIMIT ? OFFSET ?
+            """, (limit, offset))
+            
+            rows = cursor.fetchall()
+            result = []
+            for row in rows:
+                node_id, parent_id, label, depth = row
+                result.append({
+                    "id": node_id,
+                    "parent_id": parent_id,
+                    "label": label,
+                    "depth": depth
+                })
+            return result
+
+    def get_depth_anomalies(self, limit: int = 100, offset: int = 0) -> List[Dict[str, Any]]:
+        """Get nodes with invalid depth values."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                -- roots with depth != 0
+                SELECT id, parent_id, label, depth, 'ROOT_DEPTH' AS anomaly
+                FROM nodes WHERE parent_id IS NULL AND depth != 0
+                UNION ALL
+                -- non-roots where depth != parent.depth + 1
+                SELECT c.id, c.parent_id, c.label, c.depth, 'PARENT_CHILD_DEPTH' AS anomaly
+                FROM nodes c
+                JOIN nodes p ON p.id = c.parent_id
+                WHERE c.depth != p.depth + 1
+                ORDER BY id
+                LIMIT ? OFFSET ?
+            """, (limit, offset))
+            
+            rows = cursor.fetchall()
+            result = []
+            for row in rows:
+                node_id, parent_id, label, depth, anomaly = row
+                result.append({
+                    "id": node_id,
+                    "parent_id": parent_id,
+                    "label": label,
+                    "depth": depth,
+                    "anomaly": anomaly
+                })
+            return result

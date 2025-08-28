@@ -525,3 +525,62 @@ async def export_tree_csv(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to export CSV: {str(e)}"
         )
+
+
+@router.get("/calc/export.xlsx")
+async def export_calculator_xlsx(
+    repo: SQLiteRepository = Depends(get_repository)
+):
+    """Export calculator data as Excel workbook."""
+    try:
+        import pandas as pd
+        from io import BytesIO
+        
+        # Get tree data using the same logic as CSV export
+        tree_data = repo.get_tree_data_for_csv()
+        
+        if not tree_data:
+            # Create empty DataFrame with headers
+            df = pd.DataFrame(columns=[
+                "Vital Measurement", "Node 1", "Node 2", "Node 3", "Node 4", "Node 5", 
+                "Diagnostic Triage", "Actions"
+            ])
+        else:
+            # Convert to DataFrame with exact column order
+            df_data = []
+            for row in tree_data:
+                df_row = {
+                    "Vital Measurement": row.get("Diagnosis", row.get("Vital Measurement", "")),
+                    "Node 1": row.get("Node 1", ""),
+                    "Node 2": row.get("Node 2", ""),
+                    "Node 3": row.get("Node 3", ""),
+                    "Node 4": row.get("Node 4", ""),
+                    "Node 5": row.get("Node 5", ""),
+                    "Diagnostic Triage": row.get("Diagnostic Triage", ""),
+                    "Actions": row.get("Actions", "")
+                }
+                df_data.append(df_row)
+            
+            df = pd.DataFrame(df_data)
+        
+        # Create Excel file in memory
+        bio = BytesIO()
+        with pd.ExcelWriter(bio, engine="openpyxl") as writer:
+            df.to_excel(writer, index=False, sheet_name="CalculatorExport")
+        bio.seek(0)
+        
+        # Return streaming response
+        return StreamingResponse(
+            io.BytesIO(bio.getvalue()),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={
+                "Content-Disposition": "attachment; filename=calculator_export.xlsx",
+                "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            }
+        )
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to export Excel: {str(e)}"
+        )

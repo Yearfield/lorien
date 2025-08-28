@@ -1,49 +1,34 @@
 """
-Canonical constants for the decision tree application.
+Constants for the Lorien decision tree application.
 """
 
-# Application versioning
-APP_VERSION = "1.0.0"
-APP_NAME = "Decision Tree Manager"
-APP_DESCRIPTION = "Cross-platform decision tree management with offline-first storage"
+from core.version import __version__ as APP_VERSION
 
-# Canonical column headers (exact order + names)
-CANON_HEADERS = [
-    "Vital Measurement",  # depth=0, slot=0 root label
-    "Node 1",            # depth=1, slot=1
-    "Node 2",            # depth=2, slot=2
-    "Node 3",            # depth=3, slot=3
-    "Node 4",            # depth=4, slot=4
-    "Node 5",            # depth=5, slot=5 (leaf)
-    "Diagnostic Triage", # attached to leaf node
-    "Actions"            # attached to leaf node
+# API Configuration
+API_PREFIX = "/api/v1"
+DEFAULT_PAGE_SIZE = 100
+MAX_PAGE_SIZE = 1000
+
+# Database Configuration
+DEFAULT_DB_PATH = "sqlite.db"
+WAL_MODE = True
+FOREIGN_KEYS = True
+
+# Feature Flags
+LLM_ENABLED_DEFAULT = False
+
+# CSV Export Contract (Frozen)
+CSV_HEADERS = [
+    "Vital Measurement",
+    "Node 1", 
+    "Node 2",
+    "Node 3",
+    "Node 4",
+    "Node 5",
+    "Diagnostic Triage",
+    "Actions"
 ]
 
-# Node depth constants
-ROOT_DEPTH = 0
-MAX_DEPTH = 5
-LEAF_DEPTH = 5
-
-# Slot constants
-ROOT_SLOT = 0
-MIN_CHILD_SLOT = 1
-MAX_CHILD_SLOT = 5
-
-# Import/Export strategies
-STRATEGY_PLACEHOLDER = "placeholder"
-STRATEGY_PRUNE = "prune"
-STRATEGY_PROMPT = "prompt"
-
-# Placeholder text for missing nodes
-PLACEHOLDER_TEXT = "[MISSING]"
-
-# File extensions
-EXCEL_EXTENSIONS = ['.xlsx', '.xls']
-CSV_EXTENSIONS = ['.csv']
-
-# CLI exit codes
-EXIT_SUCCESS = 0
-EXIT_VALIDATION_ERROR = 1
-EXIT_IMPORT_ERROR = 2
-EXIT_EXPORT_ERROR = 3
-EXIT_SYSTEM_ERROR = 4
+# Tree Constraints
+MAX_CHILDREN_PER_PARENT = 5
+MAX_TREE_DEPTH = 5

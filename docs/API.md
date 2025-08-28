@@ -16,17 +16,17 @@ GET `/api/v1/health`
 ## Tree
 
 ### Get next incomplete parent
-GET `/tree/next-incomplete-parent`
+GET `/api/v1/tree/next-incomplete-parent`
 
 - **200** `{ parent_id: int, missing_slots: "2,4,5" }` or **204** when none.
 
 ### Get children (1..5) for a parent
-GET `/tree/{parent_id}/children`
+GET `/api/v1/tree/{parent_id}/children`
 
 - **200** `[{ slot: 1..5, label: "..." , id?: int }, ...]`
 
 ### Upsert multiple slots atomically
-POST `/tree/{parent_id}/children`
+POST `/api/v1/tree/{parent_id}/children`
 ```json
 { "children": [ { "slot": 1, "label": "..." }, { "slot": 4, "label": "..." } ] }
 ```
@@ -35,7 +35,7 @@ POST `/tree/{parent_id}/children`
 - **422** validation
 
 ### Upsert single slot
-POST `/tree/{parent_id}/child`
+POST `/api/v1/tree/{parent_id}/child`
 ```json
 { "slot": 3, "label": "..." }
 ```
@@ -45,13 +45,13 @@ POST `/tree/{parent_id}/child`
 ## Triage
 
 ### Get triage for a node
-GET `/triage/{node_id}`
+GET `/api/v1/triage/{node_id}`
 
 - **200** `{ "diagnostic_triage": "...", "actions": "..." }`
 - **404** if none
 
 ### Put triage (leaf-only)
-PUT `/triage/{node_id}`
+PUT `/api/v1/triage/{node_id}`
 ```json
 { "diagnostic_triage": "...", "actions": "..." }
 ```
@@ -63,12 +63,12 @@ PUT `/triage/{node_id}`
 ## Flags
 
 ### Search flags
-GET `/flags/search?q=term`
+GET `/api/v1/flags/search?q=term`
 
 - **200** `[{ "id": 1, "name": "..." }]`
 
 ### Assign
-POST `/flags/assign`
+POST `/api/v1/flags/assign`
 ```json
 { "node_id": 123, "red_flag_name": "..." }
 ```
@@ -79,11 +79,20 @@ POST `/flags/assign`
 ## Calculator
 
 ### Export CSV
-GET `/calc/export`
+GET `/api/v1/calc/export`
 
 - **200** CSV (content-disposition suggests filename)
 
-Header order: `Vital Measurement,Node 1,...,Node 5,Diagnostic Triage,Actions`
+**Canonical 8-Column Header:**
+```
+Vital Measurement,Node 1,Node 2,Node 3,Node 4,Node 5,Diagnostic Triage,Actions
+```
+
+**Column Details:**
+- **Vital Measurement**: Root node label (depth=0)
+- **Node 1-5**: Child node labels (depth=1-5)
+- **Diagnostic Triage**: Clinical assessment for leaf nodes
+- **Actions**: Recommended actions for leaf nodes
 
 ---
 
@@ -194,3 +203,119 @@ UI (Streamlit + Flutter) must call API; no CSV construction in UI.
   "detail": "Triage can only be updated for leaf nodes"
 }
 ```
+
+## Excel Export
+
+### GET /calc/export.xlsx
+Export calculator data as Excel workbook.
+
+**Response:** Excel file with `Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`
+
+**Headers:**
+- `Content-Disposition: attachment; filename=calculator_export.xlsx`
+- `Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`
+
+**Sheet:** CalculatorExport
+
+### GET /tree/export.xlsx
+Export tree data as Excel workbook.
+
+**Response:** Excel file with `Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`
+
+**Headers:**
+- `Content-Disposition: attachment; filename=tree_export.xlsx`
+- `Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`
+
+**Sheet:** TreeExport
+
+## Root Management
+
+### POST /tree/roots
+Create a new root (vital measurement) with 5 preseeded child slots.
+
+**Request Body:**
+```json
+{
+  "label": "Blood Pressure",
+  "children": ["High", "Normal", "Low"]
+}
+```
+
+**Response:**
+```json
+{
+  "root_id": 123,
+  "children": [
+    {"id": 124, "slot": 1, "label": "High"},
+    {"id": 125, "slot": 2, "label": "Normal"},
+    {"id": 126, "slot": 3, "label": "Low"},
+    {"id": 127, "slot": 4, "label": ""},
+    {"id": 128, "slot": 5, "label": ""}
+  ],
+  "message": "Created root 'Blood Pressure' with 5 child slots"
+}
+```
+
+**Validation:**
+- `label` cannot be empty
+- `children` array cannot exceed 5 items
+- Creates exactly 5 child slots (empty labels for unused slots)
+
+## Tree Statistics
+
+### GET /tree/stats
+Get tree completeness statistics.
+
+**Response:**
+```json
+{
+  "nodes": 1234,
+  "roots": 12,
+  "leaves": 456,
+  "complete_paths": 400,
+  "incomplete_parents": 35
+}
+```
+
+**Metrics:**
+- `nodes`: Total number of nodes in the tree
+- `roots`: Number of root nodes (depth 0)
+- `leaves`: Number of leaf nodes (depth 5)
+- `complete_paths`: Number of complete root→leaf paths
+- `incomplete_parents`: Number of parents with fewer than 5 children
+
+## LLM Integration
+
+### POST /llm/fill-triage-actions
+Fill triage actions using LLM (guidance only, no auto-apply).
+
+**Request Body:**
+```json
+{
+  "root": "Blood Pressure",
+  "nodes": ["High", "Severe", "Chest Pain", "Emergency", "Immediate"],
+  "triage_style": "clinical",
+  "actions_style": "practical"
+}
+```
+
+**Response:**
+```json
+{
+  "diagnostic_triage": "Based on the path Blood Pressure → High → Severe → Chest Pain → Emergency → Immediate, consider clinical assessment.",
+  "actions": "Recommended practical actions for this clinical scenario.",
+  "note": "AI suggestions are guidance-only; dosing and diagnosis are refused. Review before saving."
+}
+```
+
+**Features:**
+- Feature-flagged: requires `LLM_ENABLED=true`
+- Returns 503 when LLM is disabled
+- Path context validation (exactly 5 nodes required)
+- Guidance-only: user must review and save manually
+- Safety notice about AI limitations
+
+**Safety:**
+- AI suggestions are guidance-only
+- Dosing and diagnosis are refused
+- Users must review and validate before saving

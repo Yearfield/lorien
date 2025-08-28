@@ -8,7 +8,7 @@ import os
 
 from ..dependencies import get_repository
 from storage.sqlite import SQLiteRepository
-from core.version import __version__ as VERSION
+from core.version import __version__
 from ..models import HealthResponse, DBInfo
 
 router = APIRouter(tags=["health"])
@@ -29,7 +29,7 @@ async def health_check(repo: SQLiteRepository = Depends(get_repository)) -> Heal
     
     return HealthResponse(
         ok=True,
-        version=VERSION,
+        version=__version__,
         db=DBInfo(**db_info),
         features=features
     )

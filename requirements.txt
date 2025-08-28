@@ -3,6 +3,8 @@ fastapi
 uvicorn
 pydantic
 pandas
+openpyxl
+python-multipart
 httpx
 
 # Streamlit adapter dependencies

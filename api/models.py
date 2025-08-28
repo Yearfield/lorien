@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field, conint, constr, conlist
 
-from core.constants import APP_VERSION, APP_NAME
+# Constants imported from core.constants if needed
 
 
 class ChildSlot(BaseModel):

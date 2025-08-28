@@ -382,10 +382,19 @@ class ImportExportEngine:
             # Return empty DataFrame with correct headers
             return pd.DataFrame(columns=CANON_HEADERS)
         
-        # Create DataFrame from paths
-        df = pd.DataFrame(paths)
+        # Convert to DataFrame with exact column order
+        df_data = []
+        for row in paths:
+            df_row = {
+                "Vital Measurement": row.get("Vital Measurement", row.get("Diagnosis", "")),
+                "Node 1": row.get("Node 1", ""),
+                "Node 2": row.get("Node 2", ""),
+                "Node 3": row.get("Node 3", ""),
+                "Node 4": row.get("Node 4", ""),
+                "Node 5": row.get("Node 5", ""),
+                "Diagnostic Triage": row.get("Diagnostic Triage", ""),
+                "Actions": row.get("Actions", "")
+            }
+            df_data.append(df_row)
         
-        # Ensure columns are in exact canonical order
-        df = df[CANON_HEADERS]
-        
-        return df
+        return pd.DataFrame(df_data)
