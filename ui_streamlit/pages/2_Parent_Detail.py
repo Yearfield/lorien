@@ -3,7 +3,7 @@ import streamlit as st
 import requests
 import json
 from ui_streamlit.components import top_health_banner, error_message
-from ui_streamlit.api_client import get_children, upsert_children
+from ui_streamlit.api_client import get_children, upsert_children, get_next_incomplete_parent
 from ui_streamlit.settings import get_api_base_url
 
 st.set_page_config(page_title="Parent Detail", layout="wide")
@@ -12,12 +12,38 @@ st.title("Parent Detail")
 top_health_banner()
 
 parent_id = st.number_input("Parent ID", min_value=1, step=1, value=int(st.session_state.get("last_incomplete_parent", 1)))
-if st.button("Load children"):
+
+# Action buttons
+col1, col2 = st.columns(2)
+if col1.button("Load children"):
     st.session_state["children"] = get_children(parent_id)
+
+if col2.button("Jump to next incomplete"):
+    try:
+        nxt = get_next_incomplete_parent()
+        if nxt and "parent_id" in nxt:
+            st.session_state["jump_parent"] = nxt["parent_id"]
+            st.session_state["last_incomplete_parent"] = nxt["parent_id"]
+            st.info(f"Next incomplete parent: {nxt['parent_id']}")
+            # Auto-load the new parent
+            st.session_state["children"] = get_children(nxt["parent_id"])
+            st.rerun()
+        else:
+            st.success("No incomplete parents found.")
+    except Exception as e:
+        error_message(e)
 
 children = st.session_state.get("children", [])
 if children:
     st.subheader("Slots 1..5")
+    
+    # Show missing slots
+    missing = [i for i in range(1, 6) if not any(c.get("slot") == i and c.get("label") for c in children)]
+    if missing:
+        st.warning(f"Missing slots: {missing}")
+    else:
+        st.success("All 5 slots are filled!")
+    
     edits: list[dict] = []
     for slot in range(1, 6):
         with st.container():
@@ -26,11 +52,16 @@ if children:
             label = col_a.text_input(f"Slot {slot}", value=(curr.get("label") if curr else ""), key=f"slot_{slot}")
             if label.strip():
                 edits.append({"slot": slot, "label": label.strip()})
+    
     if st.button("Save slots", type="primary"):
         try:
-            resp = upsert_children(parent_id, edits)
-            st.success("Saved")
-            st.session_state["children"] = get_children(parent_id)
+            # Validate exactly 5 slots
+            if len(edits) != 5:
+                st.error("Must have exactly 5 slots filled")
+            else:
+                resp = upsert_children(parent_id, edits)
+                st.success("Saved")
+                st.session_state["children"] = get_children(parent_id)
         except Exception as e:
             error_message(e)
 else:

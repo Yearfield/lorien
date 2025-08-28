@@ -7,10 +7,13 @@ import sqlite3
 import os
 import sys
 import json
+import logging
 from datetime import datetime
 from typing import List, Dict, Any, Optional, Tuple
 from pathlib import Path
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 from core.models import Node, Parent, RedFlag, Triaging, TreeValidationResult
 from core.rules import validate_tree_structure
@@ -32,13 +35,13 @@ class SQLiteRepository:
         
         # Always resolve to absolute path
         self._db_path = str(Path(db_path).resolve())
-        print(f"[DEBUG] SQLiteRepository: Initializing with resolved DB path: {self._db_path}")
-        print(f"[DEBUG] SQLiteRepository: Path exists: {os.path.exists(self._db_path)}")
+        logger.debug(f"SQLiteRepository: Initializing with resolved DB path: {self._db_path}")
+        logger.debug(f"SQLiteRepository: Path exists: {os.path.exists(self._db_path)}")
         
         self._ensure_db_directory()
         self._init_database()
         
-        print(f"[DEBUG] SQLiteRepository: After init, DB size: {os.path.getsize(self._db_path)} bytes")
+        logger.debug(f"SQLiteRepository: After init, DB size: {os.path.getsize(self._db_path)} bytes")
     
     def _get_default_db_path(self) -> str:
         """Get default database path in OS-appropriate app data directory."""
@@ -60,20 +63,20 @@ class SQLiteRepository:
     
     def _init_database(self):
         """Initialize database with schema."""
-        print(f"[DEBUG] _init_database: Starting database initialization")
+        logger.debug("_init_database: Starting database initialization")
         schema_path = Path(__file__).parent / 'schema.sql'
-        print(f"[DEBUG] _init_database: Schema path: {schema_path}")
-        print(f"[DEBUG] _init_database: Schema file exists: {schema_path.exists()}")
+        logger.debug(f"_init_database: Schema path: {schema_path}")
+        logger.debug(f"_init_database: Schema file exists: {schema_path.exists()}")
         
         with self._get_connection() as conn:
             # Read and execute schema
             with open(schema_path, 'r') as f:
                 schema_sql = f.read()
             
-            print(f"[DEBUG] _init_database: Schema SQL length: {len(schema_sql)} characters")
+            logger.debug(f"_init_database: Schema SQL length: {len(schema_sql)} characters")
             conn.executescript(schema_sql)
             conn.commit()
-            print(f"[DEBUG] _init_database: Schema executed and committed")
+            logger.debug("_init_database: Schema executed and committed")
     
     def _get_connection(self) -> sqlite3.Connection:
         """Get database connection with proper configuration."""
@@ -490,12 +493,12 @@ class SQLiteRepository:
                 raise ValueError(f"Red flag creation failed: {e}")
     
     def assign_red_flag_to_node(self, node_id: int, red_flag_id: int) -> bool:
-        """Assign a red flag to a node."""
+        """Assign a red flag to a node (idempotent - won't fail if already assigned)."""
         with self._get_connection() as conn:
             try:
                 cursor = conn.cursor()
                 cursor.execute("""
-                    INSERT INTO node_red_flags (node_id, red_flag_id, created_at)
+                    INSERT OR IGNORE INTO node_red_flags (node_id, red_flag_id, created_at)
                     VALUES (?, ?, ?)
                 """, (
                     node_id,
@@ -576,6 +579,104 @@ class SQLiteRepository:
                 )
             return None
     
+    def update_triage(self, node_id: int, diagnostic_triage: Optional[str], actions: Optional[str]) -> bool:
+        """Update triage for a node."""
+        with self._get_connection() as conn:
+            try:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    INSERT OR REPLACE INTO triage (node_id, diagnostic_triage, actions, updated_at)
+                    VALUES (?, ?, ?, ?)
+                """, (
+                    node_id,
+                    diagnostic_triage,
+                    actions,
+                    self._datetime_to_iso(datetime.now())
+                ))
+                
+                conn.commit()
+                return True
+                
+            except sqlite3.IntegrityError as e:
+                conn.rollback()
+                raise ValueError(f"Triage update failed: {e}")
+
+    def get_parents_with_missing_slots(self) -> List[Dict[str, Any]]:
+        """Get all parents with missing child slots."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT p.id, p.label, p.depth,
+                       GROUP_CONCAT(c.slot ORDER BY c.slot) as existing_slots
+                FROM nodes p
+                LEFT JOIN nodes c ON p.id = c.parent_id
+                WHERE p.parent_id IS NOT NULL
+                GROUP BY p.id
+                HAVING COUNT(c.id) < 5 OR COUNT(c.id) IS NULL
+            """)
+            
+            results = []
+            for row in cursor.fetchall():
+                existing_slots = [int(s) for s in row['existing_slots'].split(',') if s] if row['existing_slots'] else []
+                missing_slots = [i for i in range(1, 6) if i not in existing_slots]
+                
+                results.append({
+                    "parent_id": row['id'],
+                    "label": row['label'],
+                    "depth": row['depth'],
+                    "existing_slots": existing_slots,
+                    "missing_slots": missing_slots
+                })
+            
+            return results
+
+    def search_triage_records(self, leaf_only: bool = True, query: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Search triage records with optional filtering."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            
+            sql = """
+                SELECT n.id, n.label, n.depth, n.is_leaf,
+                       t.diagnostic_triage, t.actions, t.updated_at,
+                       p.label as parent_label
+                FROM nodes n
+                LEFT JOIN triage t ON n.id = t.node_id
+                LEFT JOIN nodes p ON n.parent_id = p.id
+                WHERE 1=1
+            """
+            params = []
+            
+            if leaf_only:
+                sql += " AND n.is_leaf = 1"
+            
+            if query:
+                sql += " AND (t.diagnostic_triage LIKE ? OR t.actions LIKE ?)"
+                params.extend([f"%{query}%", f"%{query}%"])
+            
+            sql += " ORDER BY n.id"
+            cursor.execute(sql, params)
+            
+            results = []
+            for row in cursor.fetchall():
+                # Build path for display
+                path_parts = [row['parent_label'] if row['parent_label'] else 'Root']
+                if row['label']:
+                    path_parts.append(row['label'])
+                path = " → ".join(path_parts)
+                
+                results.append({
+                    "node_id": row['id'],
+                    "label": row['label'],
+                    "depth": row['depth'],
+                    "is_leaf": bool(row['is_leaf']),
+                    "path": path,
+                    "diagnostic_triage": row['diagnostic_triage'],
+                    "actions": row['actions'],
+                    "updated_at": row['updated_at']
+                })
+            
+            return results
+    
     # Utility operations
     
     def get_database_info(self) -> Dict[str, Any]:
@@ -604,6 +705,209 @@ class SQLiteRepository:
                 "triage_count": triage_count,
                 "created_at": datetime.now().isoformat()
             }
+    
+    # Red Flag Audit operations
+    
+    def create_red_flag_audit(self, node_id: int, flag_id: int, action: str, user: Optional[str] = None) -> int:
+        """Create a new red flag audit record."""
+        with self._get_connection() as conn:
+            try:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    INSERT INTO red_flag_audit (node_id, flag_id, action, user, ts)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (
+                    node_id,
+                    flag_id,
+                    action,
+                    user,
+                    self._datetime_to_iso(datetime.now())
+                ))
+                
+                audit_id = cursor.lastrowid
+                conn.commit()
+                return audit_id
+                
+            except sqlite3.IntegrityError as e:
+                conn.rollback()
+                raise ValueError(f"Red flag audit creation failed: {e}")
+    
+    def get_red_flag_audit(
+        self, 
+        node_id: Optional[int] = None,
+        flag_id: Optional[int] = None,
+        user: Optional[str] = None,
+        limit: int = 100
+    ) -> List[Dict[str, Any]]:
+        """Get red flag audit records with optional filtering."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Build query dynamically based on filters
+            query = """
+                SELECT id, node_id, flag_id, action, user, ts
+                FROM red_flag_audit
+                WHERE 1=1
+            """
+            params = []
+            
+            if node_id is not None:
+                query += " AND node_id = ?"
+                params.append(node_id)
+            
+            if flag_id is not None:
+                query += " AND flag_id = ?"
+                params.append(flag_id)
+            
+            if user is not None:
+                query += " AND user = ?"
+                params.append(user)
+            
+            query += " ORDER BY ts DESC, id DESC LIMIT ?"
+            params.append(limit)
+            
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
+            
+            return [
+                {
+                    "id": row[0],
+                    "node_id": row[1],
+                    "flag_id": row[2],
+                    "action": row[3],
+                    "user": row[4],
+                    "ts": row[5]
+                }
+                for row in rows
+            ]
+    
+    def get_red_flag_audit_by_id(self, audit_id: int) -> Optional[Dict[str, Any]]:
+        """Get a specific red flag audit record by ID."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT id, node_id, flag_id, action, user, ts
+                FROM red_flag_audit
+                WHERE id = ?
+            """, (audit_id,))
+            
+            row = cursor.fetchone()
+            if row:
+                return {
+                    "id": row[0],
+                    "node_id": row[1],
+                    "flag_id": row[2],
+                    "action": row[3],
+                    "user": row[4],
+                    "ts": row[5]
+                }
+            return None
+    
+    def get_red_flag(self, flag_id: int) -> Optional[RedFlag]:
+        """Get a red flag by ID."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT id, name, description, severity, created_at
+                FROM red_flags
+                WHERE id = ?
+            """, (flag_id,))
+            
+            row = cursor.fetchone()
+            if row:
+                return RedFlag(
+                    id=row[0],
+                    name=row[1],
+                    description=row[2],
+                    severity=row[3],
+                    created_at=self._iso_to_datetime(row[4])
+                )
+            return None
+    
+    def get_tree_data_for_csv(self) -> List[Dict[str, Any]]:
+        """
+        Get all tree data formatted for CSV export.
+        
+        Returns:
+            List of dictionaries with exactly 5 children per parent,
+            formatted for CSV export with Diagnosis header.
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Get all parent nodes (nodes with depth 0)
+            cursor.execute("""
+                SELECT id, label FROM nodes 
+                WHERE depth = 0 
+                ORDER BY id
+            """)
+            parents = cursor.fetchall()
+            
+            csv_data = []
+            
+            for parent in parents:
+                parent_id = parent['id']
+                vital_measurement = parent['label']
+                
+                # Get children for this parent, ordered by slot
+                cursor.execute("""
+                    SELECT slot, label FROM nodes 
+                    WHERE parent_id = ? 
+                    ORDER BY slot
+                """, (parent_id,))
+                children = cursor.fetchall()
+                
+                # Create row with exactly 5 slots
+                row = {
+                    "Diagnosis": vital_measurement,
+                    "Node 1": "",
+                    "Node 2": "",
+                    "Node 3": "",
+                    "Node 4": "",
+                    "Node 5": ""
+                }
+                
+                # Fill in existing children
+                for child in children:
+                    slot = child['slot']
+                    if 1 <= slot <= 5:
+                        row[f"Node {slot}"] = child['label']
+                
+                csv_data.append(row)
+            
+            return csv_data
+    
+    def get_descendant_nodes(self, root_id: int) -> List[int]:
+        """Get all descendant node IDs using recursive CTE."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                WITH RECURSIVE subtree(id) AS (
+                    SELECT ? 
+                    UNION ALL
+                    SELECT n.id FROM nodes n JOIN subtree s ON n.parent_id = s.id
+                )
+                SELECT id FROM subtree WHERE id != ?
+            """, (root_id, root_id))
+            
+            return [row[0] for row in cursor.fetchall()]
+    
+    def remove_red_flag_from_node(self, node_id: int, red_flag_id: int) -> bool:
+        """Remove a red flag from a node."""
+        with self._get_connection() as conn:
+            try:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    DELETE FROM node_red_flags 
+                    WHERE node_id = ? AND red_flag_id = ?
+                """, (node_id, red_flag_id))
+                
+                conn.commit()
+                return True
+                
+            except sqlite3.IntegrityError as e:
+                conn.rollback()
+                raise ValueError(f"Red flag removal failed: {e}")
     
     def clear_database(self):
         """Clear all data from the database (for testing/reset)."""

@@ -8,19 +8,18 @@ import os
 
 from ..dependencies import get_repository
 from storage.sqlite import SQLiteRepository
-from core.version import __version__
+from core.version import __version__ as VERSION
+from ..models import HealthResponse, DBInfo
 
 router = APIRouter(tags=["health"])
 
-# Application version - imported from core.version
-
-@router.get("/health")
-async def health_check(repo: SQLiteRepository = Depends(get_repository)) -> Dict[str, Any]:
+@router.get("/health", response_model=HealthResponse)
+async def health_check(repo: SQLiteRepository = Depends(get_repository)) -> HealthResponse:
     """
     Comprehensive health check endpoint.
     
     Returns:
-        JSON with health status, version, database info, and feature flags
+        HealthResponse with health status, version, database info, and feature flags
     """
     # Check database status
     db_info = await _check_database_health(repo)
@@ -28,12 +27,12 @@ async def health_check(repo: SQLiteRepository = Depends(get_repository)) -> Dict
     # Check feature flags
     features = await _check_features()
     
-    return {
-        "ok": True,
-        "version": __version__,
-        "db": db_info,
-        "features": features
-    }
+    return HealthResponse(
+        ok=True,
+        version=VERSION,
+        db=DBInfo(**db_info),
+        features=features
+    )
 
 async def _check_database_health(repo: SQLiteRepository) -> Dict[str, Any]:
     """Check database configuration and health."""

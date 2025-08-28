@@ -3,6 +3,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, conint, Field
 from typing import List, Literal, Optional
 import sqlite3
+import os
 
 from llm.config import load_llm_config
 from llm.runner import fill_triage_actions
@@ -23,6 +24,37 @@ class FillResponse(BaseModel):
     diagnostic_triage: str
     actions: str
     applied: bool = False
+
+@router.get("/health")
+async def llm_health():
+    """
+    LLM health check endpoint.
+    
+    Returns:
+        503 if LLM is disabled, 200 with status if enabled
+    """
+    llm_enabled = os.getenv("LLM_ENABLED", "false").lower() == "true"
+    
+    if not llm_enabled:
+        raise HTTPException(
+            status_code=503, 
+            detail="LLM is disabled"
+        )
+    
+    # Check if LLM model file exists (if enabled)
+    model_path = os.getenv("LLM_MODEL_PATH", "llm/models/model.gguf")
+    if not os.path.exists(model_path):
+        raise HTTPException(
+            status_code=503,
+            detail="LLM model file not found"
+        )
+    
+    return {
+        "ok": True,
+        "service": "llm",
+        "enabled": True,
+        "model_path": model_path
+    }
 
 @router.post("/fill-triage-actions", response_model=FillResponse)
 def llm_fill(req: FillRequest, conn: sqlite3.Connection = Depends(get_db_connection)):

@@ -71,7 +71,7 @@ def _wait_for_health(base_url: str, timeout_s: float = 10.0) -> None:
     deadline = time.time() + timeout_s
     while time.time() < deadline:
         try:
-            req = Request(base_url + "/health", headers={"Accept": "application/json"})
+            req = Request(base_url + "/api/v1/health", headers={"Accept": "application/json"})
             with urlopen(req, timeout=0.5) as resp:
                 if resp.status == 200:
                     # sanity parse

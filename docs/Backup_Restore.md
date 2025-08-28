@@ -63,7 +63,7 @@ Ensure you have write access to the DB location. On Windows, stop any process ho
 
 **Find the DB path used by the API**
 ```bash
-curl http://localhost:8000/health → see db.path.
+curl http://localhost:8000/api/v1/health → see db.path.
 ```
 
 ## Automation

@@ -13,11 +13,11 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn api.app:app --reload
-API: http://localhost:8000 (see /docs and /health)
+API: http://localhost:8000/api/v1 (see /docs and /api/v1/health)
 
 Flutter UI: see ui_flutter/README or ui_flutter/docs/Flutter_UI_Spec.md
 
-Streamlit (dev): API_BASE_URL=http://localhost:8000 bash tools/scripts/run_streamlit.sh
+Streamlit (dev): API_BASE_URL=http://localhost:8000/api/v1 bash tools/scripts/run_streamlit.sh
 ```
 
 ## Docs

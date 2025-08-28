@@ -2,7 +2,8 @@
 fastapi
 uvicorn
 pydantic
-sqlite3
+pandas
+httpx
 
 # Streamlit adapter dependencies
 streamlit

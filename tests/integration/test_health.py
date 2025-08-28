@@ -51,9 +51,14 @@ def test_health_endpoint_version_format(client):
     response = client.get("/api/v1/health")
     data = response.json()
     
-    # Version should be in format like "6.6.0"
+    # Version should be in format like "v6.7.0" or "6.6.0"
     version = data["version"]
     assert "." in version
+    
+    # Handle both "v6.7.0" and "6.6.0" formats
+    if version.startswith("v"):
+        version = version[1:]  # Strip "v" prefix
+    
     parts = version.split(".")
     assert len(parts) >= 2
     assert all(part.isdigit() for part in parts)

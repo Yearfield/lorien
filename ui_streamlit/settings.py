@@ -3,7 +3,7 @@ import os
 from functools import lru_cache
 import streamlit as st
 
-DEFAULT_API_BASE = "http://localhost:8000"
+DEFAULT_API_BASE = "http://localhost:8000/api/v1"
 
 @lru_cache(maxsize=1)
 def get_api_base_url() -> str:

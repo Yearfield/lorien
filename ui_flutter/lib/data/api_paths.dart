@@ -1,8 +1,7 @@
 class ApiPaths {
   /// Prefix for all API routes.
-  /// For root paths, keep ''.
-  /// If we later version the API on the server, set to '/api/v1'.
-  static const String prefix = '';
+  /// API is now versioned under /api/v1.
+  static const String prefix = '/api/v1';
 
   static String _p(String path) => '$prefix$path';
 

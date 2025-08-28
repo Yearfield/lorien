@@ -9,7 +9,6 @@ Successfully implemented the FastAPI bridge layer that provides HTTP endpoints f
 ### **1. Core API Endpoints (All Implemented)**
 
 #### **Health & Status**
-- `GET /health` - Root health check ✅
 - `GET /api/v1/health` - API health with database status ✅
 
 #### **Tree Management**

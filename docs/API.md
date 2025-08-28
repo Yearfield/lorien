@@ -1,13 +1,13 @@
 # API Reference
 
-All responses are JSON unless noted. Base URL defaults to `http://localhost:8000`.
+All responses are JSON unless noted. Base URL defaults to `http://localhost:8000/api/v1`.
 
 > **Auth**: None (local dev).  
-> **Version**: Exposed via `/health.version`.
+> **Version**: Exposed via `/api/v1/health.version`.
 
 ## Health
 
-GET `/health`
+GET `/api/v1/health`
 
 - **200** `{ ok, version, db: { path, wal, foreign_keys }, features: { llm } }`
 
@@ -90,7 +90,7 @@ Header order: `Vital Measurement,Node 1,...,Node 5,Diagnostic Triage,Actions`
 ## LLM (Optional — feature-flagged)
 
 ### LLM health
-GET `/llm/health`
+GET `/api/v1/llm/health`
 
 - **200** `{ enabled, model_path, n_threads, n_ctx, n_gpu_layers }`
 - **503** when disabled
@@ -112,3 +112,85 @@ POST `/llm/fill-triage-actions`
 - **503** when LLM disabled
 
 **Safety**: the LLM is guidance-only; dosing/prescription requests are refused.
+
+## CSV Export (Contract Frozen)
+
+**Header (exact order):**
+`Vital Measurement,Node 1,Node 2,Node 3,Node 4,Node 5,Diagnostic Triage,Actions`
+
+`GET /calc/export` and `GET /tree/export` must return CSV with the exact header above.
+UI (Streamlit + Flutter) must call API; no CSV construction in UI.
+
+## Conflicts & Integrity
+
+### Missing Slots
+`GET /tree/missing-slots` → Returns parents with missing child slots
+```json
+{
+  "parents_with_missing_slots": [
+    {
+      "parent_id": 1,
+      "label": "Blood Pressure",
+      "depth": 1,
+      "missing_slots": [3, 5]
+    }
+  ],
+  "total_count": 1
+}
+```
+
+### Next Incomplete Parent
+`GET /tree/next-incomplete-parent` → Returns next parent needing completion
+```json
+{
+  "parent_id": 1,
+  "missing_slots": [3, 5]
+}
+```
+
+## Outcomes & Triage
+
+### Search Triage
+`GET /triage/search?leaf_only=true&query=...` → Search triage records
+```json
+{
+  "results": [
+    {
+      "node_id": 5,
+      "label": "High BP",
+      "path": "Blood Pressure → High BP",
+      "diagnostic_triage": "Monitor closely",
+      "actions": "Check every 2 hours",
+      "is_leaf": true,
+      "updated_at": "2024-01-01T12:00:00"
+    }
+  ],
+  "total_count": 1,
+  "leaf_only": true
+}
+```
+
+### Update Triage
+`PUT /triage/{node_id}` → Update triage for leaf nodes only
+```json
+{
+  "diagnostic_triage": "New triage text",
+  "actions": "New actions"
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Triage updated successfully",
+  "node_id": 5,
+  "updated_at": "2024-01-01T12:00:00"
+}
+```
+
+**Error (non-leaf):**
+```json
+{
+  "detail": "Triage can only be updated for leaf nodes"
+}
+```

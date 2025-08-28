@@ -6,9 +6,11 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import sqlite3
+import logging
 
-from .routes import router
+from .routes import router as api_router
 from .routers.health import router as health_router
+from .routers.flags_audit import router as flags_audit_router
 from .exceptions import (
     DecisionTreeAPIException, handle_value_error, handle_integrity_error,
     handle_decision_tree_api_exception
@@ -24,15 +26,26 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# Add CORS middleware for Flutter development
+# CORS configuration with environment toggle
+allow_all = os.getenv("CORS_ALLOW_ALL", "false").lower() == "true"
+if allow_all:
+    origins = ["*"]
+else:
+    origins = [
+        "http://localhost",
+        "http://127.0.0.1",
+        "http://localhost:3000",
+        "http://localhost:8080",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:8080",
+        "http://0.0.0.0",
+        "http://10.0.2.2"  # Android emulator
+    ]
+
+# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",  # Flutter web dev server
-        "http://localhost:8080",  # Alternative Flutter port
-        "http://localhost:*",     # Any localhost port for development
-    ],
-    allow_credentials=True,
+    allow_origins=origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -55,32 +68,44 @@ async def global_exception_handler(request: Request, exc: Exception):
         }
     )
 
-# Include routes
-app.include_router(router, prefix="")
-app.include_router(health_router, prefix="")
+# Mount all under versioned prefix
+API_PREFIX = "/api/v1"
+app.include_router(api_router, prefix=API_PREFIX)
+app.include_router(health_router, prefix=API_PREFIX)
+app.include_router(flags_audit_router, prefix=API_PREFIX)
 
-# Conditionally include LLM router if enabled
-if os.getenv("LLM_ENABLED", "false").lower() == "true":
-    try:
-        from .routers.llm import router as llm_router
-        app.include_router(llm_router, prefix="")
-    except ImportError:
-        # LLM dependencies not available, skip silently
-        pass
+# Always include LLM router for health endpoint, but functionality controlled by LLM_ENABLED
+try:
+    from .routers.llm import router as llm_router
+    app.include_router(llm_router, prefix=API_PREFIX)
+except ImportError:
+    # LLM dependencies not available, skip silently
+    pass
+
+# --- LLM Health ---
+LLM_ENABLED = os.getenv("LLM_ENABLED", "false").lower() == "true"
+
+@app.get(f"{API_PREFIX}/llm/health")
+def llm_health():
+    if not LLM_ENABLED:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=503, detail="LLM disabled")
+    return {"status": "ok", "llm_enabled": True}
 
 # Root endpoint
 @app.get("/")
 async def root():
-    """Root endpoint with API information."""
+    """Root endpoint with pointers to docs and versioned health."""
     return {
-        "message": "Decision Tree API",
-        "version": "1.0.0",
+        "message": "Lorien API",
+        "version": "v6.3.7",
         "docs": "/docs",
-        "health": "/health"
+        "health": f"{API_PREFIX}/health"
     }
 
-# Health check at root level
-@app.get("/health")
-async def root_health():
-    """Root-level health check."""
-    return {"status": "healthy", "service": "decision-tree-api"}
+# Startup logging
+logger = logging.getLogger(__name__)
+
+@app.on_event("startup")
+async def _log_mount_prefix():
+    logger.info("API mounted at %s", API_PREFIX)

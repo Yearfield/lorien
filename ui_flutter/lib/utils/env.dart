@@ -4,7 +4,7 @@ class Env {
   static const String _baseUrlKey = 'api_base_url';
   static const String _themeModeKey = 'theme_mode';
   
-  static const String defaultBaseUrl = 'http://localhost:8000';
+  static const String defaultBaseUrl = 'http://localhost:8000/api/v1';
   
   static Future<String> getApiBaseUrl() async {
     final prefs = await SharedPreferences.getInstance();

@@ -80,8 +80,8 @@
 
 ### Health Check
 ```
-GET /health
-Response: { "status": "healthy", "version": "1.0.0", "timestamp": "..." }
+GET /api/v1/health
+Response: { "ok": true, "version": "v6.3.7", "db": { "wal": true, "foreign_keys": true, "page_size": 4096, "path": "..." }, "features": { "llm": false } }
 ```
 
 ### Tree Management

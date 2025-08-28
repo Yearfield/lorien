@@ -17,8 +17,8 @@ class ChildSlot(BaseModel):
 
 class ChildrenUpsert(BaseModel):
     """Request model for upserting multiple children at once."""
-    children: conlist(ChildSlot, min_length=1, max_length=5) = Field(
-        ..., description="List of children to upsert (1-5 items)"
+    children: conlist(ChildSlot, min_length=5, max_length=5) = Field(
+        ..., description="List of children to upsert (exactly 5 items required)"
     )
 
 
@@ -38,13 +38,23 @@ class RedFlagAssignment(BaseModel):
     """Request model for assigning red flags to nodes."""
     node_id: int = Field(..., description="Node ID to assign flag to")
     red_flag_name: str = Field(..., min_length=1, description="Name of red flag to assign")
+    user: Optional[str] = Field(None, description="User performing the assignment (for audit)")
+    cascade: bool = Field(False, description="Whether to apply to parent + all descendants")
+
+
+class DBInfo(BaseModel):
+    """Database information for health checks."""
+    wal: bool = Field(..., description="Whether WAL mode is enabled")
+    foreign_keys: bool = Field(..., description="Whether foreign keys are enabled")
+    page_size: int = Field(..., description="Database page size")
+    path: str = Field(..., description="Database file path")
 
 
 class HealthResponse(BaseModel):
     """Health check response."""
-    ok: bool = True
-    version: str = APP_VERSION
-    db: Dict[str, Any] = Field(..., description="Database information")
+    ok: bool = Field(..., description="Overall health status")
+    version: str = Field(..., description="API version")
+    db: DBInfo = Field(..., description="Database information")
     features: Dict[str, bool] = Field(..., description="Feature flags")
 
 

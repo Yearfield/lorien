@@ -19,6 +19,13 @@ def get_health() -> dict:
     return r.json()
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=0.2, min=0.2, max=2))
+def get_json(path: str, **kwargs) -> dict:
+    """GET JSON response from API."""
+    r = requests.get(_url(path), timeout=kwargs.get('timeout', 8), headers=HEADERS_JSON)
+    r.raise_for_status()
+    return r.json() if r.content else {}
+
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=0.2, min=0.2, max=2))
 def get_next_incomplete_parent() -> dict | None:
     r = requests.get(_url("/tree/next-incomplete-parent"), timeout=8, headers=HEADERS_JSON)
     if r.status_code == 204 or not r.content:
@@ -52,16 +59,19 @@ def put_triage(node_id: int, triage: dict) -> dict:
     return r.json()
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=0.2, min=0.2, max=2))
-def flags_search(q: str) -> list[dict]:
+def flags_search(q: str) -> dict:
     r = requests.get(_url(f"/flags/search"), params={"q": q}, timeout=8, headers=HEADERS_JSON)
     r.raise_for_status()
     return r.json()
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=0.2, min=0.2, max=2))
-def flags_assign(node_id: int, red_flag_name: str) -> dict:
-    r = requests.post(_url("/flags/assign"), json={"node_id": node_id, "red_flag_name": red_flag_name}, timeout=8, headers=HEADERS_JSON)
+def flags_assign(node_id: int, red_flag_name: str, user: str | None = None, cascade: bool = False) -> dict:
+    payload = {"node_id": node_id, "red_flag_name": red_flag_name, "cascade": cascade}
+    if user:
+        payload["user"] = user
+    r = requests.post(_url("/flags/assign"), json=payload, timeout=8, headers=HEADERS_JSON)
     r.raise_for_status()
-    return r.json()
+    return r.json() if r.content else {}
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=0.2, min=0.2, max=2))
 def calc_export_csv() -> tuple[str, bytes]:
@@ -76,3 +86,37 @@ def calc_export_csv() -> tuple[str, bytes]:
             filename = part.split("=",1)[1].strip('"')
             break
     return filename, r.content
+
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=0.2, min=0.2, max=2))
+def post_file(path: str, file_tuple: tuple[str, bytes, str]) -> dict:
+    """
+    POST a file to the API.
+    
+    Args:
+        path: API endpoint path
+        file_tuple: (filename, file_data, content_type)
+    
+    Returns:
+        API response as dict
+    """
+    filename, file_data, content_type = file_tuple
+    files = {'file': (filename, file_data, content_type)}
+    
+    r = requests.post(_url(path), files=files, timeout=30)
+    r.raise_for_status()
+    return r.json() if r.content else {}
+
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=0.2, min=0.2, max=2))
+def get_csv_export(path: str) -> str:
+    """GET CSV export and return content as string."""
+    r = requests.get(_url(path), timeout=30)
+    r.raise_for_status()
+    return r.text
+
+
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=0.2, min=0.2, max=2))
+def put_json(path: str, payload: dict) -> dict:
+    """PUT JSON payload and return response."""
+    r = requests.put(_url(path), json=payload, timeout=8, headers=HEADERS_JSON)
+    r.raise_for_status()
+    return r.json()

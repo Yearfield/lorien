@@ -21,6 +21,10 @@ def get_repository() -> SQLiteRepository:
     return SQLiteRepository()
 
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 @contextmanager
 def get_db_connection() -> Generator[sqlite3.Connection, None, None]:
     """
@@ -36,9 +40,11 @@ def get_db_connection() -> Generator[sqlite3.Connection, None, None]:
     conn = repo._get_connection()
     try:
         # Initialize connection with required pragmas on every request
+        logger.debug("Enabling WAL mode...")
         conn.execute("PRAGMA foreign_keys=ON")
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("PRAGMA synchronous=NORMAL")
+        logger.debug("WAL mode enabled.")
         yield conn
     finally:
         conn.close()

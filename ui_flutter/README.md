@@ -112,7 +112,7 @@ lib/
 
 The app connects to the FastAPI backend using the following endpoints:
 
-- `GET /health` - Health check
+- `GET /api/v1/health` - Health check
 - `GET /tree/next-incomplete-parent` - Get next incomplete parent
 - `GET /tree/{parent_id}/children` - Get children for a parent
 - `POST /tree/{parent_id}/children` - Upsert children
@@ -125,7 +125,7 @@ The app connects to the FastAPI backend using the following endpoints:
 ## Configuration
 
 ### API Base URL
-- Default: `http://localhost:8000`
+- Default: `http://localhost:8000/api/v1`
 - Configurable in Settings screen
 - Persisted using SharedPreferences
 - Supports LAN IP for mobile development (e.g., `http://192.168.0.10:8000`)
