@@ -1,6 +1,6 @@
 from __future__ import annotations
 import streamlit as st
-from .api_client import get_health
+from ui_streamlit.api_client import get_health
 
 def top_health_banner():
     try:

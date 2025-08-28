@@ -10,7 +10,7 @@ Uses only core/services or FastAPI API calls - no direct DB or Google Sheets acc
 
 from __future__ import annotations
 import streamlit as st
-from .components import top_health_banner
+from ui_streamlit.components import top_health_banner
 
 st.set_page_config(page_title="Lorien (Streamlit adapter)", layout="wide", initial_sidebar_state="expanded")
 

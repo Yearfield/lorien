@@ -3,7 +3,7 @@ import io
 import requests
 from tenacity import retry, stop_after_attempt, wait_exponential
 import streamlit as st
-from .settings import get_api_base_url
+from ui_streamlit.settings import get_api_base_url
 
 HEADERS_JSON = {"Accept": "application/json", "Content-Type": "application/json"}
 
