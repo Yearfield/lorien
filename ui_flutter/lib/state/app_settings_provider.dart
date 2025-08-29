@@ -92,13 +92,15 @@ class ConnectionStatusNotifier extends StateNotifier<ConnectionStatus> {
     
     try {
       _apiClient.setBaseUrl(baseUrl);
-      final response = await _apiClient.get('/health');
+      final response = await _apiClient.get('health');
       
       if (response.statusCode == 200) {
         state = ConnectionStatus.connected;
       } else {
         state = ConnectionStatus.error;
       }
+    } on ApiUnavailable {
+      state = ConnectionStatus.disconnected;
     } catch (e) {
       state = ConnectionStatus.disconnected;
     }

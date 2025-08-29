@@ -1,11 +1,23 @@
 import 'package:dio/dio.dart';
 import 'package:pretty_dio_logger/pretty_dio_logger.dart';
+import '../utils/env.dart';
 
 class ApiClient {
   late final Dio _dio;
+  late final String baseUrl;
   
   ApiClient() {
-    _dio = Dio();
+    baseUrl = resolveApiBaseUrl();
+    _dio = Dio(BaseOptions(
+      // Dio requires a trailing slash for reliable relative path joining.
+      baseUrl: baseUrl, // must end with /api/v1/
+      connectTimeout: const Duration(seconds: 2),
+      receiveTimeout: const Duration(seconds: 5),
+      sendTimeout: const Duration(seconds: 5),
+      responseType: ResponseType.json,
+      followRedirects: true,
+      validateStatus: (code) => code != null && code >= 200 && code < 400,
+    ));
     _setupInterceptors();
   }
   
@@ -26,38 +38,24 @@ class ApiClient {
     // Add error interceptor
     _dio.interceptors.add(
       InterceptorsWrapper(
+        onRequest: (options, handler) {
+          // Light logging with safe print of fully-resolved URL
+          final url = Uri.parse(options.baseUrl).resolve(options.path).toString();
+          // ignore: avoid_print
+          print('[ApiClient] ${options.method} $url');
+          handler.next(options);
+        },
         onError: (error, handler) {
-          // Handle specific error cases
-          String msg;
-          if (error.type == DioExceptionType.connectionTimeout) {
-            msg = 'Connection timeout. Please check your network connection.';
-          } else if (error.type == DioExceptionType.connectionError) {
-            msg = 'Unable to connect to server. Please check the API URL.';
-          } else if (error.response?.statusCode == 422) {
-            final detail = error.response?.data is Map ? (error.response?.data['detail'] ?? '') : '';
-            msg = 'Validation error: ${detail.toString().isEmpty ? 'Invalid data' : detail}';
-          } else if (error.response?.statusCode == 409) {
-            final detail = error.response?.data is Map ? (error.response?.data['detail'] ?? '') : '';
-            msg = 'Conflict: ${detail.toString().isEmpty ? 'Resource conflict' : detail}';
-          } else {
-            msg = error.message ?? 'Request failed';
-          }
-          
-          // Create a new DioException with the custom message
-          final customError = DioException(
-            requestOptions: error.requestOptions,
-            response: error.response,
-            type: error.type,
-            error: msg,
-          );
-          
-          handler.next(customError);
+          // ignore: avoid_print
+          print('[ApiClient:Error] ${error.type} ${error.message}');
+          handler.next(error);
         },
       ),
     );
   }
   
   void setBaseUrl(String baseUrl) {
+    this.baseUrl = baseUrl;
     _dio.options.baseUrl = baseUrl;
     // DEBUG: verify the base URL used by the client
     // ignore: avoid_print
@@ -66,58 +64,114 @@ class ApiClient {
   
   Dio get dio => _dio;
   
-  // Helper methods for common HTTP operations
+  /// Join a resource path to base URL. Enforces no leading slash and forbids embedding `/api/v1`.
+  String _join(String path) {
+    var p = path.trim();
+    assert(!p.startsWith('/'), 'Path must be relative (no leading slash): $p');
+    assert(!p.startsWith('api/v1') && !p.contains('/api/v1/'),
+        'Path must NOT include /api/v1: $p');
+    // Clean any accidental leading slash and double slashes
+    p = p.replaceAll(RegExp(r'^/+'), '').replaceAll(RegExp(r'/+'), '/');
+    return p;
+  }
+
+  // Helper methods for common HTTP operations with better error handling
   Future<Response<T>> get<T>(
-    String path, {
+    String resource, {
     Map<String, dynamic>? queryParameters,
     Options? options,
   }) async {
-    return _dio.get<T>(
-      path,
-      queryParameters: queryParameters,
-      options: options,
-    );
+    try {
+      final p = _join(resource);
+      return await _dio.get<T>(
+        p,
+        queryParameters: queryParameters,
+        options: options,
+      );
+    } on DioException catch (e) {
+      throw _normalizeDioError(e);
+    }
   }
   
   Future<Response<T>> post<T>(
-    String path, {
+    String resource, {
     dynamic data,
     Map<String, dynamic>? queryParameters,
     Options? options,
   }) async {
-    return _dio.post<T>(
-      path,
-      data: data,
-      queryParameters: queryParameters,
-      options: options,
-    );
+    try {
+      final p = _join(resource);
+      return await _dio.post<T>(
+        p,
+        data: data,
+        queryParameters: queryParameters,
+        options: options,
+      );
+    } on DioException catch (e) {
+      throw _normalizeDioError(e);
+    }
   }
   
   Future<Response<T>> put<T>(
-    String path, {
+    String resource, {
     dynamic data,
     Map<String, dynamic>? queryParameters,
     Options? options,
   }) async {
-    return _dio.put<T>(
-      path,
-      data: data,
-      queryParameters: queryParameters,
-      options: options,
-    );
+    try {
+      final p = _join(resource);
+      return await _dio.put<T>(
+        p,
+        data: data,
+        queryParameters: queryParameters,
+        options: options,
+      );
+    } on DioException catch (e) {
+      throw _normalizeDioError(e);
+    }
   }
   
   Future<Response<T>> delete<T>(
-    String path, {
+    String resource, {
     dynamic data,
     Map<String, dynamic>? queryParameters,
     Options? options,
   }) async {
-    return _dio.delete<T>(
-      path,
-      data: data,
-      queryParameters: queryParameters,
-      options: options,
-    );
+    try {
+      final p = _join(resource);
+      return await _dio.delete<T>(
+        p,
+        data: data,
+        queryParameters: queryParameters,
+        options: options,
+      );
+    } on DioException catch (e) {
+      throw _normalizeDioError(e);
+    }
   }
+
+  Object _normalizeDioError(DioException e) {
+    // Connection refused / network down should not crash UI
+    if (e.type == DioExceptionType.connectionError ||
+        e.type == DioExceptionType.connectionTimeout ||
+        e.type == DioExceptionType.receiveTimeout) {
+      return ApiUnavailable(message: e.message ?? 'API unavailable');
+    }
+    return ApiFailure(message: e.message ?? 'Request failed', cause: e);
+  }
+}
+
+class ApiUnavailable implements Exception {
+  ApiUnavailable({required this.message});
+  final String message;
+  @override
+  String toString() => 'ApiUnavailable($message)';
+}
+
+class ApiFailure implements Exception {
+  ApiFailure({required this.message, this.cause});
+  final String message;
+  final Object? cause;
+  @override
+  String toString() => 'ApiFailure($message)';
 }

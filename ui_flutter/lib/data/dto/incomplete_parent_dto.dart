@@ -32,8 +32,8 @@ class _SlotsConverter implements JsonConverter<List<int>, Object?> {
 @freezed
 class IncompleteParentDTO with _$IncompleteParentDTO {
   const factory IncompleteParentDTO({
-    required int parentId,
-    @_SlotsConverter() required List<int> missingSlots,
+    @JsonKey(name: 'parent_id') required int parentId,
+    @JsonKey(name: 'missing_slots') @_SlotsConverter() required List<int> missingSlots,
   }) = _IncompleteParentDTO;
 
   factory IncompleteParentDTO.fromJson(Map<String, dynamic> json) =>

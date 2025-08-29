@@ -8,23 +8,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:decision_tree_manager/main.dart';
+import '../lib/widgets/connection_banner.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('Connection banner smoke test', (WidgetTester tester) async {
+    // Build our connection banner and trigger a frame.
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: ConnectionBanner(),
+        ),
+      ),
+    );
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // Verify that our banner builds without errors
+    expect(find.byType(ConnectionBanner), findsOneWidget);
+    
+    // Verify that the basic structure is present
+    expect(find.byType(TextButton), findsOneWidget);
+    expect(find.byType(Icon), findsOneWidget);
   });
 }

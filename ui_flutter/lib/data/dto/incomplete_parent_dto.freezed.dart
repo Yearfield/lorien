@@ -20,7 +20,9 @@ IncompleteParentDTO _$IncompleteParentDTOFromJson(Map<String, dynamic> json) {
 
 /// @nodoc
 mixin _$IncompleteParentDTO {
+  @JsonKey(name: 'parent_id')
   int get parentId => throw _privateConstructorUsedError;
+  @JsonKey(name: 'missing_slots')
   @_SlotsConverter()
   List<int> get missingSlots => throw _privateConstructorUsedError;
 
@@ -40,7 +42,11 @@ abstract class $IncompleteParentDTOCopyWith<$Res> {
           IncompleteParentDTO value, $Res Function(IncompleteParentDTO) then) =
       _$IncompleteParentDTOCopyWithImpl<$Res, IncompleteParentDTO>;
   @useResult
-  $Res call({int parentId, @_SlotsConverter() List<int> missingSlots});
+  $Res call(
+      {@JsonKey(name: 'parent_id') int parentId,
+      @JsonKey(name: 'missing_slots')
+      @_SlotsConverter()
+      List<int> missingSlots});
 }
 
 /// @nodoc
@@ -82,7 +88,11 @@ abstract class _$$IncompleteParentDTOImplCopyWith<$Res>
       __$$IncompleteParentDTOImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call({int parentId, @_SlotsConverter() List<int> missingSlots});
+  $Res call(
+      {@JsonKey(name: 'parent_id') int parentId,
+      @JsonKey(name: 'missing_slots')
+      @_SlotsConverter()
+      List<int> missingSlots});
 }
 
 /// @nodoc
@@ -118,17 +128,21 @@ class __$$IncompleteParentDTOImplCopyWithImpl<$Res>
 @JsonSerializable()
 class _$IncompleteParentDTOImpl implements _IncompleteParentDTO {
   const _$IncompleteParentDTOImpl(
-      {required this.parentId,
-      @_SlotsConverter() required final List<int> missingSlots})
+      {@JsonKey(name: 'parent_id') required this.parentId,
+      @JsonKey(name: 'missing_slots')
+      @_SlotsConverter()
+      required final List<int> missingSlots})
       : _missingSlots = missingSlots;
 
   factory _$IncompleteParentDTOImpl.fromJson(Map<String, dynamic> json) =>
       _$$IncompleteParentDTOImplFromJson(json);
 
   @override
+  @JsonKey(name: 'parent_id')
   final int parentId;
   final List<int> _missingSlots;
   @override
+  @JsonKey(name: 'missing_slots')
   @_SlotsConverter()
   List<int> get missingSlots {
     if (_missingSlots is EqualUnmodifiableListView) return _missingSlots;
@@ -176,16 +190,19 @@ class _$IncompleteParentDTOImpl implements _IncompleteParentDTO {
 
 abstract class _IncompleteParentDTO implements IncompleteParentDTO {
   const factory _IncompleteParentDTO(
-          {required final int parentId,
-          @_SlotsConverter() required final List<int> missingSlots}) =
-      _$IncompleteParentDTOImpl;
+      {@JsonKey(name: 'parent_id') required final int parentId,
+      @JsonKey(name: 'missing_slots')
+      @_SlotsConverter()
+      required final List<int> missingSlots}) = _$IncompleteParentDTOImpl;
 
   factory _IncompleteParentDTO.fromJson(Map<String, dynamic> json) =
       _$IncompleteParentDTOImpl.fromJson;
 
   @override
+  @JsonKey(name: 'parent_id')
   int get parentId;
   @override
+  @JsonKey(name: 'missing_slots')
   @_SlotsConverter()
   List<int> get missingSlots;
 

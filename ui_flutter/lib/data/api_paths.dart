@@ -1,27 +1,24 @@
 class ApiPaths {
-  /// Prefix for all API routes.
-  /// API is now versioned under /api/v1.
-  static const String prefix = '/api/v1';
-
-  static String _p(String path) => '$prefix$path';
+  /// Resource paths for API endpoints.
+  /// Base URL already includes /api/v1/, so paths are resource-only.
+  /// All paths must NOT start with / and must NOT include /api/v1.
 
   // Health
-  static String get health => _p('/health');
+  static String get health => 'health';
 
   // Tree
-  static String treeChildren(int parentId) => _p('/tree/$parentId/children');
-  static String treeUpsertChildren(int parentId) => _p('/tree/$parentId/children');
-  static String treeUpsertChild(int parentId) => _p('/tree/$parentId/child');
-  // BUGFIX: must use _p(...) rather than a raw const string
-  static String get treeNextIncomplete => _p('/tree/next-incomplete-parent');
+  static String treeChildren(int parentId) => 'tree/$parentId/children';
+  static String treeUpsertChildren(int parentId) => 'tree/$parentId/children';
+  static String treeUpsertChild(int parentId) => 'tree/$parentId/child';
+  static String get treeNextIncomplete => 'tree/next-incomplete-parent';
 
   // Triage
-  static String triage(int nodeId) => _p('/triage/$nodeId');
+  static String triage(int nodeId) => 'triage/$nodeId';
 
   // Flags
-  static String get flagsSearch => _p('/flags/search');
-  static String get flagsAssign => _p('/flags/assign');
+  static String get flagsSearch => 'flags/search';
+  static String get flagsAssign => 'flags/assign';
 
   // Calculator
-  static String get calcExport => _p('/calc/export');
+  static String get calcExport => 'calc/export';
 }

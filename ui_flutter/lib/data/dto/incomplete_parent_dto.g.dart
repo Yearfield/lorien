@@ -9,13 +9,13 @@ part of 'incomplete_parent_dto.dart';
 _$IncompleteParentDTOImpl _$$IncompleteParentDTOImplFromJson(
         Map<String, dynamic> json) =>
     _$IncompleteParentDTOImpl(
-      parentId: (json['parentId'] as num).toInt(),
-      missingSlots: const _SlotsConverter().fromJson(json['missingSlots']),
+      parentId: (json['parent_id'] as num).toInt(),
+      missingSlots: const _SlotsConverter().fromJson(json['missing_slots']),
     );
 
 Map<String, dynamic> _$$IncompleteParentDTOImplToJson(
         _$IncompleteParentDTOImpl instance) =>
     <String, dynamic>{
-      'parentId': instance.parentId,
-      'missingSlots': const _SlotsConverter().toJson(instance.missingSlots),
+      'parent_id': instance.parentId,
+      'missing_slots': const _SlotsConverter().toJson(instance.missingSlots),
     };

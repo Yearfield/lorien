@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../state/app_settings_provider.dart';
+import '../widgets/connection_banner.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -20,98 +21,106 @@ class HomeScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Connection Status Card
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  children: [
-                    _buildStatusIcon(connectionStatus),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const ConnectionBanner(),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Connection Status Card
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Row(
                         children: [
-                          Text(
-                            'Connection Status',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          Text(
-                            _getStatusText(connectionStatus),
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: _getStatusColor(connectionStatus),
+                          _buildStatusIcon(connectionStatus),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Connection Status',
+                                  style: Theme.of(context).textTheme.titleMedium,
+                                ),
+                                Text(
+                                  _getStatusText(connectionStatus),
+                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: _getStatusColor(connectionStatus),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
+                          if (connectionStatus == ConnectionStatus.disconnected)
+                            ElevatedButton(
+                              onPressed: () => context.go('/settings'),
+                              child: const Text('Configure'),
+                            ),
                         ],
                       ),
                     ),
-                    if (connectionStatus == ConnectionStatus.disconnected)
-                      ElevatedButton(
-                        onPressed: () => context.go('/settings'),
-                        child: const Text('Configure'),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-            
-            const SizedBox(height: 24),
-            
-            // Quick Actions
-            Text(
-              'Quick Actions',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 16),
-            
-            Expanded(
-              child: GridView.count(
-                crossAxisCount: 2,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                children: [
-                  _buildActionCard(
-                    context,
-                    'Editor',
-                    Icons.edit,
-                    Colors.blue,
-                    () => context.go('/editor'),
-                    'Manage decision tree structure',
                   ),
-                  _buildActionCard(
-                    context,
-                    'Red Flags',
-                    Icons.flag,
-                    Colors.red,
-                    () => context.go('/flags'),
-                    'Search and assign red flags',
+                  
+                  const SizedBox(height: 24),
+                  
+                  // Quick Actions
+                  Text(
+                    'Quick Actions',
+                    style: Theme.of(context).textTheme.headlineSmall,
                   ),
-                  _buildActionCard(
-                    context,
-                    'Calculator',
-                    Icons.calculate,
-                    Colors.green,
-                    () => context.go('/calculator'),
-                    'Export CSV data',
-                  ),
-                  _buildActionCard(
-                    context,
-                    'Settings',
-                    Icons.settings,
-                    Colors.grey,
-                    () => context.go('/settings'),
-                    'Configure API and preferences',
+                  const SizedBox(height: 16),
+                  
+                  Expanded(
+                    child: GridView.count(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 16,
+                      mainAxisSpacing: 16,
+                      children: [
+                        _buildActionCard(
+                          context,
+                          'Editor',
+                          Icons.edit,
+                          Colors.blue,
+                          () => context.go('/editor'),
+                          'Manage decision tree structure',
+                        ),
+                        _buildActionCard(
+                          context,
+                          'Red Flags',
+                          Icons.flag,
+                          Colors.red,
+                          () => context.go('/flags'),
+                          'Search and assign red flags',
+                        ),
+                        _buildActionCard(
+                          context,
+                          'Calculator',
+                          Icons.calculate,
+                          Colors.green,
+                          () => context.go('/calculator'),
+                          'Export CSV data',
+                        ),
+                        _buildActionCard(
+                          context,
+                          'Settings',
+                          Icons.settings,
+                          Colors.grey,
+                          () => context.go('/settings'),
+                          'Configure API and preferences',
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
