@@ -1,4 +1,61 @@
-# API Reference
+# API Documentation
+
+## Overview
+The Lorien API provides endpoints for managing decision trees, red flags, and triage data.
+
+## Mounts
+All endpoints are available at both root (`/`) and versioned (`/api/v1`).
+
+## CSV / XLSX Export (Contract Frozen)
+Header (exact order; case-sensitive; comma-separated):
+`Vital Measurement,Node 1,Node 2,Node 3,Node 4,Node 5,Diagnostic Triage,Actions`
+
+Endpoints: `GET /calc/export`, `GET /tree/export`, and XLSX variants `/calc/export.xlsx`, `/tree/export.xlsx`.
+
+UI (Flutter/Streamlit) must not construct CSV/XLSX; always call the API.
+
+## LLM Health
+`GET /llm/health` → 503 when disabled; 200 JSON when enabled. LLM is **OFF by default**.
+
+## LLM Fill
+`POST /llm/fill-triage-actions` → ≤7 words, phrases only, regex `^[A-Za-z0-9 ,\\-]+$`, JSON-only; Copy-From-VM via `?vm=`.
+
+## Health
+`GET /health` (+ `/api/v1/health`) → `{ status|ok, version, db:{ path, wal, foreign_keys }, features:{ llm }, metrics?: {...} }`
+
+## Telemetry
+`GET /health` includes `metrics.telemetry` when `ANALYTICS_ENABLED=true` (non-PHI counters only).
+
+## Authentication
+Most endpoints require no authentication. Some endpoints may require API keys in the future.
+
+## Rate Limiting
+Currently no rate limiting is implemented. Consider implementing if needed for production use.
+
+## Error Handling
+All endpoints return appropriate HTTP status codes:
+- 200: Success
+- 400: Bad Request
+- 404: Not Found
+- **422: Unprocessable Entity** (semantic/validation errors)
+- 500: Internal Server Error
+
+**All semantic/validation errors return 422 Unprocessable Entity.**
+
+Body field errors follow FastAPI/Pydantic default format:
+```json
+{
+  "detail": [
+    {
+      "loc": ["body", "diagnostic_triage"], 
+      "msg": "Diagnostic Triage must be ≤7 words", 
+      "type": "value_error.word_count"
+    }
+  ]
+}
+```
+
+## Endpoints
 
 All responses are JSON unless noted. Base URL defaults to `http://localhost:8000/api/v1`.
 
@@ -286,36 +343,51 @@ Get tree completeness statistics.
 
 ## LLM Integration
 
-### POST /llm/fill-triage-actions
-Fill triage actions using LLM (guidance only, no auto-apply).
+### LLM Health
+- `GET /api/v1/llm/health` - Check if LLM service is available
+- Returns 503 when disabled, 200 when enabled
 
-**Request Body:**
+### LLM Fill — Triage & Actions
+`POST /api/v1/llm/fill-triage-actions`
+
+**Body:**
 ```json
 {
-  "root": "Blood Pressure",
-  "nodes": ["High", "Severe", "Chest Pain", "Emergency", "Immediate"],
-  "triage_style": "clinical",
-  "actions_style": "practical"
+  "root": "<string>",
+  "nodes": ["<n1>","<n2>","<n3>","<n4>","<n5>"],  // exactly 5 strings; empty "" allowed
+  "triage_style": "diagnosis-only" | "referral-only",
+  "actions_style": "diagnosis-only" | "referral-only",
+  "apply": false
 }
 ```
 
-**Response:**
+**Response (always JSON):**
 ```json
-{
-  "diagnostic_triage": "Based on the path Blood Pressure → High → Severe → Chest Pain → Emergency → Immediate, consider clinical assessment.",
-  "actions": "Recommended practical actions for this clinical scenario.",
-  "note": "AI suggestions are guidance-only; dosing and diagnosis are refused. Review before saving."
+{ 
+  "diagnostic_triage": "<=600 chars>", 
+  "actions": "<=800 chars>" 
 }
 ```
 
-**Features:**
-- Feature-flagged: requires `LLM_ENABLED=true`
-- Returns 503 when LLM is disabled
-- Path context validation (exactly 5 nodes required)
-- Guidance-only: user must review and save manually
-- Safety notice about AI limitations
+**Notes:**
+- Outputs are server-clamped to the caps above.
+- If `apply=true` and the target is not a leaf, server returns 422 but still includes suggestions in the JSON body so the client may copy manually.
 
-**Safety:**
-- AI suggestions are guidance-only
-- Dosing and diagnosis are refused
-- Users must review and validate before saving
+## Triage Management
+
+### Search Triage Records
+- `GET /api/v1/triage/search` - Search triage records with filtering
+- Supports `leaf_only`, `query`, `vm`, `sort`, and `limit` parameters
+
+### Get Triage for Node
+- `GET /api/v1/triage/{node_id}` - Get triage information for a specific node
+
+### Update Triage
+- `PUT /api/v1/triage/{node_id}` - Update triage for a node (leaf-only)
+- Enforces character caps: diagnostic_triage ≤600 chars, actions ≤800 chars
+- Returns 422 on validation errors
+
+### Triage — Copy From last VM
+`GET /api/v1/triage/search?vm=<vital_measurement>&leaf_only=true&sort=updated_at:desc&limit=1`
+
+Returns the most recent record under the given Vital Measurement for pre-fill in the client.

@@ -34,17 +34,29 @@ async def get_audit(
     node_id: Optional[int] = Query(None, ge=1),
     flag_id: Optional[int] = Query(None, ge=1),
     user: Optional[str] = Query(None),
+    branch: bool = Query(False, description="Include descendants when node_id is specified"),
     limit: int = Query(100, ge=1, le=1000),
     repo: SQLiteRepository = Depends(get_repository)
 ):
     """List audit records with optional filtering."""
     try:
-        records = repo.get_red_flag_audit(
-            node_id=node_id,
-            flag_id=flag_id,
-            user=user,
-            limit=limit
-        )
+        if branch and node_id is not None:
+            # Use the new method that supports branch scope
+            records = repo.get_red_flag_audit_with_branch(
+                node_id=node_id,
+                flag_id=flag_id,
+                user=user,
+                branch=True,
+                limit=limit
+            )
+        else:
+            # Use the original method for non-branch queries
+            records = repo.get_red_flag_audit(
+                node_id=node_id,
+                flag_id=flag_id,
+                user=user,
+                limit=limit
+            )
         return records
     except Exception as e:
         raise HTTPException(

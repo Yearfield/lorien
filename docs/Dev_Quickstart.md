@@ -1,88 +1,235 @@
-# Dev Quickstart
+# Developer Quickstart Guide
 
+## Prerequisites
+- Python 3.12+
+- SQLite 3
+- Flutter 3.16+ (for mobile development)
+- Git
+
+## Setup
+
+### 1. Clone and Setup
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install --upgrade pip
+git clone <repository-url>
+cd Lorien
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
-
-# Start API
-uvicorn api.app:app --reload
-
-# Streamlit (adapter) — note: API is versioned
-API_BASE_URL=http://localhost:8000/api/v1 bash tools/scripts/run_streamlit.sh
-
-# Flutter (desktop)
-cd ui_flutter
-flutter run -d linux  # or windows|macos
 ```
 
-## UI Parity (Phase 6)
+### 2. Environment Configuration
+```bash
+# Copy example environment file
+cp .env.example .env
 
-### Streamlit Adapter
-- **Workspace**: Excel import via API, CSV export with header preview, Health widget
-- **Conflicts**: Missing slots display, Next Incomplete jump, slot violation detection  
-- **Outcomes**: Leaf-only triage grid, inline editing, search/filter
+# Edit .env with your settings
+DB_PATH=lorien.db
+CORS_ALLOW_ALL=false  # Set to true for LAN testing
+LLM_ENABLED=false     # Keep disabled for safety
+ANALYTICS_ENABLED=false  # Set to true for metrics collection
+```
 
-### Architecture Discipline
-- Streamlit uses API client only (no direct DB/Sheets access)
-- All endpoints mounted under `/api/v1`
-- CSV header contract frozen at 8 columns exactly
-- LLM OFF by default; no dosing/diagnosis suggestions
+### 3. Database Setup
+```bash
+# Initialize database
+python -m storage.init_db
 
-### LAN & CORS
-Set `CORS_ALLOW_ALL=true` for LAN/mobile testing:
-- Android emulator: `http://10.0.2.2:<port>`
-- Device on LAN: `http://<your-lan-ip>:<port>`
+# Run migrations (if any)
+python -m storage.run_migrations
+```
 
-### Health & DB Path
-`GET /api/v1/health` includes `version` and `db_path`. Ensure `DB_PATH` env var is set.
+## Development
 
-## Streamlit Adapter
-Adapter uses the API only. Excel import is supported via a simple upload widget that POSTs to `/api/v1/import/excel`.
+### API Development
+```bash
+# Start FastAPI server
+uvicorn api.main:app --reload --port 8000
 
-## Phase-6B Features
+# Health check
+curl http://localhost:8000/health
+```
 
-### Excel Export
-- **Calculator Export**: `GET /calc/export.xlsx` - Full calculator data as Excel
-- **Tree Export**: `GET /tree/export.xlsx` - Complete tree data as Excel
-- **Headers**: Both exports use the frozen 8-column canonical header
-- **Format**: Excel workbooks with proper MIME types and download headers
+### Streamlit Development
+```bash
+# Start Streamlit UI
+streamlit run Home.py
 
-### New Vital Measurement Creation
-- **Endpoint**: `POST /tree/roots` - Create root with 5 preseeded child slots
-- **UI**: Workspace page includes form for creating new vital measurements
-- **Validation**: Enforces exactly 5 children, optional initial labels
-- **Deep-linking**: Successfully created roots link to Editor page
+# With custom port
+streamlit run Home.py --server.port 8501
+```
 
-### Completeness Summary
-- **Endpoint**: `GET /tree/stats` - Tree statistics and completeness metrics
-- **Metrics**: Total nodes, roots, leaves, complete paths, incomplete parents
-- **UI**: Workspace page shows summary cards and "Jump to Next Incomplete" button
-- **Navigation**: Direct navigation to incomplete parents for editing
+### Flutter Development
+```bash
+# Navigate to Flutter directory
+cd ui_flutter
 
-### LLM Integration (Feature-Flagged)
-- **Endpoint**: `POST /llm/fill-triage-actions` - AI-powered triage suggestions
-- **Control**: `LLM_ENABLED=true` environment variable required
-- **Safety**: Guidance-only, no auto-apply, user must review and save
-- **UI**: Outcomes page shows "Fill with LLM" button for leaf nodes
-- **Context**: Uses full path context (root → node1..node5) for suggestions
+# Get dependencies
+flutter pub get
 
-### Calculator with Chained Dropdowns
-- **UI**: Sequential dropdowns from root → node1..node5
-- **Logic**: Changing higher-level selections resets deeper ones
-- **Outcomes**: Displays triage data when leaf is reached
-- **Export**: Single-path export for selected calculator path
-- **Headers**: Maintains 8-column canonical CSV format
+# Run tests
+flutter test
 
-### Dual Mount Strategy
-- **Root Paths**: All endpoints available at `/` (e.g., `/calc/export.xlsx`)
-- **Versioned Paths**: Same endpoints at `/api/v1` (e.g., `/api/v1/calc/export.xlsx`)
-- **Consistency**: Identical responses and behavior at both paths
-- **Backward Compatibility**: Existing clients continue to work
+# Start development server
+flutter run -d linux  # or -d chrome for web
+```
 
-### Dependencies
-- **Excel Support**: `openpyxl` for Excel file generation
-- **File Upload**: `python-multipart` for Excel import handling
-- **Data Processing**: `pandas` for DataFrame operations
-- **Installation**: `pip install openpyxl python-multipart`
+## LAN & CORS
+- Set `CORS_ALLOW_ALL=true` for LAN/mobile testing
+- Configure API base in UI settings; verify with `/health` JSON
+- Android emulator: use `http://10.0.2.2:<port>`
+- iOS simulator: use `http://localhost:<port>`
+- Physical devices: use `http://<LAN-IP>:<port>`
+
+## Testing
+
+### API Tests
+```bash
+# Run all tests
+pytest
+
+# Run specific test file
+pytest tests/test_api.py
+
+# Run with coverage
+pytest --cov=api tests/
+```
+
+### Flutter Tests
+```bash
+cd ui_flutter
+flutter test
+```
+
+### Integration Tests
+```bash
+# Start API server
+uvicorn api.main:app --port 8000
+
+# Run integration tests
+pytest tests/test_integration.py
+```
+
+## Database Operations
+
+### Backup
+```bash
+# Via API
+curl -X POST http://localhost:8000/backup
+
+# Via UI: Use "Create Backup" button in Workspace
+```
+
+### Restore
+```bash
+# Via API
+curl -X POST http://localhost:8000/restore
+
+# Via UI: Use "Restore Latest" button in Workspace
+```
+
+### Integrity Check
+```bash
+# Check database health
+curl http://localhost:8000/health | jq '.db'
+```
+
+## Performance Monitoring
+
+### Cache Management
+- Cache statistics available in Workspace page
+- TTL: 5 minutes default
+- Performance tests show cache effectiveness
+- Clear cache when debugging
+
+### Endpoint Performance
+- `/health`: <100ms target
+- `/tree/stats`: <100ms target
+- Conflicts endpoints: <100ms target
+- Import operations: <30s target
+- Export operations: <10s target
+
+## Telemetry (beta)
+- `ANALYTICS_ENABLED=true` surfaces non-PHI counters in `health.metrics`
+- Metrics include table counts, audit retention status, cache info
+- No PHI data collected
+- Toggle available in environment configuration
+
+## Troubleshooting
+
+### Common Issues
+1. **CORS errors**: Set `CORS_ALLOW_ALL=true`
+2. **Database locked**: Check WAL mode and foreign keys
+3. **Import failures**: Verify 8-column CSV headers
+4. **Cache issues**: Clear cache via UI or restart server
+
+### Debug Mode
+```bash
+# Enable debug logging
+export LOG_LEVEL=DEBUG
+
+# Start with verbose output
+uvicorn api.main:app --reload --log-level debug
+```
+
+### Health Checks
+```bash
+# Basic health
+curl http://localhost:8000/health
+
+# Database info
+curl http://localhost:8000/health | jq '.db'
+
+# Feature flags
+curl http://localhost:8000/health | jq '.features'
+
+# Metrics (if enabled)
+curl http://localhost:8000/health | jq '.metrics'
+```
+
+## Deployment
+
+### Production
+```bash
+# Set production environment
+export ENV=production
+export DB_PATH=/var/lib/lorien/lorien.db
+
+# Start production server
+uvicorn api.main:app --host 0.0.0.0 --port 8000
+```
+
+### Docker (if available)
+```bash
+# Build image
+docker build -t lorien .
+
+# Run container
+docker run -p 8000:8000 lorien
+```
+
+## Contributing
+
+### Code Style
+- Follow PEP 8 for Python
+- Use type hints
+- Document functions and classes
+- Write tests for new features
+
+### Git Workflow
+```bash
+# Create feature branch
+git checkout -b feature/new-feature
+
+# Make changes and commit
+git add .
+git commit -m "feat: add new feature"
+
+# Push and create PR
+git push origin feature/new-feature
+```
+
+## Support
+- **Documentation**: Check docs/ directory
+- **Issues**: Create GitHub issue
+- **Discussions**: Use GitHub Discussions
+- **Engineering**: Slack #lorien-engineering

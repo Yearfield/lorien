@@ -4,7 +4,7 @@ Pydantic models for API request/response DTOs.
 
 from datetime import datetime
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field, conint, constr, conlist
+from pydantic import BaseModel, Field, conint, constr, conlist, field_validator
 
 # Constants imported from core.constants if needed
 
@@ -24,8 +24,31 @@ class ChildrenUpsert(BaseModel):
 
 class TriageDTO(BaseModel):
     """Request/response model for triage data."""
-    diagnostic_triage: Optional[str] = Field(None, description="Diagnostic triage text")
-    actions: Optional[str] = Field(None, description="Actions to take")
+    diagnostic_triage: Optional[str] = Field(None, description="Diagnostic triage text (max 7 words)")
+    actions: Optional[str] = Field(None, description="Actions to take (max 7 words)")
+
+    @field_validator("diagnostic_triage")
+    @classmethod
+    def _v_triage(cls, v: str) -> str:
+        if v is None:
+            return ""
+        try:
+            from core.text_utils import enforce_phrase_rules
+            return enforce_phrase_rules(v, 7)
+        except ValueError as e:
+            # Pydantic will convert ValueError into standard 422 detail with loc ["body","diagnostic_triage"]
+            raise ValueError(f"Diagnostic Triage {e}")
+
+    @field_validator("actions")
+    @classmethod
+    def _v_actions(cls, v: str) -> str:
+        if v is None:
+            return ""
+        try:
+            from core.text_utils import enforce_phrase_rules
+            return enforce_phrase_rules(v, 7)
+        except ValueError as e:
+            raise ValueError(f"Actions {e}")
 
 
 class IncompleteParentDTO(BaseModel):
@@ -56,6 +79,10 @@ class HealthResponse(BaseModel):
     version: str = Field(..., description="API version")
     db: DBInfo = Field(..., description="Database information")
     features: Dict[str, bool] = Field(..., description="Feature flags")
+    metrics: Optional[Dict[str, Any]] = Field(default=None, description="Optional runtime metrics when analytics enabled")
+    
+    class Config:
+        exclude_none = True
 
 
 class ErrorResponse(BaseModel):

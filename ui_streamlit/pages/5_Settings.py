@@ -5,106 +5,123 @@ import requests
 import json
 from ui_streamlit.components import top_health_banner
 from ui_streamlit.settings import get_api_base_url
+from ui_streamlit.api_client import health_json, _get_base_url
 
-st.set_page_config(page_title="Settings", layout="wide")
-st.title("Settings")
-
-health = top_health_banner()
-
-# API Configuration
-st.subheader("API Configuration")
-current_base = get_api_base_url()
-st.write(f"**Current API Base:** {current_base}")
-
-# API Base URL override (session state)
-new_base = st.text_input(
-    "Override API Base URL", 
-    value=current_base,
-    placeholder="http://localhost:8000",
-    help="This will be used for the current session only"
+st.set_page_config(
+    page_title="Settings - Lorien",
+    page_icon="⚙️",
+    layout="wide"
 )
 
-if new_base != current_base:
-    st.session_state["api_base_override"] = new_base
-    st.success(f"API base URL updated to: {new_base}")
+st.title("⚙️ Settings")
+st.caption("Configure API connection and application settings")
 
-# Environment info
-st.subheader("Environment")
-st.write(f"API_BASE_URL env: {os.environ.get('API_BASE_URL')!r}")
-st.write(f"LORIEN_API_BASE env: {os.environ.get('LORIEN_API_BASE')!r}")
+# Navigation
+if st.button("🏠 Home", use_container_width=True):
+    st.switch_page("Home.py")
 
-# LAN Configuration Tips
-st.subheader("🌐 LAN Configuration Tips")
-st.info("""
-**Android Emulator:** `http://10.0.2.2:<port>`  
-**Physical Device (same network):** `http://<LAN-IP>:<port>`  
-**iOS Simulator:** `http://localhost:<port>`  
-**Physical iOS Device (same network):** `http://<LAN-IP>:<port>`
-""")
+# API Configuration
+st.header("🔌 API Configuration")
 
-# CORS Configuration
-cors_allow_all = os.environ.get("CORS_ALLOW_ALL", "false").lower() == "true"
-st.write(f"**CORS Allow All:** {cors_allow_all}")
-if cors_allow_all:
-    st.success("LAN access enabled - devices can reach the API")
-else:
-    st.warning("LAN access restricted - set CORS_ALLOW_ALL=true for mobile testing")
+# Initialize API Base URL in session state
+if "API_BASE_URL" not in st.session_state:
+    st.session_state["API_BASE_URL"] = os.getenv("LORIEN_API_BASE", "http://127.0.0.1:8000/api/v1")
+
+# API Base URL input
+api_base_url = st.text_input(
+    "API Base URL",
+    value=st.session_state["API_BASE_URL"],
+    help="Base URL for the Lorien API (e.g., http://localhost:8000/api/v1)"
+)
+
+if api_base_url != st.session_state["API_BASE_URL"]:
+    st.session_state["API_BASE_URL"] = api_base_url
+    st.success("API Base URL updated")
 
 # Test Connection
-st.subheader("🔗 Test Connection")
-if st.button("Ping API"):
+st.subheader("🧪 Test Connection")
+if st.button("Test Connection", type="primary"):
     try:
-        base_to_test = st.session_state.get("api_base_override", current_base)
-        r = requests.get(f"{base_to_test}/health", timeout=5)
-        if r.status_code == 200:
-            st.success("✅ API connection successful")
-            health_data = r.json()
+        health_data, status_code, tested_url = health_json(timeout=5)
+        
+        if health_data and status_code == 200:
+            st.success(f"✅ Health 200 OK: {tested_url}")
             
-            # Display health data
-            st.subheader("Health Response")
-            st.json(health_data)
+            # Show full response in code block
+            st.code(f"Response from {tested_url}:\n{st.json(health_data)}")
             
-            # Show key info
-            if "version" in health_data:
-                st.info(f"**Version:** {health_data['version']}")
-            if "db" in health_data and "path" in health_data["db"]:
-                st.info(f"**Database Path:** {health_data['db']['path']}")
-            if "features" in health_data:
-                llm_status = "✅ Enabled" if health_data["features"].get("llm") else "❌ Disabled"
-                st.info(f"**LLM:** {llm_status}")
+            # Show key metrics
+            if health_data.get("version"):
+                st.metric("API Version", health_data["version"])
+            if health_data.get("db", {}).get("foreign_keys"):
+                st.metric("Database", "Connected")
+                
         else:
-            st.error(f"❌ API connection failed: {r.status_code}")
+            st.error(f"❌ Connection Failed: {tested_url}")
+            if status_code > 0:
+                st.error(f"HTTP Status: {status_code}")
+                
     except Exception as e:
-        st.error(f"❌ Connection error: {str(e)}")
+        st.error(f"❌ Connection Error: {str(e)[:100]}...")
+        st.caption(f"Tested URL: {st.session_state['API_BASE_URL']}/health")
 
-# LLM Health Check
-st.subheader("🤖 LLM Status")
-if st.button("Check LLM Health"):
-    try:
-        base_to_test = st.session_state.get("api_base_override", current_base)
-        r = requests.get(f"{base_to_test}/llm/health", timeout=5)
-        if r.status_code == 200:
-            st.success("✅ LLM is enabled and available")
-            llm_data = r.json()
-            st.json(llm_data)
-        elif r.status_code == 503:
-            st.warning("⚠️ LLM is disabled (returns 503)")
-            st.info("Set LLM_ENABLED=true and ensure model file exists to enable LLM features")
-        else:
-            st.error(f"❌ LLM health check failed: {r.status_code}")
-    except Exception as e:
-        st.error(f"❌ LLM check error: {str(e)}")
+# Connection Status
+st.subheader("📊 Connection Status")
+try:
+    health_data, status_code, tested_url = health_json(timeout=3)
+    if health_data and status_code == 200:
+        st.success(f"✅ Connected to: {tested_url}")
+        if health_data.get("version"):
+            st.caption(f"API Version: {health_data['version']}")
+    else:
+        st.error(f"❌ Disconnected from: {tested_url}")
+        if status_code > 0:
+            st.caption(f"HTTP Status: {status_code}")
+except Exception as e:
+    st.error(f"❌ Connection Error: {str(e)[:100]}...")
 
-# Configuration Help
-st.subheader("📝 Configuration Help")
+# Platform-specific tips
+st.header("💡 Platform Tips")
+
+platform_tips = {
+    "Android Emulator": "Use `http://10.0.2.2:8000/api/v1` (10.0.2.2 routes to host localhost)",
+    "iOS Simulator": "Use `http://localhost:8000/api/v1` (localhost works on iOS sim)",
+    "Physical Device": "Use `http://<your-LAN-IP>:8000/api/v1` (e.g., 192.168.1.100:8000)",
+    "Web Browser": "Use `http://localhost:8000/api/v1` or your server's public IP",
+    "WSL2": "Use `http://localhost:8000/api/v1` (WSL2 forwards localhost to Windows)"
+}
+
+for platform, tip in platform_tips.items():
+    with st.expander(f"📱 {platform}"):
+        st.info(tip)
+
+# Environment Information
+st.header("🌍 Environment")
+col1, col2 = st.columns(2)
+
+with col1:
+    st.write("**Current Environment:**")
+    st.code(f"API_BASE_URL: {st.session_state.get('API_BASE_URL', 'Not set')}")
+    st.code(f"LORIEN_API_BASE: {os.getenv('LORIEN_API_BASE', 'Not set')}")
+
+with col2:
+    st.write("**Common Settings:**")
+    st.code("CORS_ALLOW_ALL=true  # For LAN access")
+    st.code("DB_PATH=./storage/lorien.db")
+    st.code("LLM_ENABLED=false  # Default: OFF")
+
+# Help
+st.header("❓ Help")
 st.markdown("""
-**To change API base URL permanently:**
-1. Set environment variable: `export LORIEN_API_BASE="http://your-ip:8000"`
-2. Or create `.streamlit/secrets.toml` with: `API_BASE_URL = "http://your-ip:8000"`
-3. Restart Streamlit
+**Troubleshooting:**
+1. **Connection Failed**: Check if API server is running (`uvicorn api.main:app --reload --port 8000`)
+2. **CORS Issues**: Set `CORS_ALLOW_ALL=true` in your environment
+3. **Port Conflicts**: Ensure port 8000 is available
+4. **Network Issues**: For devices, check firewall and network configuration
 
-**For LAN access:**
-1. Set `CORS_ALLOW_ALL=true` in your environment
-2. Ensure your device is on the same network as the API server
-3. Use the LAN IP address of your API server
+**Quick Start:**
+1. Start the API server
+2. Set the correct API Base URL above
+3. Test the connection
+4. Navigate to other pages to use the app
 """)

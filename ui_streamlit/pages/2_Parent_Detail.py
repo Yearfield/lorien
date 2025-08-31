@@ -3,135 +3,126 @@ import streamlit as st
 import requests
 import json
 from ui_streamlit.components import top_health_banner, error_message
-from ui_streamlit.api_client import get_children, upsert_children, get_next_incomplete_parent
+from ui_streamlit.api_client import get_children, upsert_children, get_next_incomplete_parent, get_json, put_json
 from ui_streamlit.settings import get_api_base_url
 
-st.set_page_config(page_title="Parent Detail", layout="wide")
-st.title("Parent Detail")
+st.set_page_config(
+    page_title="Parent Detail - Lorien",
+    page_icon="✏️",
+    layout="wide"
+)
 
-top_health_banner()
+st.title("✏️ Parent Detail Editor")
+st.caption("Edit parent node and manage child slots")
 
-parent_id = st.number_input("Parent ID", min_value=1, step=1, value=int(st.session_state.get("last_incomplete_parent", 1)))
-
-# Action buttons
+# Navigation
 col1, col2 = st.columns(2)
-if col1.button("Load children"):
-    st.session_state["children"] = get_children(parent_id)
+with col1:
+    if st.button("🏠 Home", use_container_width=True):
+        st.switch_page("Home.py")
+with col2:
+    if st.button("📝 Editor", use_container_width=True):
+        st.switch_page("pages/1_Editor.py")
 
-if col2.button("Jump to next incomplete"):
-    try:
-        nxt = get_next_incomplete_parent()
-        if nxt and "parent_id" in nxt:
-            st.session_state["jump_parent"] = nxt["parent_id"]
-            st.session_state["last_incomplete_parent"] = nxt["parent_id"]
-            st.info(f"Next incomplete parent: {nxt['parent_id']}")
-            # Auto-load the new parent
-            st.session_state["children"] = get_children(nxt["parent_id"])
-            st.rerun()
-        else:
-            st.success("No incomplete parents found.")
-    except Exception as e:
-        error_message(e)
+# Parent ID input
+parent_id = st.text_input(
+    "Parent ID",
+    value=st.session_state.get("detail_parent_id", "1"),
+    help="Enter the parent node ID to edit"
+)
 
-children = st.session_state.get("children", [])
-if children:
-    st.subheader("Slots 1..5")
+if parent_id:
+    st.session_state["detail_parent_id"] = parent_id
     
-    # Show missing slots
-    missing = [i for i in range(1, 6) if not any(c.get("slot") == i and c.get("label") for c in children)]
-    if missing:
-        st.warning(f"Missing slots: {missing}")
-    else:
-        st.success("All 5 slots are filled!")
-    
-    edits: list[dict] = []
-    for slot in range(1, 6):
-        with st.container():
-            col_a, col_b = st.columns([3,1])
-            curr = next((c for c in children if c.get("slot")==slot), None)
-            label = col_a.text_input(f"Slot {slot}", value=(curr.get("label") if curr else ""), key=f"slot_{slot}")
-            if label.strip():
-                edits.append({"slot": slot, "label": label.strip()})
-    
-    if st.button("Save slots", type="primary"):
+    # Skip to next incomplete functionality
+    if st.button("⏭️ Jump to Next Incomplete", use_container_width=True):
         try:
-            # Validate exactly 5 slots
-            if len(edits) != 5:
-                st.error("Must have exactly 5 slots filled")
+            next_incomplete = get_json("/tree/next-incomplete-parent")
+            if next_incomplete and "id" in next_incomplete:
+                new_parent_id = str(next_incomplete["id"])
+                st.session_state["detail_parent_id"] = new_parent_id
+                
+                # Refresh the parents list
+                try:
+                    children = get_json(f"/tree/{new_parent_id}/children")
+                    st.session_state["parents_list"] = children
+                except:
+                    pass
+                
+                st.info(f"Jumped to next incomplete parent: {new_parent_id}")
+                
+                # Add focus anchor for auto-scrolling
+                st.markdown(f"<a id='focus-{new_parent_id}'></a>", unsafe_allow_html=True)
+                
+                # Trigger page refresh to show new parent
+                st.rerun()
             else:
-                resp = upsert_children(parent_id, edits)
-                st.success("Saved")
-                st.session_state["children"] = get_children(parent_id)
+                st.success("✅ All parents are complete!")
         except Exception as e:
-            error_message(e)
-else:
-    st.info("Load a parent to edit its slots.")
-
-# LLM Integration Section
-st.subheader("Suggest Triage & Actions (LLM)")
-st.info("This feature requires LLM_ENABLED=true and a valid model path.")
-
-# Check if LLM is available
-try:
-    base = get_api_base_url()
-    health_response = requests.get(f"{base}/api/v1/health", timeout=10)
-    if health_response.status_code == 200:
-        health_data = health_response.json()
-        llm_enabled = health_data.get("features", {}).get("llm", False)
+            st.error(f"Error finding next incomplete parent: {str(e)[:100]}...")
+    
+    # Get parent details
+    try:
+        parent_data = get_json(f"/tree/{parent_id}")
+        children = get_json(f"/tree/{parent_id}/children")
         
-        if llm_enabled:
-            st.success("LLM is enabled and available")
-            
-            # Build path data from current parent/children if available
-            if children:
-                root_label = st.text_input("Root symptom/label", value="", key="root_label")
-                node_labels = []
-                for slot in range(1, 6):
-                    curr = next((c for c in children if c.get("slot")==slot), None)
-                    node_labels.append(curr.get("label", "") if curr else "")
-                
-                col1, col2 = st.columns(2)
-                with col1:
-                    triage_style = st.selectbox("Triage style", ["diagnosis-only","short-explanation","none"], index=0)
-                with col2:
-                    actions_style = st.selectbox("Actions style", ["referral-only","steps","none"], index=0)
-                
-                apply_now = st.checkbox("Apply immediately to this leaf", value=False)
-                
-                if st.button("Suggest with LLM", type="secondary"):
-                    if not root_label.strip():
-                        st.error("Please enter a root symptom/label")
-                    else:
-                        with st.spinner("Generating LLM suggestion..."):
+        # Store in session state for Editor page
+        st.session_state["parents_list"] = children
+        
+        st.header(f"Parent {parent_id}: {parent_data.get('label', 'No label')}")
+        st.write(f"**Depth:** {parent_data.get('depth', 'Unknown')}")
+        st.write(f"**Type:** {parent_data.get('type', 'Unknown')}")
+        
+        # Children management
+        st.subheader("👶 Children")
+        
+        if children:
+            for i, child in enumerate(children):
+                with st.expander(f"Slot {child.get('slot', i+1)}: {child.get('label', 'No label')}"):
+                    col1, col2 = st.columns([3, 1])
+                    with col1:
+                        new_label = st.text_input(
+                            f"Label for Slot {child.get('slot', i+1)}",
+                            value=child.get('label', ''),
+                            key=f"label_{child['id']}"
+                        )
+                    with col2:
+                        if st.button("💾 Save", key=f"save_{child['id']}"):
                             try:
-                                payload = {
-                                    "root": root_label.strip(),
-                                    "nodes": [label.strip() for label in node_labels if label.strip()],
-                                    "triage_style": triage_style,
-                                    "actions_style": actions_style,
-                                    "apply": apply_now,
-                                    "node_id": None  # Would need to be set if applying
-                                }
-                                
-                                response = requests.post(
-                                    f"{base}/api/v1/llm/fill-triage-actions", 
-                                    json=payload, 
-                                    timeout=60
-                                )
-                                
-                                if response.status_code == 200:
-                                    data = response.json()
-                                    st.success("LLM suggestion ready")
-                                    st.json(data)
-                                else:
-                                    st.error(f"LLM error: {response.text}")
+                                updated = put_json(f"/tree/{child['id']}", {"label": new_label})
+                                st.success(f"Updated child {child['id']}")
+                                st.rerun()
                             except Exception as e:
-                                st.error(f"Request failed: {str(e)}")
-            else:
-                st.info("Load children first to use LLM suggestions")
+                                st.error(f"Error updating child: {str(e)[:100]}...")
         else:
-            st.warning("LLM is not enabled. Set LLM_ENABLED=true and provide a valid model path.")
-    else:
-        st.error("Could not check API health")
-except Exception as e:
-    st.error(f"Could not connect to API: {str(e)}")
+            st.info("No children found for this parent")
+            
+        # Add new child
+        st.subheader("➕ Add New Child")
+        new_child_label = st.text_input("New child label")
+        if st.button("Add Child"):
+            if new_child_label:
+                try:
+                    # Find next available slot
+                    used_slots = {child.get('slot', 0) for child in children}
+                    next_slot = 1
+                    while next_slot in used_slots:
+                        next_slot += 1
+                    
+                    if next_slot <= 5:  # Enforce 5-child limit
+                        new_child = put_json(f"/tree/{parent_id}/children", {
+                            "label": new_child_label,
+                            "slot": next_slot
+                        })
+                        st.success(f"Added child in slot {next_slot}")
+                        st.rerun()
+                    else:
+                        st.error("Parent already has 5 children")
+                except Exception as e:
+                    st.error(f"Error adding child: {str(e)[:100]}...")
+            else:
+                st.warning("Please enter a label for the new child")
+                
+    except Exception as e:
+        st.error(f"Error loading parent {parent_id}: {str(e)[:100]}...")
+        st.info("Please check the parent ID and try again")

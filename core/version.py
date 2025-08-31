@@ -1,1 +1,5 @@
-__version__ = "v6.3.7"
+"""
+Version information for the Lorien application.
+"""
+
+__version__ = "v6.8.0-beta.1"

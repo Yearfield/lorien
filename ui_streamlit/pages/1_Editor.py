@@ -1,92 +1,118 @@
 from __future__ import annotations
 import streamlit as st
-from ui_streamlit.components import top_health_banner, error_message
-from ui_streamlit.api_client import get_next_incomplete_parent, get_children, upsert_children
+from ui_streamlit.api_client import get_json
 
-st.set_page_config(page_title="Editor", layout="wide")
-st.title("Editor — Parent (5 child slots)")
+st.set_page_config(
+    page_title="Editor - Lorien",
+    page_icon="✏️",
+    layout="wide"
+)
 
-top_health_banner()
+st.title("✏️ Tree Editor")
+st.caption("Manage decision tree structure and parent-child relationships")
 
-st.markdown("Use **Skip to next incomplete parent** to focus curation.")
+# Navigation
+if st.button("🏠 Home", use_container_width=True):
+    st.switch_page("Home.py")
 
-# Parent ID input
-parent_id = st.text_input("Parent ID", value="1", key="editor_parent_id")
+# Initialize parents list in session state
+if "parents_list" not in st.session_state:
+    st.session_state["parents_list"] = []
 
-col1, col2 = st.columns([1,1])
-if col1.button("Skip to next incomplete parent", type="primary"):
+# Refresh button
+if st.button("🔄 Refresh", use_container_width=True):
     try:
-        data = get_next_incomplete_parent()
-        if not data:
-            st.success("No incomplete parents found.")
-        else:
-            pid = data.get("parent_id")
-            st.session_state["last_incomplete_parent"] = pid
-            st.session_state["editor_parent_id"] = str(pid)
-            st.success(f"Next incomplete parent: {pid}")
-            st.page_link("pages/2_Parent_Detail.py", label="Open Parent Detail", icon="➡️")
+        missing_slots = get_json("/tree/missing-slots")
+        st.session_state["parents_list"] = missing_slots
+        st.success(f"Refreshed: Found {len(missing_slots)} parents with missing slots")
     except Exception as e:
-        error_message(e)
+        st.error(f"Error refreshing: {str(e)[:100]}...")
 
-if col2.button("Load Children"):
-    try:
-        data = get_children(int(parent_id))
-        st.session_state["children"] = data
-        st.success(f"Loaded {len(data)} children for parent {parent_id}")
-    except Exception as e:
-        error_message(e)
+# Display parents with missing slots
+st.header("📋 Parents with Missing Slots")
 
-# Initialize children data
-if "children" not in st.session_state:
-    st.session_state["children"] = []
+if st.session_state["parents_list"]:
+    for parent in st.session_state["parents_list"]:
+        parent_id = parent.get("id")
+        missing_slots = parent.get("missing_slots", [])
+        
+        # Create focus anchor for each parent
+        st.markdown(f"<div id='focus-{parent_id}'></div>", unsafe_allow_html=True)
+        
+        with st.expander(f"Parent {parent_id}: {parent.get('label', 'No label')} - Missing: {missing_slots}"):
+            st.write(f"**Depth:** {parent.get('depth', 'Unknown')}")
+            st.write(f"**Missing slots:** {missing_slots}")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button(f"✏️ Edit Parent {parent_id}", key=f"edit_{parent_id}"):
+                    st.session_state["detail_parent_id"] = str(parent_id)
+                    st.switch_page("pages/2_Parent_Detail.py")
+            with col2:
+                if st.button(f"📊 View Details", key=f"view_{parent_id}"):
+                    st.session_state["detail_parent_id"] = str(parent_id)
+                    st.switch_page("pages/2_Parent_Detail.py")
+else:
+    st.info("No parents with missing slots found. All trees are complete!")
 
-# Display and edit children
-st.subheader("Child Slots (1-5)")
-edited_children = []
+# Quick actions
+st.header("⚡ Quick Actions")
 
-for slot in range(1, 6):
-    # Find existing child for this slot
-    existing_child = next((c for c in st.session_state["children"] if c.get("slot") == slot), None)
-    current_label = existing_child.get("label", "") if existing_child else ""
+col1, col2 = st.columns(2)
+
+with col1:
+    if st.button("⏭️ Find Next Incomplete", use_container_width=True):
+        try:
+            next_incomplete = get_json("/tree/next-incomplete-parent")
+            if next_incomplete and "id" in next_incomplete:
+                parent_id = str(next_incomplete["id"])
+                st.session_state["detail_parent_id"] = parent_id
+                st.info(f"Found next incomplete parent: {parent_id}")
+                st.switch_page("pages/2_Parent_Detail.py")
+            else:
+                st.success("✅ All parents are complete!")
+        except Exception as e:
+            st.error(f"Error finding next incomplete: {str(e)[:100]}...")
+
+with col2:
+    if st.button("🏗️ Create New Vital Measurement", use_container_width=True):
+        st.info("Navigate to Workspace to create new Vital Measurements")
+
+# Create new Vital Measurement form
+st.header("🏗️ Create New Vital Measurement")
+with st.expander("New Vital Measurement Form"):
+    new_vm_label = st.text_input("Vital Measurement Label", placeholder="e.g., Chest Pain Assessment")
+    children_labels = []
     
-    # Create input for this slot
-    new_label = st.text_input(
-        f"Slot {slot}", 
-        value=current_label, 
-        key=f"slot_{slot}",
-        placeholder=f"Enter label for slot {slot}"
-    )
+    st.write("**Child Labels (optional):**")
+    for i in range(5):
+        child_label = st.text_input(f"Child {i+1}", key=f"child_{i}")
+        if child_label:
+            children_labels.append(child_label)
     
-    edited_children.append({
-        "slot": slot,
-        "label": new_label
-    })
-
-# Save button with validation
-if st.button("Save (atomic upsert)", type="primary"):
-    try:
-        # Guard: validate exactly 5 slots without duplicates
-        slots = [c["slot"] for c in edited_children]
-        if len(slots) != 5:
-            st.error("Must have exactly 5 slots")
-        elif len(set(slots)) != 5:
-            st.error("Duplicate slots detected")
-        elif not all(1 <= slot <= 5 for slot in slots):
-            st.error("Slots must be 1-5")
+    if st.button("Create Vital Measurement"):
+        if new_vm_label:
+            try:
+                # Create root with children
+                payload = {"label": new_vm_label}
+                if children_labels:
+                    payload["children"] = children_labels
+                
+                result = get_json("/tree/roots", method="POST", data=payload)
+                st.success(f"Created Vital Measurement: {result.get('root_id', 'Unknown')}")
+                st.info("Navigate to Parent Detail to edit the new tree")
+            except Exception as e:
+                st.error(f"Error creating Vital Measurement: {str(e)[:100]}...")
         else:
-            # Prepare payload
-            payload = {"children": edited_children}
-            
-            # Perform atomic upsert
-            result = upsert_children(int(parent_id), edited_children)
-            
-            # Update session state
-            st.session_state["children"] = edited_children
-            
-            st.success("Saved successfully!")
-            st.json(result)
-            
-    except Exception as e:
-        error_message(e)
+            st.warning("Please enter a Vital Measurement label")
 
-st.info("Tip: Use the Settings page to configure API base URL if needed.")
+# Summary
+st.header("📊 Summary")
+st.markdown("""
+**Editor Workflow:**
+1. **Review** parents with missing slots above
+2. **Click Edit** to manage specific parent's children
+3. **Use Quick Actions** to jump to next incomplete parent
+4. **Create new** Vital Measurements as needed
+5. **Ensure** each parent has exactly 5 children
+""")

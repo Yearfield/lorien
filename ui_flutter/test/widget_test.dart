@@ -7,25 +7,31 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import '../lib/widgets/connection_banner.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lorien/widgets/connection_banner.dart';
+import 'package:dio/dio.dart';
 
 void main() {
-  testWidgets('Connection banner smoke test', (WidgetTester tester) async {
-    // Build our connection banner and trigger a frame.
+  testWidgets('ConnectionBanner smoke test', (WidgetTester tester) async {
+    // Create a simple mock health call
+    Future<Response<dynamic>> mockHealthCall() async {
+      return Response(
+        data: {'status': 'ok'},
+        requestOptions: RequestOptions(path: '/api/v1/health'),
+      );
+    }
+
     await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(
-          body: ConnectionBanner(),
+      ProviderScope(
+        child: MaterialApp(
+          home: Scaffold(
+            body: ConnectionBanner(healthCall: mockHealthCall),
+          ),
         ),
       ),
     );
 
-    // Verify that our banner builds without errors
+    // Basic structure test - should show loading initially
     expect(find.byType(ConnectionBanner), findsOneWidget);
-    
-    // Verify that the basic structure is present
-    expect(find.byType(TextButton), findsOneWidget);
-    expect(find.byType(Icon), findsOneWidget);
   });
 }

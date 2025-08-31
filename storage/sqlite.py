@@ -534,6 +534,27 @@ class SQLiteRepository:
                 ))
             
             return red_flags
+
+    def search_red_flags_by_id(self, flag_id: int) -> List[RedFlag]:
+        """Search red flags by ID."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT * FROM red_flags
+                WHERE id = ?
+                ORDER BY name ASC
+            """, (flag_id,))
+            
+            red_flags = []
+            for row in cursor.fetchall():
+                red_flags.append(RedFlag(
+                    id=row['id'],
+                    name=row['name'],
+                    description=row['description'],
+                    severity=row['severity'],
+                    created_at=self._iso_to_datetime(row['created_at'])
+                ))
+            return red_flags
     
     # Triage operations
     
@@ -630,7 +651,9 @@ class SQLiteRepository:
             
             return results
 
-    def search_triage_records(self, leaf_only: bool = True, query: Optional[str] = None) -> List[Dict[str, Any]]:
+    def search_triage_records(self, leaf_only: bool = True, query: Optional[str] = None, 
+                             vm: Optional[str] = None, sort: Optional[str] = None, 
+                             limit: Optional[int] = None) -> List[Dict[str, Any]]:
         """Search triage records with optional filtering."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -638,10 +661,25 @@ class SQLiteRepository:
             sql = """
                 SELECT n.id, n.label, n.depth, n.is_leaf,
                        t.diagnostic_triage, t.actions, t.updated_at,
-                       p.label as parent_label
+                       p.label as parent_label,
+                       vm.label as vital_measurement
                 FROM nodes n
                 LEFT JOIN triage t ON n.id = t.node_id
                 LEFT JOIN nodes p ON n.parent_id = p.id
+                LEFT JOIN nodes vm ON vm.id = (
+                    SELECT root_id FROM (
+                        WITH RECURSIVE path AS (
+                            SELECT id, parent_id, label, depth
+                            FROM nodes
+                            WHERE id = n.id
+                            UNION ALL
+                            SELECT n.id, n.parent_id, n.label, n.depth
+                            FROM nodes n
+                            JOIN path p ON n.id = p.parent_id
+                        )
+                        SELECT id as root_id FROM path WHERE depth = 0 LIMIT 1
+                    )
+                )
                 WHERE 1=1
             """
             params = []
@@ -653,13 +691,34 @@ class SQLiteRepository:
                 sql += " AND (t.diagnostic_triage LIKE ? OR t.actions LIKE ?)"
                 params.extend([f"%{query}%", f"%{query}%"])
             
-            sql += " ORDER BY n.id"
+            if vm:
+                sql += " AND vm.label LIKE ?"
+                params.append(f"%{vm}%")
+            
+            # Handle sorting
+            if sort:
+                if sort == "updated_at:desc":
+                    sql += " ORDER BY t.updated_at DESC"
+                elif sort == "updated_at:asc":
+                    sql += " ORDER BY t.updated_at ASC"
+                else:
+                    sql += " ORDER BY n.id"  # default fallback
+            else:
+                sql += " ORDER BY n.id"
+            
+            # Handle limit
+            if limit:
+                sql += " LIMIT ?"
+                params.append(limit)
+            
             cursor.execute(sql, params)
             
             results = []
             for row in cursor.fetchall():
                 # Build path for display
-                path_parts = [row['parent_label'] if row['parent_label'] else 'Root']
+                path_parts = [row['vital_measurement'] if row['vital_measurement'] else 'Root']
+                if row['parent_label'] and row['parent_label'] != row['vital_measurement']:
+                    path_parts.append(row['parent_label'])
                 if row['label']:
                     path_parts.append(row['label'])
                 path = " → ".join(path_parts)
@@ -670,6 +729,7 @@ class SQLiteRepository:
                     "depth": row['depth'],
                     "is_leaf": bool(row['is_leaf']),
                     "path": path,
+                    "vital_measurement": row['vital_measurement'],
                     "diagnostic_triage": row['diagnostic_triage'],
                     "actions": row['actions'],
                     "updated_at": row['updated_at']
@@ -780,6 +840,74 @@ class SQLiteRepository:
                 }
                 for row in rows
             ]
+
+    def get_red_flag_audit_with_branch(
+        self, 
+        node_id: Optional[int] = None,
+        flag_id: Optional[int] = None,
+        user: Optional[str] = None,
+        branch: bool = False,
+        limit: int = 100
+    ) -> List[Dict[str, Any]]:
+        """Get red flag audit records with optional filtering and branch scope support."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Build WHERE clause
+            where_conditions = []
+            params = []
+            
+            if node_id is not None:
+                if branch:
+                    # Get descendants using recursive CTE
+                    descendants = self.get_descendant_nodes(node_id)
+                    node_ids = [node_id] + descendants
+                    placeholders = ','.join(['?' for _ in node_ids])
+                    where_conditions.append(f"rfa.node_id IN ({placeholders})")
+                    params.extend(node_ids)
+                else:
+                    where_conditions.append("rfa.node_id = ?")
+                    params.append(node_id)
+            
+            if flag_id is not None:
+                where_conditions.append("rfa.flag_id = ?")
+                params.append(flag_id)
+            
+            if user is not None:
+                where_conditions.append("rfa.user = ?")
+                params.append(user)
+            
+            where_clause = " AND ".join(where_conditions) if where_conditions else "1=1"
+            
+            # Build query
+            query = f"""
+                SELECT rfa.id, rfa.node_id, rfa.flag_id, rfa.action, rfa.user, rfa.ts,
+                       rf.name as flag_name, n.label as node_label
+                FROM red_flag_audit rfa
+                JOIN red_flags rf ON rfa.flag_id = rf.id
+                JOIN nodes n ON rfa.node_id = n.id
+                WHERE {where_clause}
+                ORDER BY rfa.ts DESC
+                LIMIT ?
+            """
+            
+            params.append(limit)
+            cursor.execute(query, params)
+            
+            records = []
+            for row in cursor.fetchall():
+                records.append({
+                    "id": row[0],
+                    "node_id": row[1],
+                    "flag_id": row[2],
+                    "action": row[3],
+                    "user": row[4],
+                    "ts": row[5],
+                    "flag_name": row[6],
+                    "node_label": row[7]
+                })
+            
+            return records
     
     def get_red_flag_audit_by_id(self, audit_id: int) -> Optional[Dict[str, Any]]:
         """Get a specific red flag audit record by ID."""
@@ -802,6 +930,67 @@ class SQLiteRepository:
                     "ts": row[5]
                 }
             return None
+
+    def check_integrity(self) -> Dict[str, Any]:
+        """Check database integrity and return results."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                
+                # Run PRAGMA integrity_check
+                cursor.execute("PRAGMA integrity_check")
+                integrity_result = cursor.fetchone()
+                
+                # Check foreign key constraints
+                cursor.execute("PRAGMA foreign_key_check")
+                fk_errors = cursor.fetchall()
+                
+                # Check WAL mode
+                cursor.execute("PRAGMA journal_mode")
+                journal_mode = cursor.fetchone()
+                
+                # Check foreign keys are enabled
+                cursor.execute("PRAGMA foreign_keys")
+                fk_enabled = cursor.fetchone()
+                
+                # Count records in main tables
+                cursor.execute("SELECT COUNT(*) FROM nodes")
+                node_count = cursor.fetchone()[0]
+                
+                cursor.execute("SELECT COUNT(*) FROM red_flags")
+                flag_count = cursor.fetchone()[0]
+                
+                cursor.execute("SELECT COUNT(*) FROM red_flag_audit")
+                audit_count = cursor.fetchone()[0]
+                
+                cursor.execute("SELECT COUNT(*) FROM triage")
+                triage_count = cursor.fetchone()[0]
+                
+                return {
+                    "ok": integrity_result[0] == "ok" and len(fk_errors) == 0,
+                    "integrity_check": integrity_result[0] if integrity_result else "unknown",
+                    "foreign_key_errors": len(fk_errors),
+                    "foreign_key_details": fk_errors if fk_errors else [],
+                    "journal_mode": journal_mode[0] if journal_mode else "unknown",
+                    "foreign_keys_enabled": bool(fk_enabled[0]) if fk_enabled else False,
+                    "table_counts": {
+                        "nodes": node_count,
+                        "red_flags": flag_count,
+                        "red_flag_audit": audit_count,
+                        "triage": triage_count
+                    }
+                }
+        except Exception as e:
+            return {
+                "ok": False,
+                "error": str(e),
+                "integrity_check": "failed",
+                "foreign_key_errors": -1,
+                "foreign_key_details": [],
+                "journal_mode": "unknown",
+                "foreign_keys_enabled": False,
+                "table_counts": {}
+            }
     
     def get_red_flag(self, flag_id: int) -> Optional[RedFlag]:
         """Get a red flag by ID."""

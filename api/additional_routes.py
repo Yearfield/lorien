@@ -159,8 +159,9 @@ async def fill_triage_actions(
         # Extract path context
         root_label = request.get("root", "")
         nodes = request.get("nodes", [])
-        triage_style = request.get("triage_style", "clinical")
-        actions_style = request.get("actions_style", "practical")
+        triage_style = request.get("triage_style", "diagnosis-only")
+        actions_style = request.get("actions_style", "referral-only")
+        apply = request.get("apply", False)
         
         if not root_label or len(nodes) != 5:
             raise HTTPException(
@@ -168,15 +169,62 @@ async def fill_triage_actions(
                 detail="Invalid path context: root and exactly 5 nodes required"
             )
         
+        # Validate style values
+        valid_triage_styles = ["diagnosis-only", "referral-only"]
+        valid_actions_styles = ["diagnosis-only", "referral-only"]
+        
+        if triage_style not in valid_triage_styles:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid triage_style. Must be one of: {valid_triage_styles}"
+            )
+        
+        if actions_style not in valid_actions_styles:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid actions_style. Must be one of: {valid_actions_styles}"
+            )
+        
         # Mock LLM response for now (in real implementation, call actual LLM)
         # This is guidance-only and will be reviewed by user
-        diagnostic_triage = f"Based on the path {root_label} → {' → '.join(nodes)}, consider {triage_style} assessment."
-        actions = f"Recommended {actions_style} actions for this clinical scenario."
+        raw_diagnostic_triage = f"Based on the path {root_label} → {' → '.join(nodes)}, consider {triage_style} assessment."
+        raw_actions = f"Recommended {actions_style} actions for this clinical scenario."
+        
+        # Use new text utilities for word limits and validation
+        from core.text_utils import truncate_to_words, enforce_phrase_rules
+        
+        TRIAGE_MAX_WORDS = 7
+        ACTIONS_MAX_WORDS = 7
+        
+        # Truncate to word limits
+        diagnostic_triage = truncate_to_words(raw_diagnostic_triage, TRIAGE_MAX_WORDS)
+        actions = truncate_to_words(raw_actions, ACTIONS_MAX_WORDS)
+        
+        # Validate and clean using phrase rules
+        try:
+            diagnostic_triage = enforce_phrase_rules(diagnostic_triage, TRIAGE_MAX_WORDS)
+            actions = enforce_phrase_rules(actions, ACTIONS_MAX_WORDS)
+        except ValueError as e:
+            # If phrase rules fail, truncate and continue (guidance-only)
+            diagnostic_triage = truncate_to_words(diagnostic_triage, TRIAGE_MAX_WORDS)
+            actions = truncate_to_words(actions, ACTIONS_MAX_WORDS)
+        
+        # If apply is requested, enforce leaf-only upsert
+        if apply:
+            # PM contract: 422 with suggestions at TOP-LEVEL + error string
+            from fastapi.responses import JSONResponse
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "error": "Cannot apply triage/actions to non-leaf node",
+                    "diagnostic_triage": diagnostic_triage,
+                    "actions": actions,
+                },
+            )
         
         return {
             "diagnostic_triage": diagnostic_triage,
-            "actions": actions,
-            "note": "AI suggestions are guidance-only; dosing and diagnosis are refused. Review before saving."
+            "actions": actions
         }
         
     except HTTPException:
@@ -236,4 +284,218 @@ async def get_depth_anomalies(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get depth anomalies: {str(e)}"
+        )
+
+
+@router.post("/backup")
+async def create_backup(
+    repo: SQLiteRepository = Depends(get_repository)
+):
+    """Create a backup of the database."""
+    try:
+        import subprocess
+        import os
+        from datetime import datetime
+        
+        # Get database path from repository
+        db_path = repo._db_path
+        if not os.path.exists(db_path):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Database file not found"
+            )
+        
+        # Create backup directory if it doesn't exist
+        backup_dir = os.path.join(os.path.dirname(db_path), "backups")
+        os.makedirs(backup_dir, exist_ok=True)
+        
+        # Generate backup filename with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_filename = f"lorien_backup_{timestamp}.db"
+        backup_path = os.path.join(backup_dir, backup_filename)
+        
+        # Copy database file
+        import shutil
+        shutil.copy2(db_path, backup_path)
+        
+        # Run integrity check
+        integrity_result = repo.check_integrity()
+        
+        return {
+            "ok": True,
+            "path": backup_path,
+            "integrity": integrity_result
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create backup: {str(e)}"
+        )
+
+
+@router.post("/restore")
+async def restore_backup(
+    repo: SQLiteRepository = Depends(get_repository)
+):
+    """Restore from the latest backup."""
+    try:
+        import subprocess
+        import os
+        from datetime import datetime
+        
+        # Get database path from repository
+        db_path = repo._db_path
+        backup_dir = os.path.join(os.path.dirname(db_path), "backups")
+        
+        if not os.path.exists(backup_dir):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No backup directory found"
+            )
+        
+        # Find latest backup file
+        backup_files = []
+        for file in os.listdir(backup_dir):
+            if file.startswith("lorien_backup_") and file.endswith(".db"):
+                backup_files.append(file)
+        
+        if not backup_files:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No backup files found"
+            )
+        
+        # Sort by timestamp and get latest
+        backup_files.sort(reverse=True)
+        latest_backup = backup_files[0]
+        backup_path = os.path.join(backup_dir, latest_backup)
+        
+        # Create a backup of current database before restore
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        current_backup = f"lorien_pre_restore_{timestamp}.db"
+        current_backup_path = os.path.join(backup_dir, current_backup)
+        
+        import shutil
+        shutil.copy2(db_path, current_backup_path)
+        
+        # Restore from backup
+        shutil.copy2(backup_path, db_path)
+        
+        # Run integrity check
+        integrity_result = repo.check_integrity()
+        
+        return {
+            "ok": True,
+            "path": backup_path,
+            "pre_restore_backup": current_backup_path,
+            "integrity": integrity_result
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to restore backup: {str(e)}"
+        )
+
+
+@router.get("/backup/status")
+async def get_backup_status(
+    repo: SQLiteRepository = Depends(get_repository)
+):
+    """Get backup status and available backups."""
+    try:
+        import os
+        
+        # Get database path from repository
+        db_path = repo._db_path
+        backup_dir = os.path.join(os.path.dirname(db_path), "backups")
+        
+        if not os.path.exists(backup_dir):
+            return {
+                "backup_directory": backup_dir,
+                "exists": False,
+                "backups": []
+            }
+        
+        # List available backups
+        backup_files = []
+        for file in os.listdir(backup_dir):
+            if file.startswith("lorien_backup_") and file.endswith(".db"):
+                file_path = os.path.join(backup_dir, file)
+                stat = os.stat(file_path)
+                backup_files.append({
+                    "filename": file,
+                    "path": file_path,
+                    "size_bytes": stat.st_size,
+                    "created": datetime.fromtimestamp(stat.st_ctime).isoformat(),
+                    "modified": datetime.fromtimestamp(stat.st_mtime).isoformat()
+                })
+        
+        # Sort by creation time (newest first)
+        backup_files.sort(key=lambda x: x["created"], reverse=True)
+        
+        return {
+            "backup_directory": backup_dir,
+            "exists": True,
+            "backups": backup_files,
+            "total_backups": len(backup_files)
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get backup status: {str(e)}"
+        )
+
+
+@router.get("/flags/preview-assign")
+async def preview_flag_assignment(
+    node_id: int = Query(..., description="Node ID to assign flag to"),
+    flag_id: int = Query(..., description="Red flag ID to assign"),
+    cascade: bool = Query(False, description="Whether to cascade to descendants"),
+    repo: SQLiteRepository = Depends(get_repository)
+):
+    """Preview the effect of assigning a red flag to a node."""
+    try:
+        # Validate that the node exists
+        node = repo.get_node(node_id)
+        if not node:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Node with ID {node_id} not found"
+            )
+        
+        # Validate that the flag exists
+        flags = repo.search_red_flags_by_id(flag_id)
+        if not flags:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Red flag with ID {flag_id} not found"
+            )
+        
+        flag = flags[0]
+        
+        # Calculate affected nodes
+        if cascade:
+            # Get all descendants using recursive CTE
+            descendants = repo.get_descendant_nodes(node_id)
+            nodes_to_process = [node_id] + descendants
+        else:
+            nodes_to_process = [node_id]
+        
+        # Return preview (truncate to first 200 for UI)
+        preview_nodes = nodes_to_process[:200]
+        
+        return {
+            "flag_name": flag.name,
+            "node_id": node_id,
+            "cascade": cascade,
+            "count": len(nodes_to_process),
+            "nodes": preview_nodes if len(nodes_to_process) <= 200 else None,
+            "truncated": len(nodes_to_process) > 200
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to preview flag assignment: {str(e)}"
         )

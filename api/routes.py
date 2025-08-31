@@ -208,14 +208,35 @@ async def insert_child(
 async def search_triage(
     leaf_only: bool = Query(True, description="Only return leaf nodes"),
     query: Optional[str] = Query(None, description="Search in triage/actions"),
+    vm: Optional[str] = Query(None, description="Filter by Vital Measurement"),
+    sort: Optional[str] = Query("updated_at:desc", description="Sort order (e.g., updated_at:desc)"),
+    limit: Optional[int] = Query(100, ge=1, le=1000, description="Maximum number of results"),
     repo: SQLiteRepository = Depends(get_repository)
 ):
     """Search triage records with optional filtering."""
-    results = repo.search_triage_records(leaf_only=leaf_only, query=query)
+    results = repo.search_triage_records(
+        leaf_only=leaf_only, 
+        query=query, 
+        vm=vm,
+        sort=sort,
+        limit=limit
+    )
+    
+    # Handle both list and dict responses from repository
+    if isinstance(results, dict) and "results" in results:
+        items = results["results"]
+        total_count = results.get("total_count", len(items))
+    else:
+        items = results
+        total_count = len(results)
+    
     return {
-        "results": results,
-        "total_count": len(results),
-        "leaf_only": leaf_only
+        "items": items,
+        "total_count": total_count,
+        "leaf_only": leaf_only,
+        "vm": vm,
+        "sort": sort,
+        "limit": limit
     }
 
 
@@ -257,6 +278,9 @@ async def update_triage(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Triage can only be updated for leaf nodes"
         )
+    
+    # Pydantic validators handle word caps, regex, and phrase rules
+    # If validation fails, FastAPI returns 422 with Pydantic detail array
     
     # Update triage
     success = repo.update_triage(node_id, triage_data.diagnostic_triage, triage_data.actions)

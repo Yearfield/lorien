@@ -29,6 +29,33 @@ CSV_HEADERS = [
     "Actions"
 ]
 
+# Alias for backward compatibility
+CANON_HEADERS = CSV_HEADERS
+
 # Tree Constraints
 MAX_CHILDREN_PER_PARENT = 5
 MAX_TREE_DEPTH = 5
+
+# Tree Depth Constants
+ROOT_DEPTH = 0
+MAX_DEPTH = 5
+LEAF_DEPTH = 5
+
+# Slot Constants
+ROOT_SLOT = 0
+MIN_CHILD_SLOT = 1
+MAX_CHILD_SLOT = 5
+
+# Import/Export Strategies
+STRATEGY_PLACEHOLDER = "placeholder"
+STRATEGY_PRUNE = "prune"
+
+# Placeholder Text
+PLACEHOLDER_TEXT = "[Empty]"
+
+# Exit Codes
+EXIT_SUCCESS = 0
+EXIT_VALIDATION_ERROR = 1
+EXIT_IMPORT_ERROR = 2
+EXIT_EXPORT_ERROR = 3
+EXIT_SYSTEM_ERROR = 4

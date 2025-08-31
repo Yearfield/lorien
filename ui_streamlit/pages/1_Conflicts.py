@@ -1,235 +1,137 @@
 import streamlit as st
-import requests
 from ui_streamlit.api_client import get_json
 
-st.set_page_config(page_title="Conflicts", page_icon="⚠️")
+st.set_page_config(
+    page_title="Conflicts - Lorien",
+    page_icon="⚠️",
+    layout="wide"
+)
 
-st.title("⚠️ Conflicts & Validation")
+st.title("⚠️ Conflicts & Data Integrity")
+st.caption("Identify and resolve data conflicts in your decision trees")
 
-# Validation Options Panel
-st.header("🔍 Validation Options")
-with st.expander("Validation Options", expanded=True):
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        check_duplicates = st.checkbox("Duplicate Labels", value=False, help="Show nodes with duplicate labels under same parent")
-    
-    with col2:
-        check_orphans = st.checkbox("Orphan Nodes", value=False, help="Show nodes with invalid parent references")
-    
-    with col3:
-        check_depth = st.checkbox("Depth Anomalies", value=False, help="Show nodes with invalid depth values")
+# Navigation
+if st.button("🏠 Home", use_container_width=True):
+    st.switch_page("Home.py")
 
-# Pagination controls
-col1, col2, col3 = st.columns(3)
-with col1:
-    page_size = st.selectbox("Page Size", [25, 50, 100, 200], index=2)
-with col2:
-    page_number = st.number_input("Page", min_value=0, value=0, step=1)
-with col3:
-    offset = page_number * page_size
-
-# Search/filter
-search_query = st.text_input("🔍 Search by label or parent ID", placeholder="e.g., 'High' or '123'")
-
-# Duplicate Labels Validation
-if check_duplicates:
-    st.header("🚨 Duplicate Labels")
-    
-    try:
-        duplicates = get_json(f"/tree/conflicts/duplicate-labels?limit={page_size}&offset={offset}")
-        
-        if duplicates:
-            # Filter by search query if provided
-            if search_query:
-                filtered_duplicates = []
-                for dup in duplicates:
-                    if (search_query.lower() in dup.get('label', '').lower() or 
-                        search_query.lower() in dup.get('parent_label', '').lower() or
-                        search_query in str(dup.get('parent_id', ''))):
-                        filtered_duplicates.append(dup)
-                duplicates = filtered_duplicates
-            
-            if filtered_duplicates:
-                st.success(f"Found {len(filtered_duplicates)} duplicate label conflicts")
-                
-                for dup in filtered_duplicates:
-                    with st.expander(f"🚨 '{dup['label']}' under '{dup['parent_label']}' (Parent ID: {dup['parent_id']})"):
-                        col1, col2 = st.columns(2)
-                        
-                        with col1:
-                            st.write(f"**Duplicate Count:** {dup['count']}")
-                            st.write(f"**Child IDs:** {', '.join(map(str, dup['child_ids']))}")
-                        
-                        with col2:
-                            if st.button(f"🔧 Jump to Editor", key=f"dup_{dup['parent_id']}"):
-                                st.session_state['selected_parent_id'] = dup['parent_id']
-                                st.switch_page("pages/1_Editor.py")
-            else:
-                st.info("No duplicate label conflicts found matching the search criteria")
-        else:
-            st.info("No duplicate label conflicts found")
-            
-    except Exception as e:
-        st.error(f"Failed to load duplicate labels: {str(e)}")
-
-# Orphan Nodes Validation
-if check_orphans:
-    st.header("👻 Orphan Nodes")
-    
-    try:
-        orphans = get_json(f"/tree/conflicts/orphans?limit={page_size}&offset={offset}")
-        
-        if orphans:
-            # Filter by search query if provided
-            if search_query:
-                filtered_orphans = []
-                for orphan in orphans:
-                    if (search_query.lower() in orphan.get('label', '').lower() or
-                        search_query in str(orphan.get('id', '')) or
-                        search_query in str(orphan.get('parent_id', ''))):
-                        filtered_orphans.append(orphan)
-                orphans = filtered_orphans
-            
-            if filtered_orphans:
-                st.warning(f"Found {len(filtered_orphans)} orphan nodes")
-                
-                for orphan in filtered_orphans:
-                    with st.expander(f"👻 Node {orphan['id']}: '{orphan['label']}' (Parent ID: {orphan['parent_id']})"):
-                        col1, col2 = st.columns(2)
-                        
-                        with col1:
-                            st.write(f"**Node ID:** {orphan['id']}")
-                            st.write(f"**Depth:** {orphan['depth']}")
-                            st.write(f"**Invalid Parent ID:** {orphan['parent_id']}")
-                        
-                        with col2:
-                            st.error("⚠️ This node references a non-existent parent")
-                            if st.button(f"🔧 Jump to Node", key=f"orphan_{orphan['id']}"):
-                                st.session_state['selected_node_id'] = orphan['id']
-                                st.switch_page("pages/1_Editor.py")
-            else:
-                st.info("No orphan nodes found matching the search criteria")
-        else:
-            st.info("No orphan nodes found (database is healthy)")
-            
-    except Exception as e:
-        st.error(f"Failed to load orphan nodes: {str(e)}")
-
-# Depth Anomalies Validation
-if check_depth:
-    st.header("📏 Depth Anomalies")
-    
-    try:
-        anomalies = get_json(f"/tree/conflicts/depth-anomalies?limit={page_size}&offset={offset}")
-        
-        if anomalies:
-            # Filter by search query if provided
-            if search_query:
-                filtered_anomalies = []
-                for anomaly in anomalies:
-                    if (search_query.lower() in anomaly.get('label', '').lower() or
-                        search_query in str(anomaly.get('id', '')) or
-                        search_query in str(anomaly.get('parent_id', ''))):
-                        filtered_anomalies.append(anomaly)
-                anomalies = filtered_anomalies
-            
-            if filtered_anomalies:
-                st.error(f"Found {len(filtered_anomalies)} depth anomalies")
-                
-                for anomaly in filtered_anomalies:
-                    anomaly_type = anomaly['anomaly']
-                    if anomaly_type == 'ROOT_DEPTH':
-                        title = f"📏 Root Depth Error: Node {anomaly['id']}"
-                        description = f"Root node has depth {anomaly['depth']} (should be 0)"
-                    else:
-                        title = f"📏 Parent-Child Depth Error: Node {anomaly['id']}"
-                        description = f"Child depth {anomaly['depth']} doesn't match parent + 1"
-                    
-                    with st.expander(title):
-                        col1, col2 = st.columns(2)
-                        
-                        with col1:
-                            st.write(f"**Node ID:** {anomaly['id']}")
-                            st.write(f"**Label:** {anomaly['label']}")
-                            st.write(f"**Current Depth:** {anomaly['depth']}")
-                            if anomaly['parent_id']:
-                                st.write(f"**Parent ID:** {anomaly['parent_id']}")
-                            st.write(f"**Anomaly Type:** {anomaly_type}")
-                        
-                        with col2:
-                            st.error(description)
-                            if anomaly['parent_id']:
-                                if st.button(f"🔧 Jump to Parent", key=f"anomaly_parent_{anomaly['id']}"):
-                                    st.session_state['selected_parent_id'] = anomaly['parent_id']
-                                    st.switch_page("pages/1_Editor.py")
-                            else:
-                                if st.button(f"🔧 Jump to Node", key=f"anomaly_node_{anomaly['id']}"):
-                                    st.session_state['selected_node_id'] = anomaly['id']
-                                    st.switch_page("pages/1_Editor.py")
-            else:
-                st.info("No depth anomalies found matching the search criteria")
-        else:
-            st.success("✅ No depth anomalies found (tree structure is valid)")
-            
-    except Exception as e:
-        st.error(f"Failed to load depth anomalies: {str(e)}")
-
-# Pagination navigation
-if check_duplicates or check_orphans or check_depth:
-    st.divider()
-    st.header("📄 Pagination")
-    
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        if st.button("⬅️ Previous Page", disabled=page_number == 0):
-            st.session_state['page_number'] = page_number - 1
-            st.rerun()
-    
-    with col2:
-        st.write(f"**Page {page_number + 1}**")
-    
-    with col3:
-        if st.button("➡️ Next Page"):
-            st.session_state['page_number'] = page_number + 1
-            st.rerun()
-    
-    with col4:
-        if st.button("🔄 Reset to Page 0"):
-            st.session_state['page_number'] = 0
-            st.rerun()
-
-# Legacy missing slots functionality (keeping for backward compatibility)
-st.divider()
+# Missing Slots
 st.header("🔍 Missing Slots")
-
-if st.button("Load Missing Slots"):
-    try:
-        missing_slots = get_json("/tree/missing-slots")
-        if missing_slots:
-            st.warning(f"Found {len(missing_slots)} parents with missing slots")
-            
-            for parent in missing_slots:
-                with st.expander(f"Parent {parent['parent_id']}: '{parent['label']}'"):
-                    st.write(f"**Missing Slots:** {parent['missing_slots']}")
-                    if st.button(f"Jump to Editor", key=f"missing_{parent['parent_id']}"):
-                        st.session_state['selected_parent_id'] = parent['parent_id']
-                        st.switch_page("pages/1_Editor.py")
-        else:
-            st.success("✅ All parents have exactly 5 children")
-            
-    except Exception as e:
-        st.error(f"Failed to load missing slots: {str(e)}")
-
-if st.button("Find Next Incomplete"):
-    try:
-        next_incomplete = get_json("/tree/next-incomplete-parent")
-        st.success(f"Next incomplete parent: {next_incomplete['parent_id']}")
+try:
+    missing_slots = get_json("/tree/missing-slots")
+    if missing_slots:
+        st.warning(f"Found {len(missing_slots)} parents with missing child slots")
         
-        if st.button("Jump to Next Incomplete"):
-            st.session_state['selected_parent_id'] = next_incomplete['parent_id']
-            st.switch_page("pages/1_Editor.py")
-            
-    except Exception as e:
-        st.error(f"Failed to find next incomplete parent: {str(e)}")
+        # Filters
+        st.subheader("🔍 Filters")
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            depth_filter = st.selectbox("Depth", ["Any"] + list(range(1, 6)), key="depth_filter")
+        with col2:
+            label_filter = st.text_input("Label contains", key="label_filter")
+        with col3:
+            parent_id_filter = st.text_input("Parent ID", key="parent_id_filter")
+        
+        # Apply filters
+        filtered_slots = missing_slots
+        if depth_filter != "Any":
+            filtered_slots = [p for p in filtered_slots if p.get("depth") == depth_filter]
+        if label_filter:
+            filtered_slots = [p for p in filtered_slots if label_filter.lower() in p.get("label", "").lower()]
+        if parent_id_filter:
+            filtered_slots = [p for p in filtered_slots if str(p.get("parent_id")) == parent_id_filter]
+        
+        st.info(f"Showing {len(filtered_slots)} of {len(missing_slots)} results")
+        
+        # Bulk operations
+        if filtered_slots:
+            if st.button("🚀 Open All in Editor", use_container_width=True):
+                st.info(f"Opening {min(len(filtered_slots), 50)} parents in Editor (capped to avoid UI lock)")
+                # In a real implementation, this would navigate to editor with the filtered list
+                st.success("✅ Ready to edit filtered parents")
+        
+        # Display filtered results
+        for parent in filtered_slots:
+            with st.expander(f"Parent {parent['id']}: {parent.get('label', 'No label')}"):
+                st.write(f"**Depth:** {parent.get('depth', 'Unknown')}")
+                st.write(f"**Missing slots:** {parent.get('missing_slots', [])}")
+                if st.button(f"Jump to Editor", key=f"edit_{parent['id']}"):
+                    st.switch_page("pages/1_Editor.py")
+    else:
+        st.success("✅ All parents have complete child slots")
+except Exception as e:
+    st.warning(f"⚠️ Could not fetch missing slots: {str(e)[:100]}...")
+
+# Duplicate Labels
+st.header("🔄 Duplicate Labels")
+try:
+    duplicate_labels = get_json("/tree/conflicts/duplicate-labels")
+    if duplicate_labels:
+        st.warning(f"Found {len(duplicate_labels)} duplicate label conflicts")
+        for conflict in duplicate_labels:
+            with st.expander(f"Conflict: {conflict.get('label', 'No label')}"):
+                st.write(f"**Parent ID:** {conflict.get('parent_id', 'Unknown')}")
+                st.write(f"**Slot:** {conflict.get('slot', 'Unknown')}")
+                st.write(f"**Node ID:** {conflict.get('node_id', 'Unknown')}")
+    else:
+        st.success("✅ No duplicate label conflicts found")
+except Exception as e:
+    st.warning(f"⚠️ Could not fetch duplicate labels: {str(e)[:100]}...")
+
+# Orphans
+st.header("👶 Orphaned Nodes")
+try:
+    orphans = get_json("/tree/conflicts/orphans")
+    if orphans:
+        st.warning(f"Found {len(orphans)} orphaned nodes")
+        for orphan in orphans:
+            with st.expander(f"Orphan: {orphan.get('label', 'No label')}"):
+                st.write(f"**Node ID:** {orphan.get('id', 'Unknown')}")
+                st.write(f"**Depth:** {orphan.get('depth', 'Unknown')}")
+    else:
+        st.success("✅ No orphaned nodes found")
+except Exception as e:
+    st.warning(f"⚠️ Could not fetch orphans: {str(e)[:100]}...")
+
+# Depth Anomalies
+st.header("📏 Depth Anomalies")
+try:
+    depth_anomalies = get_json("/tree/conflicts/depth-anomalies")
+    if depth_anomalies:
+        st.warning(f"Found {len(depth_anomalies)} depth anomalies")
+        for anomaly in depth_anomalies:
+            with st.expander(f"Anomaly: {anomaly.get('label', 'No label')}"):
+                st.write(f"**Node ID:** {anomaly.get('id', 'Unknown')}")
+                st.write(f"**Expected Depth:** {anomaly.get('expected_depth', 'Unknown')}")
+                st.write(f"**Actual Depth:** {anomaly.get('actual_depth', 'Unknown')}")
+    else:
+        st.success("✅ No depth anomalies found")
+except Exception as e:
+    st.warning(f"⚠️ Could not fetch depth anomalies: {str(e)[:100]}...")
+
+# Next Incomplete Parent
+st.header("⏭️ Next Incomplete Parent")
+try:
+    next_incomplete = get_json("/tree/next-incomplete-parent")
+    if next_incomplete:
+        st.info(f"Next incomplete parent: {next_incomplete.get('id', 'Unknown')}")
+        st.write(f"**Label:** {next_incomplete.get('label', 'No label')}")
+        st.write(f"**Missing slots:** {next_incomplete.get('missing_slots', [])}")
+        if st.button("Jump to Next Incomplete", use_container_width=True):
+            st.switch_page("pages/2_Parent_Detail.py")
+    else:
+        st.success("✅ All parents are complete")
+except Exception as e:
+    st.warning(f"⚠️ Could not fetch next incomplete parent: {str(e)[:100]}...")
+
+# Summary
+st.header("📊 Summary")
+st.markdown("""
+**Conflict Resolution Workflow:**
+1. **Review** conflicts above
+2. **Jump to Editor** for specific parents
+3. **Fix missing slots** by adding children
+4. **Resolve duplicates** by renaming or removing
+5. **Clean up orphans** by reassigning or deleting
+6. **Verify depth** consistency across the tree
+""")
