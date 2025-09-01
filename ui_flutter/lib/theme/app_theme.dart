@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
-  static const Color primaryColor = Color(0xFF2196F3);
+  static const Color _seed = Color(0xFF2E3B3D); // brand slate
+  static const Color primaryColor = _seed;
   static const Color secondaryColor = Color(0xFF03DAC6);
   static const Color errorColor = Color(0xFFB00020);
   
@@ -17,7 +18,7 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: primaryColor,
+        seedColor: _seed,
         brightness: Brightness.light,
       ),
       appBarTheme: const AppBarTheme(
@@ -53,7 +54,7 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: primaryColor,
+        seedColor: _seed,
         brightness: Brightness.dark,
       ),
       appBarTheme: const AppBarTheme(
