@@ -8,6 +8,7 @@ import '../../../core/util/error_mapper.dart';
 import '../../../shared/widgets/field_error_text.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/toasts.dart';
+import '../../../shared/widgets/route_guard.dart';
 
 class OutcomesDetailScreen extends ConsumerStatefulWidget {
   const OutcomesDetailScreen({super.key, required this.outcomeId});
@@ -79,29 +80,33 @@ class _S extends ConsumerState<OutcomesDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
-        if (!_dirty) return true;
-        final go = await showDialog<bool>(
-          context: context,
-          builder: (_) => AlertDialog(
-            title: const Text('Discard changes?'),
-            content: const Text('You have unsaved edits. Do you want to discard them?'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false), 
-                child: const Text('Stay')
-              ),
-              FilledButton(
-                onPressed: () => Navigator.of(context).pop(true), 
-                child: const Text('Discard')
-              ),
-            ],
-          ),
-        );
-        return go ?? false;
-      },
-      child: AppScaffold(
+    return RouteGuard(
+      // busy guard during save
+      isBusy: () => _saving,
+      confirmMessage: 'A save is in progress. Leave and cancel?',
+      child: WillPopScope(
+        onWillPop: () async {
+          if (!_dirty) return true;
+          final go = await showDialog<bool>(
+            context: context,
+            builder: (_) => AlertDialog(
+              title: const Text('Discard changes?'),
+              content: const Text('You have unsaved edits. Do you want to discard them?'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false), 
+                  child: const Text('Stay')
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(context).pop(true), 
+                  child: const Text('Discard')
+                ),
+              ],
+            ),
+          );
+          return go ?? false;
+        },
+        child: AppScaffold(
         title: 'Outcomes Detail',
         body: Form(
           key: _fKey,
@@ -161,6 +166,7 @@ class _S extends ConsumerState<OutcomesDetailScreen> {
                 : const Text('Save'),
           )
         ],
+        ),
       ),
     );
   }

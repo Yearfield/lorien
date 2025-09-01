@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'shortcuts_help.dart';
 
 class NavShortcuts extends StatelessWidget {
   const NavShortcuts({super.key, required this.child});
@@ -13,6 +14,7 @@ class NavShortcuts extends StatelessWidget {
         LogicalKeySet(LogicalKeyboardKey.escape): const _BackIntent(),
         LogicalKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.arrowLeft): const _BackIntent(),
         LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyH): const _HomeIntent(),
+        LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.slash): const _HelpIntent(),
       },
       child: Actions(
         actions: <Type, Action<Intent>>{
@@ -23,6 +25,10 @@ class NavShortcuts extends StatelessWidget {
           }),
           _HomeIntent: CallbackAction<_HomeIntent>(onInvoke: (i) {
             GoRouter.of(context).go('/');
+            return null;
+          }),
+          _HelpIntent: CallbackAction<_HelpIntent>(onInvoke: (i) {
+            showShortcutsHelp(context);
             return null;
           }),
         },
@@ -38,4 +44,8 @@ class _BackIntent extends Intent {
 
 class _HomeIntent extends Intent { 
   const _HomeIntent(); 
+}
+
+class _HelpIntent extends Intent { 
+  const _HelpIntent(); 
 }
