@@ -9,12 +9,15 @@ class _SlotsConverter implements JsonConverter<List<int>, Object?> {
   List<int> fromJson(Object? json) {
     if (json == null) return const <int>[];
     if (json is List) {
-      return json.map((e) {
-        if (e is int) return e;
-        if (e is num) return e.toInt();
-        if (e is String) return int.tryParse(e.trim()) ?? 0;
-        return 0;
-      }).where((v) => v > 0).toList();
+      return json
+          .map((e) {
+            if (e is int) return e;
+            if (e is num) return e.toInt();
+            if (e is String) return int.tryParse(e.trim()) ?? 0;
+            return 0;
+          })
+          .where((v) => v > 0)
+          .toList();
     }
     if (json is String) {
       return json
@@ -25,6 +28,7 @@ class _SlotsConverter implements JsonConverter<List<int>, Object?> {
     }
     return const <int>[];
   }
+
   @override
   Object toJson(List<int> object) => object; // encode back as JSON array
 }
@@ -33,7 +37,9 @@ class _SlotsConverter implements JsonConverter<List<int>, Object?> {
 class IncompleteParentDTO with _$IncompleteParentDTO {
   const factory IncompleteParentDTO({
     @JsonKey(name: 'parent_id') required int parentId,
-    @JsonKey(name: 'missing_slots') @_SlotsConverter() required List<int> missingSlots,
+    @JsonKey(name: 'missing_slots')
+    @_SlotsConverter()
+    required List<int> missingSlots,
   }) = _IncompleteParentDTO;
 
   factory IncompleteParentDTO.fromJson(Map<String, dynamic> json) =>

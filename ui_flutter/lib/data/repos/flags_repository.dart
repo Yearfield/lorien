@@ -54,16 +54,14 @@ class FlagsRepository {
         ApiPaths.flagsSearch,
         queryParameters: {'q': query},
       );
-      
+
       if (response.statusCode == 200) {
         final data = response.data as Map<String, dynamic>;
         final flagsList = data['flags'] as List;
-        
-        return flagsList
-            .map((flag) => RedFlagDTO.fromJson(flag))
-            .toList();
+
+        return flagsList.map((flag) => RedFlagDTO.fromJson(flag)).toList();
       }
-      
+
       throw Exception('Failed to search flags: ${response.statusCode}');
     } on DioException catch (e) {
       if (e.response?.statusCode == 400) {
@@ -80,20 +78,21 @@ class FlagsRepository {
         nodeId: nodeId,
         redFlagName: redFlagName,
       );
-      
+
       final response = await _apiClient.post(
         ApiPaths.flagsAssign,
         data: assignment.toJson(),
       );
-      
+
       if (response.statusCode == 200) {
         return; // Success
       }
-      
+
       throw Exception('Failed to assign flag: ${response.statusCode}');
     } on DioException catch (e) {
       if (e.response?.statusCode == 404) {
-        throw Exception('Red flag or node not found: ${e.response?.data?['detail']}');
+        throw Exception(
+            'Red flag or node not found: ${e.response?.data?['detail']}');
       }
       throw Exception('Network error: ${e.message}');
     }

@@ -81,12 +81,13 @@ class _RecentBranchAuditItem extends StatelessWidget {
       child: ListTile(
         title: Text(title),
         subtitle: Text('Last updated: ${_formatDate(date)}'),
-        trailing: flagCount > 0 
-          ? Chip(
-              label: Text('$flagCount flags'),
-              backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
-            )
-          : null,
+        trailing: flagCount > 0
+            ? Chip(
+                label: Text('$flagCount flags'),
+                backgroundColor:
+                    Theme.of(context).colorScheme.secondaryContainer,
+              )
+            : null,
       ),
     );
   }

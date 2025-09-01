@@ -5,7 +5,7 @@ import '../utils/env.dart';
 class ApiClient {
   late final Dio _dio;
   late final String baseUrl;
-  
+
   ApiClient() {
     baseUrl = resolveApiBaseUrl();
     _dio = Dio(BaseOptions(
@@ -20,7 +20,7 @@ class ApiClient {
     ));
     _setupInterceptors();
   }
-  
+
   void _setupInterceptors() {
     // Add pretty logger for development
     _dio.interceptors.add(
@@ -34,13 +34,14 @@ class ApiClient {
         maxWidth: 90,
       ),
     );
-    
+
     // Add error interceptor
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) {
           // Light logging with safe print of fully-resolved URL
-          final url = Uri.parse(options.baseUrl).resolve(options.path).toString();
+          final url =
+              Uri.parse(options.baseUrl).resolve(options.path).toString();
           // ignore: avoid_print
           print('[ApiClient] ${options.method} $url');
           handler.next(options);
@@ -53,7 +54,7 @@ class ApiClient {
       ),
     );
   }
-  
+
   void setBaseUrl(String baseUrl) {
     this.baseUrl = baseUrl;
     _dio.options.baseUrl = baseUrl;
@@ -61,9 +62,9 @@ class ApiClient {
     // ignore: avoid_print
     print('[ApiClient] baseUrl=${_dio.options.baseUrl}');
   }
-  
+
   Dio get dio => _dio;
-  
+
   /// Join a resource path to base URL. Enforces no leading slash and forbids embedding `/api/v1`.
   String _join(String path) {
     var p = path.trim();
@@ -92,7 +93,7 @@ class ApiClient {
       throw _normalizeDioError(e);
     }
   }
-  
+
   Future<Response<T>> post<T>(
     String resource, {
     dynamic data,
@@ -111,7 +112,7 @@ class ApiClient {
       throw _normalizeDioError(e);
     }
   }
-  
+
   Future<Response<T>> put<T>(
     String resource, {
     dynamic data,
@@ -130,7 +131,7 @@ class ApiClient {
       throw _normalizeDioError(e);
     }
   }
-  
+
   Future<Response<T>> delete<T>(
     String resource, {
     dynamic data,

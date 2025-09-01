@@ -10,7 +10,7 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final connectionStatus = ref.watch(connectionStatusProvider);
-    
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Decision Tree Manager'),
@@ -45,13 +45,18 @@ class HomeScreen extends ConsumerWidget {
                               children: [
                                 Text(
                                   'Connection Status',
-                                  style: Theme.of(context).textTheme.titleMedium,
+                                  style:
+                                      Theme.of(context).textTheme.titleMedium,
                                 ),
                                 Text(
                                   _getStatusText(connectionStatus),
-                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    color: _getStatusColor(connectionStatus),
-                                  ),
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodyMedium
+                                      ?.copyWith(
+                                        color:
+                                            _getStatusColor(connectionStatus),
+                                      ),
                                 ),
                               ],
                             ),
@@ -65,16 +70,16 @@ class HomeScreen extends ConsumerWidget {
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 24),
-                  
+
                   // Quick Actions
                   Text(
                     'Quick Actions',
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
                   const SizedBox(height: 16),
-                  
+
                   Expanded(
                     child: GridView.count(
                       crossAxisCount: 2,
@@ -128,7 +133,7 @@ class HomeScreen extends ConsumerWidget {
   Widget _buildStatusIcon(ConnectionStatus status) {
     IconData icon;
     Color color;
-    
+
     switch (status) {
       case ConnectionStatus.connected:
         icon = Icons.check_circle;
@@ -147,7 +152,7 @@ class HomeScreen extends ConsumerWidget {
         color = Colors.grey;
         break;
     }
-    
+
     return Icon(icon, color: color, size: 32);
   }
 
@@ -203,16 +208,16 @@ class HomeScreen extends ConsumerWidget {
               Text(
                 title,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+                      fontWeight: FontWeight.bold,
+                    ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
               Text(
                 description,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.grey[600],
-                ),
+                      color: Colors.grey[600],
+                    ),
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,

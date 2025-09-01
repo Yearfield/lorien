@@ -9,7 +9,7 @@ import 'outcomes_detail_screen.dart';
 
 class OutcomesListScreen extends StatefulWidget {
   final bool llmEnabled;
-  
+
   const OutcomesListScreen({super.key, required this.llmEnabled});
 
   @override
@@ -20,7 +20,7 @@ class _OutcomesListScreenState extends State<OutcomesListScreen> {
   late final Dio _dio;
   late TriageRepository _repo;
   late TelemetryClient _telemetry;
-  
+
   final TextEditingController _searchController = TextEditingController();
   String _selectedVm = '';
   List<TriageLeaf> _leaves = [];
@@ -42,7 +42,9 @@ class _OutcomesListScreenState extends State<OutcomesListScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final base = context.read<SettingsProvider>().baseUrl;
-    final analytics = const String.fromEnvironment('ANALYTICS_ENABLED', defaultValue: 'false') == 'true';
+    final analytics = const String.fromEnvironment('ANALYTICS_ENABLED',
+            defaultValue: 'false') ==
+        'true';
     _dio = Dio();
     _repo = TriageRepository(dio: _dio, baseUrl: base);
     _telemetry = TelemetryClient(dio: _dio, baseUrl: base, enabled: analytics);
@@ -57,7 +59,10 @@ class _OutcomesListScreenState extends State<OutcomesListScreen> {
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200 && _hasMore && !_loading) {
+    if (_scrollController.position.pixels >=
+            _scrollController.position.maxScrollExtent - 200 &&
+        _hasMore &&
+        !_loading) {
       _currentPage++;
       _search();
     }
@@ -87,39 +92,69 @@ class _OutcomesListScreenState extends State<OutcomesListScreen> {
     ].join(' ').trim();
   }
 
-  @override Widget build(BuildContext context) {
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Outcomes')),
       body: Column(
         children: [
-          _SearchBar(vmFilter: _selectedVm, onVmChanged: (v){ setState(()=>_selectedVm=v); _search(); }, controller:_searchController, onSubmit: ()=>_search()),
-          Padding(padding: const EdgeInsets.all(8), child: Align(alignment: Alignment.centerLeft, child: Text('$_totalCount results', style: Theme.of(context).textTheme.labelMedium))),
+          _SearchBar(
+              vmFilter: _selectedVm,
+              onVmChanged: (v) {
+                setState(() => _selectedVm = v);
+                _search();
+              },
+              controller: _searchController,
+              onSubmit: () => _search()),
+          Padding(
+              padding: const EdgeInsets.all(8),
+              child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('$_totalCount results',
+                      style: Theme.of(context).textTheme.labelMedium))),
           Expanded(
             child: _leaves.isEmpty && !_loading
-              ? Center(child: Text('No leaves found — import a workbook or complete parents first.'))
-              : NotificationListener<ScrollNotification>(
-                  onNotification: (n){
-                    if (n.metrics.pixels >= n.metrics.maxScrollExtent-200 && !_loading && _leaves.length < _totalCount){ _currentPage++; _search(); }
-                    return false;
-                  },
-                  child: ListView.builder(
-                    controller: _scrollController,
-                    itemCount: _leaves.length + (_loading?1:0),
-                    itemBuilder: (c,i){
-                      if (i >= _leaves.length) return const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator()));
-                      final it = _leaves[i];
-                      return ListTile(
-                        title: Text(it.vitalMeasurement),
-                        subtitle: Text('${it.path}\nTriage: ${it.diagnosticTriage}\nActions: ${it.actions}', maxLines: 3, overflow: TextOverflow.ellipsis),
-                        isThreeLine: true,
-                        onTap: (){
-                          _telemetry.event('outcomes_open_detail');
-                          Navigator.of(context).push(MaterialPageRoute(builder: (_) => OutcomesDetailScreen(nodeId: it.nodeId, llmEnabled: widget.llmEnabled)));
-                        },
-                      );
+                ? Center(
+                    child: Text(
+                        'No leaves found — import a workbook or complete parents first.'))
+                : NotificationListener<ScrollNotification>(
+                    onNotification: (n) {
+                      if (n.metrics.pixels >= n.metrics.maxScrollExtent - 200 &&
+                          !_loading &&
+                          _leaves.length < _totalCount) {
+                        _currentPage++;
+                        _search();
+                      }
+                      return false;
                     },
+                    child: ListView.builder(
+                      controller: _scrollController,
+                      itemCount: _leaves.length + (_loading ? 1 : 0),
+                      itemBuilder: (c, i) {
+                        if (i >= _leaves.length)
+                          return const Padding(
+                              padding: EdgeInsets.all(16),
+                              child:
+                                  Center(child: CircularProgressIndicator()));
+                        final it = _leaves[i];
+                        return ListTile(
+                          title: Text(it.vitalMeasurement),
+                          subtitle: Text(
+                              '${it.path}\nTriage: ${it.diagnosticTriage}\nActions: ${it.actions}',
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis),
+                          isThreeLine: true,
+                          onTap: () {
+                            _telemetry.event('outcomes_open_detail');
+                            Navigator.of(context).push(MaterialPageRoute(
+                                builder: (_) => OutcomesDetailScreen(
+                                    nodeId: it.nodeId,
+                                    llmEnabled: widget.llmEnabled)));
+                          },
+                        );
+                      },
+                    ),
                   ),
-                ),
           ),
         ],
       ),
@@ -132,14 +167,31 @@ class _SearchBar extends StatelessWidget {
   final void Function(String) onVmChanged;
   final TextEditingController controller;
   final VoidCallback onSubmit;
-  const _SearchBar({required this.vmFilter, required this.onVmChanged, required this.controller, required this.onSubmit});
-  @override Widget build(BuildContext context) {
+  const _SearchBar(
+      {required this.vmFilter,
+      required this.onVmChanged,
+      required this.controller,
+      required this.onSubmit});
+  @override
+  Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(8),
       child: Row(children: [
-        Expanded(child: TextField(controller: controller, decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Search (label/triage/actions)…'), onSubmitted: (_)=>onSubmit())),
-        const SizedBox(width:8),
-        SizedBox(width: 200, child: TextField(decoration: const InputDecoration(label: Text('Vital Measurement')), onSubmitted: (_)=>onSubmit(), onChanged: onVmChanged)),
+        Expanded(
+            child: TextField(
+                controller: controller,
+                decoration: const InputDecoration(
+                    prefixIcon: Icon(Icons.search),
+                    hintText: 'Search (label/triage/actions)…'),
+                onSubmitted: (_) => onSubmit())),
+        const SizedBox(width: 8),
+        SizedBox(
+            width: 200,
+            child: TextField(
+                decoration:
+                    const InputDecoration(label: Text('Vital Measurement')),
+                onSubmitted: (_) => onSubmit(),
+                onChanged: onVmChanged)),
       ]),
     );
   }

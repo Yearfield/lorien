@@ -6,13 +6,13 @@ import '../../widgets/layout/scroll_scaffold.dart';
 
 class AboutScreen extends ConsumerWidget {
   const AboutScreen({super.key});
-  
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final baseUrl = ApiClient().baseUrl;
     final health = ref.watch(healthControllerProvider).valueOrNull;
     final last = health?.lastPing;
-    
+
     return ScrollScaffold(
       title: 'About / Status',
       children: [

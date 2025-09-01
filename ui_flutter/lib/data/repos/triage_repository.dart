@@ -12,13 +12,13 @@ class TriageRepository {
   Future<TriageDTO?> getTriage(int nodeId) async {
     try {
       final response = await _apiClient.get(ApiPaths.triage(nodeId));
-      
+
       if (response.statusCode == 200) {
         return TriageDTO.fromJson(response.data);
       } else if (response.statusCode == 404) {
         return null; // No triage found for this node
       }
-      
+
       throw Exception('Failed to get triage: ${response.statusCode}');
     } on DioException catch (e) {
       if (e.response?.statusCode == 404) {
@@ -35,11 +35,11 @@ class TriageRepository {
         ApiPaths.triage(nodeId),
         data: triage.toJson(),
       );
-      
+
       if (response.statusCode == 200) {
         return; // Success
       }
-      
+
       throw Exception('Failed to update triage: ${response.statusCode}');
     } on DioException catch (e) {
       if (e.response?.statusCode == 400) {

@@ -38,7 +38,8 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
                     children: [
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed: _importStatus == 'idle' ? _pickExcelFile : null,
+                          onPressed:
+                              _importStatus == 'idle' ? _pickExcelFile : null,
                           icon: const Icon(Icons.file_upload),
                           label: const Text('Select Excel/CSV'),
                         ),
@@ -46,7 +47,8 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
                       const SizedBox(width: 16),
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed: _importStatus == 'idle' ? _pickCSVFile : null,
+                          onPressed:
+                              _importStatus == 'idle' ? _pickCSVFile : null,
                           icon: const Icon(Icons.file_upload),
                           label: const Text('Select CSV'),
                         ),
@@ -69,7 +71,8 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
                   children: [
                     const Text(
                       'Header Mismatches',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 16),
                     _buildHeaderMismatchTable(),
@@ -122,10 +125,10 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
     if (_importStatus == 'idle') {
       return const Text('No import in progress');
     }
-    
+
     String statusText;
     IconData statusIcon;
-    
+
     switch (_importStatus) {
       case 'queued':
         statusText = 'Queued for processing...';
@@ -143,7 +146,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
         statusText = 'Unknown status';
         statusIcon = Icons.help;
     }
-    
+
     return Row(
       children: [
         Icon(statusIcon),
@@ -162,13 +165,15 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
           DataColumn(label: Text('Expected')),
           DataColumn(label: Text('Got')),
         ],
-        rows: _headerMismatches.map((mismatch) => DataRow(
-          cells: [
-            DataCell(Text('${mismatch.position}')),
-            DataCell(Text(mismatch.expected)),
-            DataCell(Text(mismatch.got)),
-          ],
-        )).toList(),
+        rows: _headerMismatches
+            .map((mismatch) => DataRow(
+                  cells: [
+                    DataCell(Text('${mismatch.position}')),
+                    DataCell(Text(mismatch.expected)),
+                    DataCell(Text(mismatch.got)),
+                  ],
+                ))
+            .toList(),
       ),
     );
   }
@@ -188,9 +193,9 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
   Future<void> _simulateImport() async {
     await Future.delayed(const Duration(seconds: 1));
     setState(() => _importStatus = 'processing');
-    
+
     await Future.delayed(const Duration(seconds: 2));
-    
+
     setState(() {
       _importStatus = 'done';
       _headerMismatches = [
@@ -202,38 +207,34 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
 
   Future<void> _exportCSV() async {
     try {
-      final base = ref.read(baseUrlProvider);
-      await dio.get('$base/export/csv');
+      final dio = ref.read(dioProvider);
+      await dio.get('/export/csv');
       // TODO: Handle file download
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('CSV exported successfully'))
-        );
+            const SnackBar(content: Text('CSV exported successfully')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Export failed: $e'))
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Export failed: $e')));
       }
     }
   }
 
   Future<void> _exportXLSX() async {
     try {
-      final base = ref.read(baseUrlProvider);
-      await dio.get('$base/export/xlsx');
+      final dio = ref.read(dioProvider);
+      await dio.get('/export/xlsx');
       // TODO: Handle file download
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('XLSX exported successfully'))
-        );
+            const SnackBar(content: Text('XLSX exported successfully')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Export failed: $e'))
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Export failed: $e')));
       }
     }
   }

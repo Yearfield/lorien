@@ -2,7 +2,8 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../http/api_client.dart';
 
-final baseUrlProvider = StateProvider<String>((_) => 'http://127.0.0.1:8000/api/v1');
+final baseUrlProvider =
+    StateProvider<String>((_) => 'http://127.0.0.1:8000/api/v1');
 final lastPingProvider = StateProvider<DateTime?>((_) => null);
 final connectedProvider = StateProvider<bool>((_) => false);
 
@@ -24,7 +25,8 @@ class HealthService {
     final base = _ref.read(baseUrlProvider);
     final url = '$base/health';
     try {
-      final res = await dio.get(url);
+      final dio = _ref.read(dioProvider);
+      final res = await dio.get('/health');
       final raw = res.data.toString();
       final body = raw.length <= 100 ? raw : raw.substring(0, 100);
       final ok = res.statusCode == 200;

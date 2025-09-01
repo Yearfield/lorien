@@ -5,16 +5,16 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 class CsvExportButton extends StatelessWidget {
-  final Uri endpoint; // e.g., Uri.parse('$base/calc/export?vm=BP&n1=Pain&n2=Sharp...')
+  final Uri
+      endpoint; // e.g., Uri.parse('$base/calc/export?vm=BP&n1=Pain&n2=Sharp...')
   final String fileName;
   final String label;
-  
-  const CsvExportButton({
-    super.key, 
-    required this.endpoint, 
-    required this.fileName, 
-    required this.label
-  });
+
+  const CsvExportButton(
+      {super.key,
+      required this.endpoint,
+      required this.fileName,
+      required this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -38,7 +38,7 @@ class CsvExportButton extends StatelessWidget {
 
       // Download CSV data
       final response = await http.get(endpoint);
-      
+
       // Hide loading indicator
       Navigator.of(context).pop();
 
@@ -55,10 +55,8 @@ class CsvExportButton extends StatelessWidget {
       // Handle platform-specific export
       if (Platform.isAndroid || Platform.isIOS) {
         // Mobile: Open share sheet
-        await Share.shareXFiles(
-          [XFile(file.path)], 
-          text: 'Lorien CSV export: $fileName'
-        );
+        await Share.shareXFiles([XFile(file.path)],
+            text: 'Lorien CSV export: $fileName');
       } else {
         // Desktop: Show save location and save
         _showDesktopSaveDialog(context, file);

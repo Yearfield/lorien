@@ -66,16 +66,18 @@ class EditorScreen extends ConsumerWidget {
                             ),
                           );
                         }
-                        
+
                         return SizedBox(
                           width: double.infinity,
                           child: ElevatedButton.icon(
                             onPressed: () {
                               // Navigate to the next incomplete parent
-                              context.go('/editor/parent/${nextIncomplete.parentId}');
+                              context.go(
+                                  '/editor/parent/${nextIncomplete.parentId}');
                             },
                             icon: const Icon(Icons.arrow_forward),
-                            label: Text('Skip to Parent ${nextIncomplete.parentId} (Missing: ${nextIncomplete.missingSlots.join(', ')})'),
+                            label: Text(
+                                'Skip to Parent ${nextIncomplete.parentId} (Missing: ${nextIncomplete.missingSlots.join(', ')})'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.blue,
                               foregroundColor: Colors.white,
@@ -119,16 +121,16 @@ class EditorScreen extends ConsumerWidget {
                 ),
               ),
             ),
-            
+
             const SizedBox(height: 24),
-            
+
             // Parents list section
             Text(
               'Parents',
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 16),
-            
+
             Expanded(
               child: Card(
                 child: Padding(
@@ -147,7 +149,7 @@ class EditorScreen extends ConsumerWidget {
                         ],
                       ),
                       const SizedBox(height: 16),
-                      
+
                       // Placeholder for parents list
                       Expanded(
                         child: Center(
@@ -162,16 +164,22 @@ class EditorScreen extends ConsumerWidget {
                               const SizedBox(height: 16),
                               Text(
                                 'No parents found',
-                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  color: Colors.grey[600],
-                                ),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleMedium
+                                    ?.copyWith(
+                                      color: Colors.grey[600],
+                                    ),
                               ),
                               const SizedBox(height: 8),
                               Text(
                                 'Parents will appear here once data is loaded',
-                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: Colors.grey[500],
-                                ),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(
+                                      color: Colors.grey[500],
+                                    ),
                                 textAlign: TextAlign.center,
                               ),
                             ],

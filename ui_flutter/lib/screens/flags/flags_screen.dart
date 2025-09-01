@@ -38,7 +38,6 @@ class FlagsScreen extends ConsumerWidget {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    
                     TextField(
                       decoration: const InputDecoration(
                         labelText: 'Search flags',
@@ -54,16 +53,16 @@ class FlagsScreen extends ConsumerWidget {
                 ),
               ),
             ),
-            
+
             const SizedBox(height: 24),
-            
+
             // Results section
             Text(
               'Search Results',
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 16),
-            
+
             Expanded(
               child: Card(
                 child: Padding(
@@ -82,7 +81,7 @@ class FlagsScreen extends ConsumerWidget {
                         ],
                       ),
                       const SizedBox(height: 16),
-                      
+
                       // Placeholder for search results
                       Expanded(
                         child: Center(
@@ -97,16 +96,22 @@ class FlagsScreen extends ConsumerWidget {
                               const SizedBox(height: 16),
                               Text(
                                 'No flags found',
-                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  color: Colors.grey[600],
-                                ),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleMedium
+                                    ?.copyWith(
+                                      color: Colors.grey[600],
+                                    ),
                               ),
                               const SizedBox(height: 8),
                               Text(
                                 'Search for red flags to assign to nodes',
-                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: Colors.grey[500],
-                                ),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(
+                                      color: Colors.grey[500],
+                                    ),
                                 textAlign: TextAlign.center,
                               ),
                             ],

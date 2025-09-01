@@ -31,24 +31,28 @@ final calcRepositoryProvider = Provider<CalcRepository>((ref) {
 });
 
 // State Providers for Tree Operations
-final childrenProvider = FutureProvider.family<List<ChildSlotDTO>, int>((ref, parentId) async {
+final childrenProvider =
+    FutureProvider.family<List<ChildSlotDTO>, int>((ref, parentId) async {
   final repository = ref.watch(treeRepositoryProvider);
   return await repository.getChildren(parentId);
 });
 
-final nextIncompleteParentProvider = FutureProvider<IncompleteParentDTO?>((ref) async {
+final nextIncompleteParentProvider =
+    FutureProvider<IncompleteParentDTO?>((ref) async {
   final repository = ref.watch(treeRepositoryProvider);
   return await repository.getNextIncompleteParent();
 });
 
 // State Providers for Triage Operations
-final triageProvider = FutureProvider.family<TriageDTO?, int>((ref, nodeId) async {
+final triageProvider =
+    FutureProvider.family<TriageDTO?, int>((ref, nodeId) async {
   final repository = ref.watch(triageRepositoryProvider);
   return await repository.getTriage(nodeId);
 });
 
 // State Providers for Flags Operations
-final flagsSearchProvider = FutureProvider.family<List<RedFlagDTO>, String>((ref, query) async {
+final flagsSearchProvider =
+    FutureProvider.family<List<RedFlagDTO>, String>((ref, query) async {
   final repository = ref.watch(flagsRepositoryProvider);
   return await repository.searchFlags(query);
 });

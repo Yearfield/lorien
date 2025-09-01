@@ -29,7 +29,8 @@ class ScrollScaffold extends StatelessWidget {
           : SafeArea(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                child: Row(children: _withGaps(actions, const SizedBox(width: 8))),
+                child:
+                    Row(children: _withGaps(actions, const SizedBox(width: 8))),
               ),
             ),
     );

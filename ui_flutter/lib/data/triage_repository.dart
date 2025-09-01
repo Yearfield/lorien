@@ -21,10 +21,10 @@ class TriageRepository {
       if (sort != null) 'sort': sort,
       if (limit != null) 'limit': limit.toString(),
     });
-    
+
     final items = (resp.data['items'] ?? resp.data) as List;
     final total = (resp.data['total_count'] ?? items.length) as int;
-    
+
     return (items.map((j) => TriageLeaf.fromJson(j)).toList(), total);
   }
 
@@ -54,8 +54,10 @@ class TriageRepository {
     }
   }
 
-  Future<(String triage, String actions)> llmFill(LlmFillRequest request) async {
-    final resp = await dio.post('$baseUrl/llm/fill-triage-actions', data: request.toJson());
+  Future<(String triage, String actions)> llmFill(
+      LlmFillRequest request) async {
+    final resp = await dio.post('$baseUrl/llm/fill-triage-actions',
+        data: request.toJson());
     final triage = (resp.data['diagnostic_triage'] ?? '') as String;
     final actions = (resp.data['actions'] ?? '') as String;
     return (triage, actions);
@@ -63,15 +65,15 @@ class TriageRepository {
 
   Future<(String triage, String actions)?> copyFromLastVm(String vm) async {
     final resp = await dio.get('$baseUrl/triage/search', queryParameters: {
-      'vm': vm, 
-      'leaf_only': 'true', 
-      'sort': 'updated_at:desc', 
+      'vm': vm,
+      'leaf_only': 'true',
+      'sort': 'updated_at:desc',
       'limit': 1
     });
-    
+
     final items = (resp.data['items'] ?? resp.data) as List;
     if (items.isEmpty) return null;
-    
+
     final j = items.first as Map<String, dynamic>;
     final triage = (j['diagnostic_triage'] ?? '') as String;
     final actions = (j['actions'] ?? '') as String;

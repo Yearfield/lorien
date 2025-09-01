@@ -35,7 +35,8 @@ class WorkspaceScreen extends ConsumerWidget {
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.health_and_safety, color: Colors.green),
+                          const Icon(Icons.health_and_safety,
+                              color: Colors.green),
                           const SizedBox(width: 8),
                           Text(
                             'System Health',
@@ -44,22 +45,39 @@ class WorkspaceScreen extends ConsumerWidget {
                         ],
                       ),
                       const SizedBox(height: 16),
-                      
                       Consumer(
                         builder: (context, ref, child) {
                           final healthAsync = ref.watch(healthProvider);
-                          
+
                           return healthAsync.when(
                             data: (health) {
                               return Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  _buildHealthRow('Status', health['ok'] == true ? 'Healthy' : 'Unhealthy'),
-                                  _buildHealthRow('Version', health['version'] ?? 'Unknown'),
-                                  _buildHealthRow('Database', health['db']?['path'] ?? 'Unknown'),
-                                  _buildHealthRow('WAL Mode', health['db']?['wal'] == true ? 'Enabled' : 'Disabled'),
-                                  _buildHealthRow('Foreign Keys', health['db']?['foreign_keys'] == true ? 'Enabled' : 'Disabled'),
-                                  _buildHealthRow('LLM Feature', health['features']?['llm'] == true ? 'Enabled' : 'Disabled'),
+                                  _buildHealthRow(
+                                      'Status',
+                                      health['ok'] == true
+                                          ? 'Healthy'
+                                          : 'Unhealthy'),
+                                  _buildHealthRow('Version',
+                                      health['version'] ?? 'Unknown'),
+                                  _buildHealthRow('Database',
+                                      health['db']?['path'] ?? 'Unknown'),
+                                  _buildHealthRow(
+                                      'WAL Mode',
+                                      health['db']?['wal'] == true
+                                          ? 'Enabled'
+                                          : 'Disabled'),
+                                  _buildHealthRow(
+                                      'Foreign Keys',
+                                      health['db']?['foreign_keys'] == true
+                                          ? 'Enabled'
+                                          : 'Disabled'),
+                                  _buildHealthRow(
+                                      'LLM Feature',
+                                      health['features']?['llm'] == true
+                                          ? 'Enabled'
+                                          : 'Disabled'),
                                 ],
                               );
                             },
@@ -96,9 +114,9 @@ class WorkspaceScreen extends ConsumerWidget {
                   ),
                 ),
               ),
-              
+
               const SizedBox(height: 24),
-              
+
               // Export Section
               if (settings.apiBaseUrl.isNotEmpty) ...[
                 ExportButtons(baseUrl: settings.apiBaseUrl),
@@ -115,18 +133,22 @@ class WorkspaceScreen extends ConsumerWidget {
                             const SizedBox(width: 8),
                             Text(
                               'Export Unavailable',
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                color: Colors.orange[800],
-                              ),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(
+                                    color: Colors.orange[800],
+                                  ),
                             ),
                           ],
                         ),
                         const SizedBox(height: 8),
                         Text(
                           'Please set the API base URL in Settings to enable export functionality.',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Colors.orange[700],
-                          ),
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: Colors.orange[700],
+                                  ),
                         ),
                         const SizedBox(height: 12),
                         ElevatedButton.icon(
@@ -139,9 +161,9 @@ class WorkspaceScreen extends ConsumerWidget {
                   ),
                 ),
               ],
-              
+
               const SizedBox(height: 24),
-              
+
               // Quick Actions Section
               Card(
                 child: Padding(
@@ -160,7 +182,6 @@ class WorkspaceScreen extends ConsumerWidget {
                         ],
                       ),
                       const SizedBox(height: 16),
-                      
                       Row(
                         children: [
                           Expanded(
@@ -188,9 +209,7 @@ class WorkspaceScreen extends ConsumerWidget {
                           ),
                         ],
                       ),
-                      
                       const SizedBox(height: 12),
-                      
                       Row(
                         children: [
                           Expanded(
@@ -231,7 +250,7 @@ class WorkspaceScreen extends ConsumerWidget {
 
   Widget _buildHealthRow(String label, String value) {
     final isHealthy = value == 'Healthy' || value == 'Enabled';
-    
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(

@@ -53,11 +53,11 @@ class TreeRepository {
         ApiPaths.treeUpsertChildren(parentId),
         data: dto.toJson(),
       );
-      
+
       if (response.statusCode == 200) {
         return response.data as Map<String, dynamic>;
       }
-      
+
       throw Exception('Failed to upsert children: ${response.statusCode}');
     } on DioException catch (e) {
       if (e.response?.statusCode == 400) {
@@ -91,9 +91,16 @@ class TreeRepository {
           final slots = map['missing_slots'] ?? map['missingSlots'];
           List<int> missing;
           if (slots is List) {
-            missing = slots.map((e) => e is int ? e : int.tryParse('$e') ?? 0).where((x) => x > 0).toList();
+            missing = slots
+                .map((e) => e is int ? e : int.tryParse('$e') ?? 0)
+                .where((x) => x > 0)
+                .toList();
           } else if (slots is String) {
-            missing = slots.split(',').map((s) => int.tryParse(s.trim()) ?? 0).where((x) => x > 0).toList();
+            missing = slots
+                .split(',')
+                .map((s) => int.tryParse(s.trim()) ?? 0)
+                .where((x) => x > 0)
+                .toList();
           } else {
             missing = const <int>[];
           }

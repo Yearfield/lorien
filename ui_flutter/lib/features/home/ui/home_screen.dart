@@ -42,6 +42,11 @@ class HomeScreen extends StatelessWidget {
               icon: Icons.work,
               onTap: () => context.go('/workspace'),
             ),
+            _NavigationTile(
+              title: 'About',
+              icon: Icons.info,
+              onTap: () => context.go('/about'),
+            ),
           ],
         ),
       ),
@@ -78,7 +83,8 @@ class _NavigationTile extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 48, color: Theme.of(context).colorScheme.primary),
+              Icon(icon,
+                  size: 48, color: Theme.of(context).colorScheme.primary),
               const SizedBox(height: 8),
               Text(
                 title,

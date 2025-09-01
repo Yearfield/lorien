@@ -20,6 +20,9 @@ void main() {
       ),
     );
     
+    // Wait for async operations to complete
+    await tester.pumpAndSettle();
+    
     // Verify the screen loads
     expect(find.text('Outcomes Detail'), findsOneWidget);
     expect(find.text('Diagnostic Triage'), findsOneWidget);

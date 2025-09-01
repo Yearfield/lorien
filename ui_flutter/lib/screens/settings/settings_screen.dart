@@ -81,7 +81,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final baseUrl = _baseUrlController.text.trim();
     if (baseUrl.isNotEmpty) {
       await ref.read(apiBaseUrlProvider.notifier).setBaseUrl(baseUrl);
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -123,7 +123,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                     const SizedBox(height: 16),
-                    
+
                     TextField(
                       controller: _baseUrlController,
                       decoration: const InputDecoration(
@@ -133,20 +133,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    
+
                     Row(
                       children: [
                         Expanded(
                           child: ElevatedButton.icon(
-                            onPressed: _isTestingConnection ? null : _testConnection,
+                            onPressed:
+                                _isTestingConnection ? null : _testConnection,
                             icon: _isTestingConnection
                                 ? const SizedBox(
                                     width: 16,
                                     height: 16,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
                                   )
                                 : const Icon(Icons.wifi_tethering),
-                            label: Text(_isTestingConnection ? 'Testing...' : 'Test Connection'),
+                            label: Text(_isTestingConnection
+                                ? 'Testing...'
+                                : 'Test Connection'),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -157,9 +161,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ),
                       ],
                     ),
-                    
+
                     const SizedBox(height: 12),
-                    
+
                     // Connection Status Indicator
                     Row(
                       children: [
@@ -178,9 +182,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ),
                       ],
                     ),
-                    
+
                     const SizedBox(height: 16),
-                    
+
                     // LAN Usage Tips
                     Container(
                       padding: const EdgeInsets.all(12),
@@ -220,9 +224,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
               ),
             ),
-            
+
             const SizedBox(height: 24),
-            
+
             // Theme Configuration Section
             Card(
               child: Padding(
@@ -235,7 +239,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                     const SizedBox(height: 16),
-                    
                     ListTile(
                       leading: const Icon(Icons.palette),
                       title: const Text('Theme Mode'),
@@ -244,7 +247,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         value: themeMode,
                         onChanged: (ThemeMode? newValue) {
                           if (newValue != null) {
-                            ref.read(themeModeProvider.notifier).setThemeMode(newValue);
+                            ref
+                                .read(themeModeProvider.notifier)
+                                .setThemeMode(newValue);
                           }
                         },
                         items: const [
@@ -267,9 +272,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
               ),
             ),
-            
+
             const SizedBox(height: 24),
-            
+
             // About Section
             Card(
               child: Padding(
@@ -282,14 +287,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                     const SizedBox(height: 16),
-                    
                     Consumer(
                       builder: (context, ref, child) {
                         final healthAsync = ref.watch(healthProvider);
-                        
+
                         return healthAsync.when(
                           data: (health) {
-                            final version = health['version'] as String? ?? 'Unknown';
+                            final version =
+                                health['version'] as String? ?? 'Unknown';
                             return ListTile(
                               leading: const Icon(Icons.info),
                               title: const Text('API Version'),
@@ -309,11 +314,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         );
                       },
                     ),
-                    
                     ListTile(
                       leading: const Icon(Icons.description),
                       title: const Text('Description'),
-                      subtitle: const Text('Cross-platform decision tree management with offline-first storage'),
+                      subtitle: const Text(
+                          'Cross-platform decision tree management with offline-first storage'),
                     ),
                   ],
                 ),

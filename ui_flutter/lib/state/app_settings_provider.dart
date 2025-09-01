@@ -9,7 +9,8 @@ final apiClientProvider = Provider<ApiClient>((ref) {
 });
 
 // API Base URL Provider
-final apiBaseUrlProvider = StateNotifierProvider<ApiBaseUrlNotifier, String>((ref) {
+final apiBaseUrlProvider =
+    StateNotifierProvider<ApiBaseUrlNotifier, String>((ref) {
   return ApiBaseUrlNotifier();
 });
 
@@ -30,7 +31,8 @@ class ApiBaseUrlNotifier extends StateNotifier<String> {
 }
 
 // Theme Mode Provider
-final themeModeProvider = StateNotifierProvider<ThemeModeNotifier, ThemeMode>((ref) {
+final themeModeProvider =
+    StateNotifierProvider<ThemeModeNotifier, ThemeMode>((ref) {
   return ThemeModeNotifier();
 });
 
@@ -71,7 +73,8 @@ class ThemeModeNotifier extends StateNotifier<ThemeMode> {
 }
 
 // Connection Status Provider
-final connectionStatusProvider = StateNotifierProvider<ConnectionStatusNotifier, ConnectionStatus>((ref) {
+final connectionStatusProvider =
+    StateNotifierProvider<ConnectionStatusNotifier, ConnectionStatus>((ref) {
   return ConnectionStatusNotifier(ref.read(apiClientProvider));
 });
 
@@ -89,11 +92,11 @@ class ConnectionStatusNotifier extends StateNotifier<ConnectionStatus> {
 
   Future<void> testConnection(String baseUrl) async {
     state = ConnectionStatus.unknown;
-    
+
     try {
       _apiClient.setBaseUrl(baseUrl);
       final response = await _apiClient.get('health');
-      
+
       if (response.statusCode == 200) {
         state = ConnectionStatus.connected;
       } else {

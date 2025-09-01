@@ -25,7 +25,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _testConnection() async {
     if (_testingConnection) return;
-    
+
     setState(() {
       _testingConnection = true;
       _connectionStatus = null;
@@ -35,7 +35,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final testedUrl = '${_baseUrlController.text}/health';
       final dio = Dio();
       final response = await dio.get(testedUrl);
-      
+
       if (response.statusCode == 200) {
         setState(() {
           _connectionStatus = 'Connected: $testedUrl';
@@ -50,11 +50,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } catch (e) {
       final res = (e is DioException) ? e.response : null;
       final status = res?.statusCode ?? 'n/a';
-      final body = (res?.data is String ? res?.data : res?.toString() ?? e.toString()).toString();
-      final truncatedBody = body.length > 100 ? '${body.substring(0, 100)}...' : body;
-      
+      final body =
+          (res?.data is String ? res?.data : res?.toString() ?? e.toString())
+              .toString();
+      final truncatedBody =
+          body.length > 100 ? '${body.substring(0, 100)}...' : body;
+
       setState(() {
-        _connectionStatus = 'Failed: $testedUrl · HTTP $status · $truncatedBody';
+        _connectionStatus =
+            'Failed: $testedUrl · HTTP $status · $truncatedBody';
       });
       _showSnackBar('Failed: $testedUrl · HTTP $status · $truncatedBody');
     } finally {
@@ -82,7 +86,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       ),
       const SizedBox(height: 16),
-      
+
       // API Base URL
       TextFormField(
         controller: _baseUrlController,
@@ -95,56 +99,57 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // TODO: Save to preferences
         },
       ),
-      
+
       const SizedBox(height: 16),
-      
+
       // Test Connection Button
       Row(
         children: [
           Expanded(
             child: ElevatedButton.icon(
               onPressed: _testingConnection ? null : _testConnection,
-              icon: _testingConnection 
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.wifi_tethering),
-              label: Text(_testingConnection ? 'Testing...' : 'Test Connection'),
+              icon: _testingConnection
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.wifi_tethering),
+              label:
+                  Text(_testingConnection ? 'Testing...' : 'Test Connection'),
             ),
           ),
         ],
       ),
-      
+
       if (_connectionStatus != null) ...[
         const SizedBox(height: 16),
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: _connectionStatus!.contains('Connected') 
-              ? Colors.green[50] 
-              : Colors.red[50],
+            color: _connectionStatus!.contains('Connected')
+                ? Colors.green[50]
+                : Colors.red[50],
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: _connectionStatus!.contains('Connected') 
-                ? Colors.green[200]! 
-                : Colors.red[200]!,
+              color: _connectionStatus!.contains('Connected')
+                  ? Colors.green[200]!
+                  : Colors.red[200]!,
             ),
           ),
           child: Text(
             _connectionStatus!,
             style: TextStyle(
-              color: _connectionStatus!.contains('Connected') 
-                ? Colors.green[700] 
-                : Colors.red[700],
+              color: _connectionStatus!.contains('Connected')
+                  ? Colors.green[700]
+                  : Colors.red[700],
             ),
           ),
         ),
       ],
-      
+
       const SizedBox(height: 24),
-      
+
       // LAN Connection Tips
       const Text(
         'LAN Connection Tips',
@@ -154,7 +159,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       ),
       const SizedBox(height: 16),
-      
+
       Card(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -167,21 +172,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const Text('http://127.0.0.1:8000/api/v1'),
               const SizedBox(height: 8),
-              
               const Text(
                 'Android Emulator:',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               const Text('http://10.0.2.2:8000/api/v1'),
               const SizedBox(height: 8),
-              
               const Text(
                 'Physical Device (same network):',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               const Text('http://<LAN-IP>:8000/api/v1'),
               const SizedBox(height: 8),
-              
               const Text(
                 'iOS Simulator:',
                 style: TextStyle(fontWeight: FontWeight.bold),
@@ -191,18 +193,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
       ),
-      
+
       const SizedBox(height: 16),
-      
+
       // Copy LAN IP Button
       ElevatedButton.icon(
         onPressed: () => _copyLanIp(context),
         icon: const Icon(Icons.copy),
         label: const Text('Copy LAN IP to Clipboard'),
       ),
-      
+
       const SizedBox(height: 24),
-      
+
       // CSV Export Settings
       const Text(
         'CSV Export Settings',
@@ -212,7 +214,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       ),
       const SizedBox(height: 16),
-      
+
       Card(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -235,7 +237,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
       ),
-      
+
       // Add bottom padding to ensure content doesn't get hidden behind bottom bar
       const SizedBox(height: 80),
     ];
@@ -266,9 +268,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _copyLanIp(BuildContext context) async {
     // This is a placeholder - in a real app you'd get the actual LAN IP
     const lanIp = '192.168.1.100'; // Example IP
-    
+
     await Clipboard.setData(ClipboardData(text: lanIp));
-    
+
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

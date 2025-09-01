@@ -11,7 +11,12 @@ class OutcomesListScreen extends StatefulWidget {
 class _OutcomesListScreenState extends State<OutcomesListScreen> {
   final _searchController = TextEditingController();
   String _selectedVitalMeasurement = 'All';
-  final List<String> _vitalMeasurements = ['All', 'Blood Pressure', 'Heart Rate', 'Temperature'];
+  final List<String> _vitalMeasurements = [
+    'All',
+    'Blood Pressure',
+    'Heart Rate',
+    'Temperature'
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -97,9 +102,9 @@ class _OutcomeListItem extends StatelessWidget {
       child: ListTile(
         title: Text(title),
         subtitle: Text(vitalMeasurement),
-        trailing: isLeaf 
-          ? const Chip(label: Text('Leaf'), backgroundColor: Colors.green)
-          : null,
+        trailing: isLeaf
+            ? const Chip(label: Text('Leaf'), backgroundColor: Colors.green)
+            : null,
         onTap: () => context.go('/outcomes/$id'),
       ),
     );

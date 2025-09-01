@@ -19,11 +19,11 @@ class CalcRepository {
           },
         ),
       );
-      
+
       if (response.statusCode == 200) {
         return response.data as String;
       }
-      
+
       throw Exception('Failed to export CSV: ${response.statusCode}');
     } on DioException catch (e) {
       throw Exception('Network error: ${e.message}');
@@ -34,11 +34,11 @@ class CalcRepository {
   Future<Map<String, dynamic>> getHealth() async {
     try {
       final response = await _apiClient.get(ApiPaths.health);
-      
+
       if (response.statusCode == 200) {
         return response.data as Map<String, dynamic>;
       }
-      
+
       throw Exception('Failed to get health: ${response.statusCode}');
     } on DioException catch (e) {
       throw Exception('Network error: ${e.message}');

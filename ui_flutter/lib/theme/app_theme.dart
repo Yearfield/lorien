@@ -5,11 +5,11 @@ class AppTheme {
   static const Color primaryColor = _seed;
   static const Color secondaryColor = Color(0xFF03DAC6);
   static const Color errorColor = Color(0xFFB00020);
-  
+
   static const Color lightBackground = Color(0xFFFAFAFA);
   static const Color lightSurface = Color(0xFFFFFFFF);
   static const Color lightOnSurface = Color(0xFF1C1B1F);
-  
+
   static const Color darkBackground = Color(0xFF121212);
   static const Color darkSurface = Color(0xFF1E1E1E);
   static const Color darkOnSurface = Color(0xFFE6E1E5);

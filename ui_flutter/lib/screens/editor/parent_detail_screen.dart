@@ -32,7 +32,7 @@ class _ParentDetailScreenState extends ConsumerState<ParentDetailScreen> {
   Widget build(BuildContext context) {
     // Watch the children provider
     final childrenAsync = ref.watch(childrenProvider(widget.parentId));
-    
+
     // Watch the upsert action state
     final upsertState = ref.watch(upsertChildrenProvider);
 
@@ -45,13 +45,13 @@ class _ParentDetailScreenState extends ConsumerState<ParentDetailScreen> {
         ),
         actions: [
           IconButton(
-            icon: upsertState.isLoading 
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.save),
+            icon: upsertState.isLoading
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.save),
             onPressed: upsertState.isLoading ? null : _saveChildren,
           ),
         ],
@@ -79,9 +79,12 @@ class _ParentDetailScreenState extends ConsumerState<ParentDetailScreen> {
                           ),
                           Text(
                             'Vital Measurement',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Colors.grey[600],
-                            ),
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
+                                  color: Colors.grey[600],
+                                ),
                           ),
                         ],
                       ),
@@ -90,24 +93,25 @@ class _ParentDetailScreenState extends ConsumerState<ParentDetailScreen> {
                 ),
               ),
             ),
-            
+
             const SizedBox(height: 24),
-            
+
             // Children slots
             Text(
               'Children (Slots 1-5)',
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 16),
-            
+
             Expanded(
               child: childrenAsync.when(
                 data: (children) {
                   // Populate controllers with existing data
                   _populateControllers(children);
-                  
+
                   return GridView.builder(
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
                       crossAxisSpacing: 16,
                       mainAxisSpacing: 16,
@@ -137,8 +141,8 @@ class _ParentDetailScreenState extends ConsumerState<ParentDetailScreen> {
                       Text(
                         error.toString(),
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.grey[600],
-                        ),
+                              color: Colors.grey[600],
+                            ),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 16),
@@ -153,7 +157,7 @@ class _ParentDetailScreenState extends ConsumerState<ParentDetailScreen> {
                 ),
               ),
             ),
-            
+
             // Show error message if save failed
             if (upsertState.error != null) ...[
               const SizedBox(height: 16),
@@ -178,7 +182,7 @@ class _ParentDetailScreenState extends ConsumerState<ParentDetailScreen> {
                 ),
               ),
             ],
-            
+
             // Show success message if save succeeded
             if (upsertState.data != null) ...[
               const SizedBox(height: 16),
@@ -203,9 +207,9 @@ class _ParentDetailScreenState extends ConsumerState<ParentDetailScreen> {
                 ),
               ),
             ],
-            
+
             const SizedBox(height: 16),
-            
+
             // Triage section
             Card(
               child: Padding(
@@ -224,7 +228,6 @@ class _ParentDetailScreenState extends ConsumerState<ParentDetailScreen> {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    
                     TextField(
                       decoration: const InputDecoration(
                         labelText: 'Diagnostic Triage',
@@ -233,9 +236,7 @@ class _ParentDetailScreenState extends ConsumerState<ParentDetailScreen> {
                       ),
                       maxLines: 3,
                     ),
-                    
                     const SizedBox(height: 16),
-                    
                     TextField(
                       decoration: const InputDecoration(
                         labelText: 'Actions',
@@ -259,7 +260,7 @@ class _ParentDetailScreenState extends ConsumerState<ParentDetailScreen> {
     for (final controller in _controllers) {
       controller.clear();
     }
-    
+
     // Populate with existing data
     for (final child in children) {
       if (child.slot >= 1 && child.slot <= 5) {
@@ -270,7 +271,7 @@ class _ParentDetailScreenState extends ConsumerState<ParentDetailScreen> {
 
   void _saveChildren() {
     final List<ChildSlotDTO> childrenToSave = [];
-    
+
     for (int i = 0; i < _controllers.length; i++) {
       final label = _controllers[i].text.trim();
       if (label.isNotEmpty) {
@@ -285,13 +286,15 @@ class _ParentDetailScreenState extends ConsumerState<ParentDetailScreen> {
 
     // Call the upsert action
     ref.read(upsertChildrenProvider.notifier).upsertChildren(
-      widget.parentId,
-      childrenToSave,
-    );
+          widget.parentId,
+          childrenToSave,
+        );
   }
 
-  Widget _buildSlotCard(BuildContext context, int slot, List<ChildSlotDTO> children) {
-    final existingChild = children.where((child) => child.slot == slot).firstOrNull;
+  Widget _buildSlotCard(
+      BuildContext context, int slot, List<ChildSlotDTO> children) {
+    final existingChild =
+        children.where((child) => child.slot == slot).firstOrNull;
     final controller = _controllers[slot - 1];
 
     return Card(
@@ -308,7 +311,8 @@ class _ParentDetailScreenState extends ConsumerState<ParentDetailScreen> {
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: Colors.blue[100],
                       borderRadius: BorderRadius.circular(12),
@@ -316,14 +320,16 @@ class _ParentDetailScreenState extends ConsumerState<ParentDetailScreen> {
                     child: Text(
                       'Slot $slot',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.blue[800],
-                        fontWeight: FontWeight.bold,
-                      ),
+                            color: Colors.blue[800],
+                            fontWeight: FontWeight.bold,
+                          ),
                     ),
                   ),
                   const Spacer(),
                   Icon(
-                    existingChild != null ? Icons.check_circle : Icons.add_circle_outline,
+                    existingChild != null
+                        ? Icons.check_circle
+                        : Icons.add_circle_outline,
                     color: existingChild != null ? Colors.green : Colors.grey,
                     size: 20,
                   ),
@@ -338,8 +344,8 @@ class _ParentDetailScreenState extends ConsumerState<ParentDetailScreen> {
               Text(
                 existingChild?.label ?? 'Empty',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.grey[500],
-                ),
+                      color: Colors.grey[500],
+                    ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -350,7 +356,8 @@ class _ParentDetailScreenState extends ConsumerState<ParentDetailScreen> {
     );
   }
 
-  void _showEditSlotDialog(BuildContext context, int slot, TextEditingController controller) {
+  void _showEditSlotDialog(
+      BuildContext context, int slot, TextEditingController controller) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(

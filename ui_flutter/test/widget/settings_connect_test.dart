@@ -12,7 +12,7 @@ void main() {
     // 2. Test Connection button works
     // 3. URL, HTTP code, and body snippet are displayed
     // 4. Connected badge updates appropriately
-    
+
     await tester.pumpWidget(
       const ProviderScope(
         child: MaterialApp(
@@ -20,12 +20,12 @@ void main() {
         ),
       ),
     );
-    
+
     // Verify the screen loads
     expect(find.text('Settings'), findsOneWidget);
     expect(find.text('Base URL'), findsOneWidget);
     expect(find.text('Test Connection'), findsOneWidget);
-    
+
     // TODO: Add more comprehensive tests with mocked health service
     expect(true, isTrue);
   });

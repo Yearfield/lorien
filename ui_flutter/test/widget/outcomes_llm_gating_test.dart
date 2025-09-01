@@ -5,7 +5,8 @@ import 'package:lorien/screens/outcomes/outcomes_detail_screen.dart';
 import 'package:lorien/providers/settings_provider.dart';
 
 void main() {
-  testWidgets('LLM Fill button is hidden when llmEnabled is false', (WidgetTester tester) async {
+  testWidgets('LLM Fill button is hidden when llmEnabled is false',
+      (WidgetTester tester) async {
     // Build the outcomes detail screen with LLM disabled
     await tester.pumpWidget(
       MultiProvider(
@@ -28,7 +29,8 @@ void main() {
     expect(find.text('Fill with AI'), findsNothing);
   });
 
-  testWidgets('LLM Fill button is visible when llmEnabled is true', (WidgetTester tester) async {
+  testWidgets('LLM Fill button is visible when llmEnabled is true',
+      (WidgetTester tester) async {
     // Build the outcomes detail screen with LLM enabled
     await tester.pumpWidget(
       MultiProvider(
@@ -51,7 +53,8 @@ void main() {
     expect(find.text('Fill with AI'), findsOneWidget);
   });
 
-  testWidgets('Screen structure is consistent regardless of LLM setting', (WidgetTester tester) async {
+  testWidgets('Screen structure is consistent regardless of LLM setting',
+      (WidgetTester tester) async {
     // Test with LLM disabled
     await tester.pumpWidget(
       MultiProvider(

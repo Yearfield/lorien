@@ -8,7 +8,8 @@ class FieldErrorText extends StatelessWidget {
     if (text == null || text!.isEmpty) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(top: 6),
-      child: Text(text!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+      child: Text(text!,
+          style: TextStyle(color: Theme.of(context).colorScheme.error)),
     );
   }
 }

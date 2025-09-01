@@ -5,7 +5,8 @@ import 'package:lorien/screens/outcomes/outcomes_detail_screen.dart';
 import 'package:lorien/providers/settings_provider.dart';
 
 void main() {
-  testWidgets('Outcomes detail screen basic structure', (WidgetTester tester) async {
+  testWidgets('Outcomes detail screen basic structure',
+      (WidgetTester tester) async {
     // Build the outcomes detail screen with providers
     await tester.pumpWidget(
       MultiProvider(
@@ -29,7 +30,8 @@ void main() {
     expect(find.byType(AppBar), findsOneWidget);
   });
 
-  testWidgets('Outcomes detail screen respects llmEnabled parameter', (WidgetTester tester) async {
+  testWidgets('Outcomes detail screen respects llmEnabled parameter',
+      (WidgetTester tester) async {
     // Test with LLM disabled
     await tester.pumpWidget(
       MultiProvider(

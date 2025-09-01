@@ -7,14 +7,18 @@ void main() {
   test('TriageRepository can be instantiated', () {
     // Simple smoke test to ensure the class can be created
     final dio = Dio();
-    expect(() => TriageRepository(dio: dio, baseUrl: '/api/v1'), returnsNormally);
-    expect(() => TriageRepository(dio: dio, baseUrl: 'http://localhost:8000'), returnsNormally);
+    expect(
+        () => TriageRepository(dio: dio, baseUrl: '/api/v1'), returnsNormally);
+    expect(() => TriageRepository(dio: dio, baseUrl: 'http://localhost:8000'),
+        returnsNormally);
   });
 
   test('TriageRepository requires non-null dio', () {
     // Test that null dio is rejected - we need to handle this differently since Dio is non-nullable
-    expect(() => TriageRepository(dio: Dio(), baseUrl: '/api/v1'), returnsNormally);
-    expect(() => TriageRepository(dio: Dio(), baseUrl: 'http://localhost:8000'), returnsNormally);
+    expect(() => TriageRepository(dio: Dio(), baseUrl: '/api/v1'),
+        returnsNormally);
+    expect(() => TriageRepository(dio: Dio(), baseUrl: 'http://localhost:8000'),
+        returnsNormally);
   });
 
   test('LlmFillRequest can be created and serialized', () {

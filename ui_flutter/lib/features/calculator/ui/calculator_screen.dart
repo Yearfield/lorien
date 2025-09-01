@@ -19,8 +19,18 @@ class _CalculatorScreenState extends ConsumerState<CalculatorScreen> {
   String? _selectedNode5;
   int _remainingLeaves = 0;
 
-  final List<String> _vitalMeasurements = ['Blood Pressure', 'Heart Rate', 'Temperature'];
-  final List<String> _nodeOptions = ['Option 1', 'Option 2', 'Option 3', 'Option 4', 'Option 5'];
+  final List<String> _vitalMeasurements = [
+    'Blood Pressure',
+    'Heart Rate',
+    'Temperature'
+  ];
+  final List<String> _nodeOptions = [
+    'Option 1',
+    'Option 2',
+    'Option 3',
+    'Option 4',
+    'Option 5'
+  ];
 
   @override
   void initState() {
@@ -85,48 +95,45 @@ class _CalculatorScreenState extends ConsumerState<CalculatorScreen> {
   void _updateRemainingLeaves() {
     // TODO: Calculate actual remaining leaves based on selections
     setState(() {
-      _remainingLeaves = 25 - (_selectedNode1 != null ? 5 : 0) - 
-                        (_selectedNode2 != null ? 5 : 0) - 
-                        (_selectedNode3 != null ? 5 : 0) - 
-                        (_selectedNode4 != null ? 5 : 0) - 
-                        (_selectedNode5 != null ? 5 : 0);
+      _remainingLeaves = 25 -
+          (_selectedNode1 != null ? 5 : 0) -
+          (_selectedNode2 != null ? 5 : 0) -
+          (_selectedNode3 != null ? 5 : 0) -
+          (_selectedNode4 != null ? 5 : 0) -
+          (_selectedNode5 != null ? 5 : 0);
     });
   }
 
   Future<void> _exportCSV() async {
     try {
-      final base = ref.read(baseUrlProvider);
-      await dio.get('$base/export/csv');
+      final dio = ref.read(dioProvider);
+      await dio.get('/export/csv');
       // TODO: Handle file download
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('CSV exported successfully'))
-        );
+            const SnackBar(content: Text('CSV exported successfully')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Export failed: $e'))
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Export failed: $e')));
       }
     }
   }
 
   Future<void> _exportXLSX() async {
     try {
-      final base = ref.read(baseUrlProvider);
-      await dio.get('$base/export/xlsx');
+      final dio = ref.read(dioProvider);
+      await dio.get('/export/xlsx');
       // TODO: Handle file download
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('XLSX exported successfully'))
-        );
+            const SnackBar(content: Text('XLSX exported successfully')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Export failed: $e'))
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Export failed: $e')));
       }
     }
   }

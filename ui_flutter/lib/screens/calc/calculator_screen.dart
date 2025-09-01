@@ -29,9 +29,9 @@ class CalculatorScreen extends ConsumerWidget {
             children: [
               // Chained Calculator
               const ChainedCalculator(),
-              
+
               const SizedBox(height: 24),
-              
+
               // Export Buttons
               if (settings.apiBaseUrl.isNotEmpty) ...[
                 ExportButtons(baseUrl: settings.apiBaseUrl),
@@ -48,18 +48,22 @@ class CalculatorScreen extends ConsumerWidget {
                             const SizedBox(width: 8),
                             Text(
                               'API Base URL Not Set',
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                color: Colors.orange[800],
-                              ),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(
+                                    color: Colors.orange[800],
+                                  ),
                             ),
                           ],
                         ),
                         const SizedBox(height: 8),
                         Text(
                           'Please set the API base URL in Settings to enable export functionality.',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Colors.orange[700],
-                          ),
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: Colors.orange[700],
+                                  ),
                         ),
                         const SizedBox(height: 12),
                         ElevatedButton.icon(

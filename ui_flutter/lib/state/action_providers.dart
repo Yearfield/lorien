@@ -34,19 +34,21 @@ class ActionState<T> {
 }
 
 // Tree Action Providers
-final upsertChildrenProvider = StateNotifierProvider<UpsertChildrenNotifier, ActionState<Map<String, dynamic>>>((ref) {
+final upsertChildrenProvider = StateNotifierProvider<UpsertChildrenNotifier,
+    ActionState<Map<String, dynamic>>>((ref) {
   final repository = ref.watch(treeRepositoryProvider);
   return UpsertChildrenNotifier(repository);
 });
 
-class UpsertChildrenNotifier extends StateNotifier<ActionState<Map<String, dynamic>>> {
+class UpsertChildrenNotifier
+    extends StateNotifier<ActionState<Map<String, dynamic>>> {
   final TreeRepository _repository;
 
   UpsertChildrenNotifier(this._repository) : super(const ActionState());
 
   Future<void> upsertChildren(int parentId, List<ChildSlotDTO> children) async {
     state = state.copyWith(isLoading: true, error: null);
-    
+
     try {
       final result = await _repository.upsertChildren(parentId, children);
       state = state.copyWith(isLoading: false, data: result);
@@ -61,7 +63,8 @@ class UpsertChildrenNotifier extends StateNotifier<ActionState<Map<String, dynam
 }
 
 // Triage Action Providers
-final updateTriageProvider = StateNotifierProvider<UpdateTriageNotifier, ActionState<void>>((ref) {
+final updateTriageProvider =
+    StateNotifierProvider<UpdateTriageNotifier, ActionState<void>>((ref) {
   final repository = ref.watch(triageRepositoryProvider);
   return UpdateTriageNotifier(repository);
 });
@@ -73,7 +76,7 @@ class UpdateTriageNotifier extends StateNotifier<ActionState<void>> {
 
   Future<void> updateTriage(int nodeId, TriageDTO triage) async {
     state = state.copyWith(isLoading: true, error: null);
-    
+
     try {
       await _repository.updateTriage(nodeId, triage);
       state = state.copyWith(isLoading: false);
@@ -88,7 +91,8 @@ class UpdateTriageNotifier extends StateNotifier<ActionState<void>> {
 }
 
 // Flags Action Providers
-final assignFlagProvider = StateNotifierProvider<AssignFlagNotifier, ActionState<void>>((ref) {
+final assignFlagProvider =
+    StateNotifierProvider<AssignFlagNotifier, ActionState<void>>((ref) {
   final repository = ref.watch(flagsRepositoryProvider);
   return AssignFlagNotifier(repository);
 });
@@ -100,7 +104,7 @@ class AssignFlagNotifier extends StateNotifier<ActionState<void>> {
 
   Future<void> assignFlag(int nodeId, String redFlagName) async {
     state = state.copyWith(isLoading: true, error: null);
-    
+
     try {
       await _repository.assignFlag(nodeId, redFlagName);
       state = state.copyWith(isLoading: false);
@@ -115,7 +119,8 @@ class AssignFlagNotifier extends StateNotifier<ActionState<void>> {
 }
 
 // Calculator Action Providers
-final exportCsvProvider = StateNotifierProvider<ExportCsvNotifier, ActionState<String>>((ref) {
+final exportCsvProvider =
+    StateNotifierProvider<ExportCsvNotifier, ActionState<String>>((ref) {
   final repository = ref.watch(calcRepositoryProvider);
   return ExportCsvNotifier(repository);
 });
@@ -127,7 +132,7 @@ class ExportCsvNotifier extends StateNotifier<ActionState<String>> {
 
   Future<void> exportCsv() async {
     state = state.copyWith(isLoading: true, error: null);
-    
+
     try {
       final csvData = await _repository.exportCsv();
       state = state.copyWith(isLoading: false, data: csvData);
