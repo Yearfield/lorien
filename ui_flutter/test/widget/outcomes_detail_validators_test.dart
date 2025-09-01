@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lorien/features/outcomes/ui/outcomes_detail_screen.dart';
 
 void main() {
@@ -13,9 +14,16 @@ void main() {
     // 4. Save button is disabled when validation fails
 
     await tester.pumpWidget(
-      const ProviderScope(
-        child: MaterialApp(
-          home: OutcomesDetailScreen(outcomeId: 'test_id'),
+      ProviderScope(
+        child: MaterialApp.router(
+          routerConfig: GoRouter(
+            routes: [
+              GoRoute(
+                path: '/',
+                builder: (context, state) => const OutcomesDetailScreen(outcomeId: 'test_id'),
+              ),
+            ],
+          ),
         ),
       ),
     );
