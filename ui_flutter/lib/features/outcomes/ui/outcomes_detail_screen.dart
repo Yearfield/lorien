@@ -25,13 +25,13 @@ class _S extends ConsumerState<OutcomesDetailScreen> {
   int _wc(String s) =>
       s.trim().isEmpty ? 0 : s.trim().split(RegExp(r'\s+')).length;
 
-    Future<void> _probeLlm() async {
+  Future<void> _probeLlm() async {
     try {
       final dio = ref.read(dioProvider);
       final res = await dio.get('/llm/health');
       setState(() => _llmOn = res.statusCode == 200);
-    } catch (_) { 
-      setState(() => _llmOn = false); 
+    } catch (_) {
+      setState(() => _llmOn = false);
     }
   }
 

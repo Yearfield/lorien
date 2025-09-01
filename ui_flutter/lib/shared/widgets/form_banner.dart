@@ -2,22 +2,22 @@ import 'package:flutter/material.dart';
 
 class FormBanner extends StatelessWidget {
   const FormBanner(this.message, {super.key, this.type = BannerType.error});
-  
+
   final String? message;
   final BannerType type;
-  
+
   @override
   Widget build(BuildContext context) {
     if (message == null || message!.isEmpty) return const SizedBox.shrink();
-    
-    final color = type == BannerType.error 
-      ? Theme.of(context).colorScheme.errorContainer
-      : Theme.of(context).colorScheme.secondaryContainer;
-    
-    final textColor = type == BannerType.error 
-      ? Theme.of(context).colorScheme.onErrorContainer
-      : Theme.of(context).colorScheme.onSecondaryContainer;
-    
+
+    final color = type == BannerType.error
+        ? Theme.of(context).colorScheme.errorContainer
+        : Theme.of(context).colorScheme.secondaryContainer;
+
+    final textColor = type == BannerType.error
+        ? Theme.of(context).colorScheme.onErrorContainer
+        : Theme.of(context).colorScheme.onSecondaryContainer;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),

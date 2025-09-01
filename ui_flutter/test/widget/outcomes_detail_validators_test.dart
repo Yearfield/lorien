@@ -11,7 +11,7 @@ void main() {
     // 2. Validation blocks >7 words
     // 3. Error messages display correctly
     // 4. Save button is disabled when validation fails
-    
+
     await tester.pumpWidget(
       const ProviderScope(
         child: MaterialApp(
@@ -19,15 +19,15 @@ void main() {
         ),
       ),
     );
-    
+
     // Wait for async operations to complete
     await tester.pumpAndSettle();
-    
+
     // Verify the screen loads
     expect(find.text('Outcomes Detail'), findsOneWidget);
     expect(find.text('Diagnostic Triage'), findsOneWidget);
     expect(find.text('Actions'), findsOneWidget);
-    
+
     // TODO: Add more comprehensive tests with form validation
     expect(true, isTrue);
   });

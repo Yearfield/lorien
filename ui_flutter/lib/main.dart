@@ -11,17 +11,17 @@ void main() async {
 
 class LorienApp extends ConsumerStatefulWidget {
   const LorienApp({super.key});
-  @override 
+  @override
   ConsumerState<LorienApp> createState() => _S();
 }
 
 class _S extends ConsumerState<LorienApp> {
-  @override 
-  void initState() { 
-    super.initState(); 
-    ref.read(settingsControllerProvider).load(); 
+  @override
+  void initState() {
+    super.initState();
+    ref.read(settingsControllerProvider).load();
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(

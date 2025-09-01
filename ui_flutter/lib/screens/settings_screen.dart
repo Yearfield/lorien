@@ -31,8 +31,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _connectionStatus = null;
     });
 
+    final testedUrl = '${_baseUrlController.text}/health';
+    
     try {
-      final testedUrl = '${_baseUrlController.text}/health';
       final dio = Dio();
       final response = await dio.get(testedUrl);
 
