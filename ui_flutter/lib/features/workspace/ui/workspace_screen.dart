@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/health_service.dart';
 import '../../../core/http/api_client.dart';
+import '../../../shared/widgets/app_scaffold.dart';
 
 class WorkspaceScreen extends ConsumerStatefulWidget {
   const WorkspaceScreen({super.key});
@@ -16,10 +17,8 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Workspace'),
-      ),
+    return AppScaffold(
+      title: 'Workspace',
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

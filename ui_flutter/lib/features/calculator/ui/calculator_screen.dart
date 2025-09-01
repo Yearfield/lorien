@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/health_service.dart';
+import '../../../shared/widgets/app_scaffold.dart';
 import '../../../core/http/api_client.dart';
 
 class CalculatorScreen extends ConsumerStatefulWidget {
@@ -140,10 +141,8 @@ class _CalculatorScreenState extends ConsumerState<CalculatorScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Calculator'),
-      ),
+    return AppScaffold(
+      title: 'Calculator',
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

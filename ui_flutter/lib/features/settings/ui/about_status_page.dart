@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/health_service.dart';
+import '../../../shared/widgets/app_scaffold.dart';
 
 class AboutStatusPage extends ConsumerWidget {
   const AboutStatusPage({super.key});
 
-  @override
+    @override 
   Widget build(BuildContext context, WidgetRef ref) {
     final base = ref.watch(baseUrlProvider);
     final last = ref.watch(lastPingProvider);
-
-    return Scaffold(
-      appBar: AppBar(title: const Text('About / Status')),
+    
+    return AppScaffold(
+      title: 'About / Status',
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../../shared/widgets/app_scaffold.dart';
+import '../../../shared/widgets/scroll_to_top_fab.dart';
 
 class OutcomesListScreen extends StatefulWidget {
   const OutcomesListScreen({super.key});
@@ -10,6 +12,7 @@ class OutcomesListScreen extends StatefulWidget {
 
 class _OutcomesListScreenState extends State<OutcomesListScreen> {
   final _searchController = TextEditingController();
+  final _scrollController = ScrollController();
   String _selectedVitalMeasurement = 'All';
   final List<String> _vitalMeasurements = [
     'All',
@@ -20,10 +23,8 @@ class _OutcomesListScreenState extends State<OutcomesListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Outcomes'),
-      ),
+    return AppScaffold(
+      title: 'Outcomes',
       body: Column(
         children: [
           Padding(
@@ -64,20 +65,28 @@ class _OutcomesListScreenState extends State<OutcomesListScreen> {
             ),
           ),
           Expanded(
-            child: ListView.builder(
-              itemCount: 10, // TODO: Replace with actual data
-              itemBuilder: (context, index) {
-                return _OutcomeListItem(
-                  id: 'outcome_$index',
-                  title: 'Outcome ${index + 1}',
-                  vitalMeasurement: 'Blood Pressure',
-                  isLeaf: index % 3 == 0,
-                );
+            child: RefreshIndicator(
+              onRefresh: () async {
+                // TODO: Implement refresh logic
+                await Future.delayed(const Duration(milliseconds: 500));
               },
+              child: ListView.builder(
+                controller: _scrollController,
+                itemCount: 10, // TODO: Replace with actual data
+                itemBuilder: (context, index) {
+                  return _OutcomeListItem(
+                    id: 'outcome_$index',
+                    title: 'Outcome ${index + 1}',
+                    vitalMeasurement: 'Blood Pressure',
+                    isLeaf: index % 3 == 0,
+                  );
+                },
+              ),
             ),
           ),
         ],
       ),
+      floatingActionButton: ScrollToTopFab(controller: _scrollController),
     );
   }
 }

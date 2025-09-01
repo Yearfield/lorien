@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'flag_assigner_sheet.dart';
+import '../../../shared/widgets/app_scaffold.dart';
 
 class FlagsScreen extends StatefulWidget {
   const FlagsScreen({super.key});
@@ -13,10 +14,8 @@ class _FlagsScreenState extends State<FlagsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Flags'),
-      ),
+    return AppScaffold(
+      title: 'Flags',
       body: Column(
         children: [
           Padding(
