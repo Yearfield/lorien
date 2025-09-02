@@ -125,6 +125,8 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
         ],
       ),
         ),
+      ),
+    );
   }
 
   Widget _buildImportProgress() {
