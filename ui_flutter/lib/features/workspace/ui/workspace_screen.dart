@@ -15,7 +15,11 @@ class WorkspaceScreen extends ConsumerStatefulWidget {
 class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
   String _importStatus = 'idle'; // idle, queued, processing, done
   List<HeaderMismatch> _headerMismatches = [];
-  
+
+  // 422: strict schema ctx
+  String? _schemaError;
+  Map<String, dynamic>? _schemaCtx;
+
   bool get _importInProgress => _importStatus == 'queued' || _importStatus == 'processing';
   bool get _exportInProgress => false; // TODO: implement export progress tracking
 
@@ -82,6 +86,25 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
                     ),
                     const SizedBox(height: 16),
                     _buildHeaderMismatchTable(),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+          if (_schemaCtx != null) ...[
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Schema Error: ${_schemaError ?? 'Unknown error'}',
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.red),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildSchemaCtxTable(),
                   ],
                 ),
               ),
@@ -186,16 +209,47 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
     );
   }
 
+  Widget _buildSchemaCtxTable() {
+    if (_schemaCtx == null) return const SizedBox();
+
+    final row = _schemaCtx!['first_offending_row'] ?? '?';
+    final col = _schemaCtx!['col_index'] ?? '?';
+    final expected = (_schemaCtx!['expected'] as List?)?.join(', ') ?? '?';
+    final received = (_schemaCtx!['received'] as List?)?.join(', ') ?? '?';
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: DataTable(
+        columns: const [
+          DataColumn(label: Text('Row')),
+          DataColumn(label: Text('Column')),
+          DataColumn(label: Text('Expected')),
+          DataColumn(label: Text('Received')),
+        ],
+        rows: [
+          DataRow(cells: [
+            DataCell(Text('$row')),
+            DataCell(Text('$col')),
+            DataCell(Text(expected)),
+            DataCell(Text(received)),
+          ]),
+        ],
+      ),
+    );
+  }
+
   Future<void> _pickExcelFile() async {
     // TODO: Implement file picker
+    final file = MultipartFile.fromBytes([]); // Placeholder - implement actual file picker
     setState(() => _importStatus = 'queued');
-    await _simulateImport();
+    await _performImport(file);
   }
 
   Future<void> _pickCSVFile() async {
     // TODO: Implement file picker
+    final file = MultipartFile.fromBytes([]); // Placeholder - implement actual file picker
     setState(() => _importStatus = 'queued');
-    await _simulateImport();
+    await _performImport(file);
   }
 
   Future<void> _simulateImport() async {
@@ -211,6 +265,40 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
         HeaderMismatch(3, 'Node 3', 'Node3'),
       ];
     });
+  }
+
+  Future<void> _performImport(MultipartFile file) async {
+    setState(() => _importStatus = 'processing');
+    try {
+      final api = ref.read(workspaceApiProvider);
+      final result = await api.importExcel(file);
+      setState(() {
+        _importStatus = 'done';
+        _schemaError = null;
+        _schemaCtx = null;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Import completed successfully')));
+      }
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 422) {
+        final detail = (e.response?.data?['detail'] as List? ?? const []);
+        final first = (detail.isNotEmpty ? detail.first : null) as Map<String,dynamic>?;
+        setState(() {
+          _schemaError = first?['msg']?.toString();
+          _schemaCtx = Map<String,dynamic>.from(first?['ctx'] ?? const {});
+        });
+        // Render ctx table: first_offending_row, col_index, expected[], received[]
+      } else {
+        // non-422 error toast
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Import failed: ${e.message}')));
+        }
+      }
+      setState(() => _importStatus = 'idle');
+    }
   }
 
   Future<void> _exportCSV() async {

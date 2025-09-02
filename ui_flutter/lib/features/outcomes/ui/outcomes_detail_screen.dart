@@ -9,6 +9,7 @@ import '../../../shared/widgets/field_error_text.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/toasts.dart';
 import '../../../shared/widgets/route_guard.dart';
+import '../data/llm_api.dart';
 
 class OutcomesDetailScreen extends ConsumerStatefulWidget {
   const OutcomesDetailScreen({super.key, required this.outcomeId});
@@ -30,13 +31,9 @@ class _S extends ConsumerState<OutcomesDetailScreen> {
       s.trim().isEmpty ? 0 : s.trim().split(RegExp(r'\s+')).length;
 
   Future<void> _probeLlm() async {
-    try {
-      final dio = ref.read(dioProvider);
-      final res = await dio.get('/llm/health');
-      setState(() => _llmOn = res.statusCode == 200);
-    } catch (_) {
-      setState(() => _llmOn = false);
-    }
+    final res = await ref.read(llmApiProvider).health();
+    setState(() => _llmOn = res.usable);
+    // Optional: show inline hint when 503 with body["checked_at"]
   }
 
   Future<void> _save() async {

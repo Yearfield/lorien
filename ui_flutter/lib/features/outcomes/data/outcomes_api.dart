@@ -10,25 +10,39 @@ class OutcomesApi {
   final Dio _dio;
 
   Future<Map<String, dynamic>> getDetail(String id) async {
-    final res = await _dio.get('/triage/$id');
+    final res = await _dio.get('/outcomes/$id');
     return Map<String, dynamic>.from(res.data);
   }
 
   Future<void> updateDetail(String id,
       {required String triage, required String actions}) async {
-    await _dio.put('/triage/$id', data: {
+    Future<void> put(String path) => _dio.put(path, data: {
       'diagnostic_triage': triage.trim(),
       'actions': actions.trim(),
     });
+    try { await put('/outcomes/$id'); }
+    on DioException catch (e) {
+      if (e.response?.statusCode == 404) { await put('/triage/$id'); }
+      else { rethrow; }
+    }
   }
 
   Future<Map<String, dynamic>> search(
       {String? vm, String? q, int page = 1}) async {
-    final res = await _dio.get('/triage/search', queryParameters: {
+    Future<Response> get(String path) => _dio.get(path, queryParameters: {
       if (vm?.isNotEmpty == true) 'vm': vm,
       if (q?.isNotEmpty == true) 'q': q,
       'page': page,
     });
-    return Map<String, dynamic>.from(res.data);
+    try {
+      final r = await get('/outcomes/search');
+      return Map<String, dynamic>.from(r.data);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) {
+        final r = await get('/triage/search');
+        return Map<String, dynamic>.from(r.data);
+      }
+      rethrow;
+    }
   }
 }
