@@ -15,7 +15,11 @@ class ApiPaths {
   // Triage
   static String triage(int nodeId) => 'triage/$nodeId';
 
+  // Outcomes (triage alias)
+  static String outcomes(int nodeId) => 'outcomes/$nodeId';
+
   // Flags
+  static String get flags => 'flags';
   static String get flagsSearch => 'flags/search';
   static String get flagsAssign => 'flags/assign';
 

@@ -44,7 +44,10 @@ class SQLiteRepository:
         logger.debug(f"SQLiteRepository: After init, DB size: {os.path.getsize(self._db_path)} bytes")
     
     def _get_default_db_path(self) -> str:
-        """Get default database path in OS-appropriate app data directory."""
+        """Get default database path from environment or OS-appropriate app data directory."""
+        db_path = os.getenv("LORIEN_DB_PATH")
+        if db_path:
+            return db_path
         return str(get_db_path())
     
     @property
@@ -59,7 +62,7 @@ class SQLiteRepository:
     def _ensure_db_directory(self):
         """Ensure the database directory exists."""
         db_dir = os.path.dirname(self._db_path)
-        os.makedirs(db_dir, exist_ok=True)
+        Path(db_dir).mkdir(parents=True, exist_ok=True)
     
     def _init_database(self):
         """Initialize database with schema."""
@@ -1337,5 +1340,89 @@ class SQLiteRepository:
                     "label": label,
                     "depth": depth,
                     "anomaly": anomaly
+                })
+            return result
+
+    # Import job methods
+    def create_import_job(self, state: str, filename: str = None, size_bytes: int = None) -> int:
+        """Create a new import job."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO import_jobs (state, filename, size_bytes)
+                VALUES (?, ?, ?)
+            """, (state, filename, size_bytes))
+            conn.commit()
+            return cursor.lastrowid
+
+    def update_import_job(self, job_id: int, **kwargs) -> None:
+        """Update an import job with the given fields."""
+        if not kwargs:
+            return
+        
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Build dynamic UPDATE query
+            fields = []
+            values = []
+            for key, value in kwargs.items():
+                if key in ['state', 'message', 'filename', 'size_bytes']:
+                    fields.append(f"{key} = ?")
+                    values.append(value)
+                elif key == 'finished_at':
+                    fields.append("finished_at = ?")
+                    values.append(value)
+            
+            if fields:
+                values.append(job_id)
+                query = f"UPDATE import_jobs SET {', '.join(fields)} WHERE id = ?"
+                cursor.execute(query, values)
+                conn.commit()
+
+    def get_import_job(self, job_id: int) -> Optional[Dict[str, Any]]:
+        """Get a specific import job by ID."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT id, state, created_at, finished_at, message, filename, size_bytes
+                FROM import_jobs WHERE id = ?
+            """, (job_id,))
+            
+            row = cursor.fetchone()
+            if row:
+                return {
+                    "id": row[0],
+                    "state": row[1],
+                    "created_at": row[2],
+                    "finished_at": row[3],
+                    "message": row[4],
+                    "filename": row[5],
+                    "size_bytes": row[6]
+                }
+            return None
+
+    def get_import_jobs(self) -> List[Dict[str, Any]]:
+        """Get all import jobs ordered by creation time."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT id, state, created_at, finished_at, message, filename, size_bytes
+                FROM import_jobs
+                ORDER BY created_at
+                LIMIT 100
+            """, ())
+            
+            rows = cursor.fetchall()
+            result = []
+            for row in rows:
+                result.append({
+                    "id": row[0],
+                    "state": row[1],
+                    "created_at": row[2],
+                    "finished_at": row[3],
+                    "message": row[4],
+                    "filename": row[5],
+                    "size_bytes": row[6]
                 })
             return result

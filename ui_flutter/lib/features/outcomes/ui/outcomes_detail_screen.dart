@@ -25,6 +25,7 @@ class _S extends ConsumerState<OutcomesDetailScreen> {
   String? _errTriage, _errActions;
   bool _saving = false;
   bool _llmOn = false;
+  String? _llmCheckedAt;
   bool _dirty = false;
 
   int _wc(String s) =>
@@ -32,8 +33,10 @@ class _S extends ConsumerState<OutcomesDetailScreen> {
 
   Future<void> _probeLlm() async {
     final res = await ref.read(llmApiProvider).health();
-    setState(() => _llmOn = res.usable);
-    // Optional: show inline hint when 503 with body["checked_at"]
+    setState(() {
+      _llmOn = res.ready;
+      _llmCheckedAt = res.checkedAt;
+    });
   }
 
   Future<void> _save() async {

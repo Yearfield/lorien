@@ -15,13 +15,86 @@ Endpoints: `GET /calc/export`, `GET /tree/export`, and XLSX variants `/calc/expo
 UI (Flutter/Streamlit) must not construct CSV/XLSX; always call the API.
 
 ## LLM Health
-`GET /llm/health` → 503 when disabled; 200 JSON when enabled. LLM is **OFF by default**.
+`GET /llm/health` → Top-level JSON response with status codes 200/503/500.
+
+### LLM Health (ready/checked_at)
+GET `/api/v1/llm/health`
+- **200**: `{"ready": true, "checked_at": "<ISO8601>"}`
+- **503**: `{"ready": false, "checked_at": "<ISO8601>"}`
+
+### Response Format
+```json
+{
+  "ok": true|false,
+  "llm_enabled": true|false,
+  "ready": true|false,
+  "provider": "null"|"ollama"|...,
+  "model": "/path/to/model.gguf"|null,
+  "checks": [
+    {"name": "model_path", "ok": true|false, "details": "/path/to/file"},
+    {"name": "provider", "ok": true|false, "details": {...}}
+  ],
+  "checked_at": "2024-01-01T12:00:00.000Z"
+}
+```
+
+### Status Codes
+- **200**: LLM enabled and ready
+- **503**: LLM disabled OR enabled but not ready (missing model file, provider error)
+- **500**: Internal error during health check
+
+### Response Fields
+- `ok`: Overall health status
+- `llm_enabled`: Whether LLM is enabled via environment
+- `ready`: Whether LLM is ready to serve requests
+- `provider`: Provider name (null, ollama, etc.)
+- `model`: Model path or identifier
+- `checks`: Array of individual health checks
+- `checked_at`: ISO-8601 UTC timestamp with Z suffix
 
 ## LLM Fill
-`POST /llm/fill-triage-actions` → ≤7 words, phrases only, regex `^[A-Za-z0-9 ,\\-]+$`, JSON-only; Copy-From-VM via `?vm=`.
+`POST /llm/fill-triage-actions` → Generate diagnostic triage and actions with validation.
+
+### Request Format
+```json
+{
+  "root": "Vital Measurement Label",
+  "nodes": ["Node 1", "Node 2", "Node 3", "Node 4", "Node 5"],
+  "triage_style": "diagnosis-only",
+  "actions_style": "referral-only",
+  "apply": false,
+  "node_id": 123
+}
+```
+
+### Response Format (Success)
+```json
+{
+  "diagnostic_triage": "Acute appendicitis",
+  "actions": "Immediate surgical referral",
+  "applied": false
+}
+```
+
+### Validation & Contracts
+- **Word Limits**: Both fields ≤7 words
+- **Character Regex**: `^[A-Za-z0-9 ,\-µ%]+$` (medical symbols allowed)
+- **Prohibited Tokens**: Blocks dosing terms (mg, mcg, µg, ml, kg, IU, %, bid, tid, qid, etc.)
+- **Non-Leaf Apply**: Returns 422 with suggestions when `apply=true` on non-leaf node
+- **Health Check**: Returns 503 when LLM service unavailable
+
+### Error Responses
+- **422** (Validation): `{"error": "Generated content failed validation", "diagnostic_triage": "...", "actions": "..."}`
+- **422** (Non-Leaf): `{"error": "Cannot apply triage/actions to non-leaf node", "diagnostic_triage": "...", "actions": "..."}`
+- **503** (Unavailable): `{"detail": "LLM service unavailable"}`
 
 ## Health
 `GET /health` (+ `/api/v1/health`) → `{ status|ok, version, db:{ path, wal, foreign_keys }, features:{ llm }, metrics?: {...} }`
+
+### Health Metrics
+GET `/api/v1/health/metrics`
+- **200** when `ANALYTICS_ENABLED=true`: telemetry counters and table counts
+- **404** when `ANALYTICS_ENABLED=false`
 
 ## Telemetry
 `GET /health` includes `metrics.telemetry` when `ANALYTICS_ENABLED=true` (non-PHI counters only).
@@ -75,7 +148,8 @@ GET `/api/v1/health`
 ### Get next incomplete parent
 GET `/api/v1/tree/next-incomplete-parent`
 
-- **200** `{ parent_id: int, missing_slots: "2,4,5" }` or **204** when none.
+- **200** `{ "parent_id": 123, "label": "...", "depth": 1, "missing_slots": "2,4,5" }`
+- **204** when none (empty response body)
 
 ### Get children (1..5) for a parent
 GET `/api/v1/tree/{parent_id}/children`
@@ -99,6 +173,34 @@ POST `/api/v1/tree/{parent_id}/child`
 
 ---
 
+## Import
+
+### Import Excel (unified)
+POST `/api/v1/import`
+- **200** `{ "status": "success", "message": "...", "filename": "...", "rows_processed": 42 }`
+- **422** on schema errors with detailed context:
+  ```json
+  {
+    "detail": [{
+      "loc": ["body", "file"],
+      "msg": "CSV header mismatch",
+      "type": "value_error.csv_schema",
+      "ctx": {
+        "first_offending_row": 0,
+        "col_index": 2,
+        "expected": ["Vital Measurement", "Node 1", "Node 2", "Node 3", "Node 4", "Node 5", "Diagnostic Triage", "Actions"],
+        "received": ["Wrong", "Header", "Format"],
+        "error_counts": {"header": 1}
+      }
+    }]
+  }
+  ```
+
+### Import Excel (legacy)
+POST `/api/v1/import/excel` → Same as unified import above
+
+---
+
 ## Triage
 
 ### Get triage for a node
@@ -113,13 +215,27 @@ PUT `/api/v1/triage/{node_id}`
 { "diagnostic_triage": "...", "actions": "..." }
 ```
 - **200** updated object
+- **422** validation (≤7 words, regex, prohibited dosing tokens)
 - **400** if not a leaf
+
+### Put outcomes (alias for triage)
+PUT `/api/v1/outcomes/{node_id}`
+```json
+{ "diagnostic_triage": "...", "actions": "..." }
+```
+- **200** updated object (delegates to triage upsert)
+- **422** validation (≤7 words, regex `^[A-Za-z0-9 ,\-]+$`, prohibited dosing tokens)
 
 ---
 
 ## Flags
 
-### Search flags
+### List flags (with paging)
+GET `/api/v1/flags?query=&limit=&offset=`
+
+- **200** `{"items": [{"id": 1, "label": "..."}], "total": 42, "limit": 50, "offset": 0}`
+
+### Search flags (legacy)
 GET `/api/v1/flags/search?q=term`
 
 - **200** `[{ "id": 1, "name": "..." }]`

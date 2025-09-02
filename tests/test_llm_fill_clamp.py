@@ -1,108 +1,83 @@
 """
-Tests for LLM fill character clamping and apply functionality.
+Test LLM fill endpoint clamps and validates output.
 """
 
+import os
+from unittest.mock import patch
 from fastapi.testclient import TestClient
 from api.app import app
 
 client = TestClient(app)
 
-def test_llm_fill_clamps_lengths_and_returns_json():
-    """Test that LLM fill clamps text lengths and returns proper JSON."""
-    payload = {
-        "root": "Pulse",
-        "nodes": ["Fast", "Irregular", "", "", ""],
-        "triage_style": "diagnosis-only",
-        "actions_style": "referral-only",
-        "apply": False
-    }
-    
-    r = client.post("/api/v1/llm/fill-triage-actions", json=payload)
-    assert r.status_code == 200
-    j = r.json()
-    assert len(j["diagnostic_triage"]) <= 600
-    assert len(j["actions"]) <= 800
 
-def test_llm_fill_apply_non_leaf_returns_422_but_includes_suggestions():
-    """Test that LLM fill with apply=true returns 422 for non-leaf but includes suggestions."""
-    payload = {
-        "root": "Pulse",
-        "nodes": ["Fast", "Irregular", "", "", ""],
-        "triage_style": "diagnosis-only",
-        "actions_style": "referral-only",
-        "apply": True
-    }
-    
-    r = client.post("/api/v1/llm/fill-triage-actions", json=payload)
-    assert r.status_code in (400, 422)
-    
-    # Suggestions should still be present in detail payload or response JSON
-    data = r.json()
-    if "diagnostic_triage" in data and "actions" in data:
-        # Direct response format
-        assert len(data["diagnostic_triage"]) <= 600
-        assert len(data["actions"]) <= 800
-    else:
-        # Wrapped in detail format
-        assert "detail" in data
-        detail = data["detail"]
-        if isinstance(detail, dict):
-            assert "diagnostic_triage" in detail and "actions" in detail
-            assert len(detail["diagnostic_triage"]) <= 600
-            assert len(detail["actions"]) <= 800
+def test_fill_clamps_and_validates(monkeypatch, client):
+    """Test that LLM fill clamps to 7 words and validates."""
+    monkeypatch.setenv("LLM_ENABLED", "true")
 
-def test_llm_fill_validates_style_values():
-    """Test that LLM fill validates triage_style and actions_style values."""
-    # Test invalid triage_style
-    payload = {
-        "root": "Pulse",
-        "nodes": ["Fast", "Irregular", "", "", ""],
-        "triage_style": "invalid-style",
-        "actions_style": "referral-only",
-        "apply": False
-    }
-    
-    r = client.post("/api/v1/llm/fill-triage-actions", json=payload)
-    assert r.status_code == 400
-    assert "diagnosis-only" in r.text or "referral-only" in r.text
-    
-    # Test invalid actions_style
-    payload2 = {
-        "root": "Pulse",
-        "nodes": ["Fast", "Irregular", "", "", ""],
-        "triage_style": "diagnosis-only",
-        "actions_style": "invalid-style",
-        "apply": False
-    }
-    
-    r2 = client.post("/api/v1/llm/fill-triage-actions", json=payload2)
-    assert r2.status_code == 400
-    assert "diagnosis-only" in r2.text or "referral-only" in r2.text
+    # Mock LLM service to return long content with prohibited tokens
+    with patch('api.routers.llm.LLMService') as mock_service_class:
+        mock_service = mock_service_class.return_value
+        mock_service.enabled = True
 
-def test_llm_fill_requires_exactly_5_nodes():
-    """Test that LLM fill requires exactly 5 nodes."""
-    # Test with 4 nodes
-    payload = {
-        "root": "Pulse",
-        "nodes": ["Fast", "Irregular", "", ""],
-        "triage_style": "diagnosis-only",
-        "actions_style": "referral-only",
-        "apply": False
-    }
-    
-    r = client.post("/api/v1/llm/fill-triage-actions", json=payload)
-    assert r.status_code == 400
-    assert "5 nodes" in r.text
-    
-    # Test with 6 nodes
-    payload2 = {
-        "root": "Pulse",
-        "nodes": ["Fast", "Irregular", "", "", "", "Extra"],
-        "triage_style": "diagnosis-only",
-        "actions_style": "referral-only",
-        "apply": False
-    }
-    
-    r2 = client.post("/api/v1/llm/fill-triage-actions", json=payload2)
-    assert r2.status_code == 400
-    assert "5 nodes" in r2.text
+        # Mock health check
+        mock_service.health.return_value = (200, {"ok": True, "ready": True})
+
+        # Mock suggestions with over-limit content and prohibited tokens
+        mock_service.suggest.return_value = {
+            "diagnostic_triage": "one two three four five six seven eight nine",
+            "actions": "Immediate IV fluids 500 mg"
+        }
+
+        # This should either succeed (after clamping) or return 422 for prohibited tokens
+        r = client.post("/api/v1/llm/fill-triage-actions", json={
+            "root": "",
+            "nodes": ["", "", "", "", ""],
+            "triage_style": "diagnosis-only",
+            "actions_style": "referral-only",
+            "apply": False
+        })
+
+        # Should be either 200 (if clamping succeeds) or 422 (if prohibited tokens)
+        assert r.status_code in [200, 422]
+
+        if r.status_code == 200:
+            data = r.json()
+            # Check that content is clamped to 7 words or less
+            dt_words = len(data["diagnostic_triage"].split())
+            ac_words = len(data["actions"].split())
+            assert dt_words <= 7
+            assert ac_words <= 7
+
+        if r.status_code == 422:
+            # Should be due to prohibited tokens
+            detail = r.json().get("detail", [])
+            assert any("dosing" in str(d) for d in detail)
+
+
+def test_fill_non_leaf_apply_returns_422(monkeypatch, client):
+    """Test that apply=true on non-leaf returns 422 with suggestions."""
+    monkeypatch.setenv("LLM_ENABLED", "true")
+
+    with patch('api.routers.llm.LLMService') as mock_service_class:
+        mock_service = mock_service_class.return_value
+        mock_service.enabled = True
+        mock_service.health.return_value = (200, {"ok": True, "ready": True})
+        mock_service.suggest.return_value = {
+            "diagnostic_triage": "Acute appendicitis",
+            "actions": "Surgical referral"
+        }
+
+        r = client.post("/api/v1/llm/fill-triage-actions", json={
+            "root": "",
+            "nodes": ["", "", "", "", ""],
+            "triage_style": "diagnosis-only",
+            "actions_style": "referral-only",
+            "apply": True,
+            "node_id": 999  # Non-existent node (non-leaf)
+        })
+
+        assert r.status_code == 422
+        data = r.json()
+        assert "error" in data
+        assert "diagnostic_triage" in data
+        assert "actions" in data

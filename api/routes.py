@@ -4,7 +4,8 @@ Route handlers for the decision tree API.
 
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Response, UploadFile, File, Query
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
+from pydantic import BaseModel
 import io
 import sqlite3
 from datetime import datetime
@@ -31,25 +32,70 @@ router = APIRouter()
 # This endpoint is kept for backward compatibility but delegates to the new implementation
 
 
-@router.get("/tree/next-incomplete-parent", response_model=IncompleteParentDTO)
+@router.get("/tree/next-incomplete-parent")
 async def get_next_incomplete_parent(repo: SQLiteRepository = Depends(get_repository)):
     """Get the next incomplete parent for the 'Skip to next incomplete parent' feature."""
-    incomplete = repo.get_next_incomplete_parent()
-    
-    if not incomplete:
+    try:
+        with repo._get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Use CTE to find next incomplete parent
+            cursor.execute("""
+                WITH parent_slots AS (
+                    SELECT p.id AS parent_id, p.label, p.depth,
+                           GROUP_CONCAT(s.slot) AS present
+                    FROM nodes p
+                    LEFT JOIN nodes s ON s.parent_id = p.id
+                    GROUP BY p.id
+                ),
+                missing AS (
+                    SELECT parent_id, label, depth,
+                           CASE
+                             WHEN COALESCE(present, '') LIKE '%1%' THEN '' ELSE '1,' END ||
+                           CASE
+                             WHEN COALESCE(present, '') LIKE '%2%' THEN '' ELSE '2,' END ||
+                           CASE
+                             WHEN COALESCE(present, '') LIKE '%3%' THEN '' ELSE '3,' END ||
+                           CASE
+                             WHEN COALESCE(present, '') LIKE '%4%' THEN '' ELSE '4,' END ||
+                           CASE
+                             WHEN COALESCE(present, '') LIKE '%5%' THEN '' ELSE '5' END
+                           AS missing_slots_raw,
+                           COALESCE(present, '') AS present_slots
+                    FROM parent_slots
+                ),
+                cleaned AS (
+                    SELECT parent_id, label, depth,
+                           RTRIM(missing_slots_raw, ',') AS missing_slots
+                    FROM missing
+                )
+                SELECT parent_id, label, depth, missing_slots
+                FROM cleaned
+                WHERE missing_slots <> ''
+                ORDER BY depth ASC, parent_id ASC
+                LIMIT 1
+            """)
+            
+            row = cursor.fetchone()
+            
+            if not row:
+                # No incomplete parents found - return 204
+                return JSONResponse(status_code=204, content=None)
+
+            return {
+                "parent_id": row[0],
+                "label": row[1],
+                "depth": row[2],
+                "missing_slots": row[3]
+            }
+            
+    except HTTPException:
+        raise
+    except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No incomplete parents found"
+            status_code=500,
+            detail=f"Failed to get next incomplete parent: {str(e)}"
         )
-    
-    # Parse missing slots from the view data
-    missing_slots_str = incomplete["missing_slots"]
-    missing_slots = [int(slot) for slot in missing_slots_str.split(",")] if missing_slots_str else []
-    
-    return IncompleteParentDTO(
-        parent_id=incomplete["parent_id"],
-        missing_slots=missing_slots
-    )
 
 
 @router.get("/tree/{parent_id}/children")
@@ -264,10 +310,19 @@ async def get_missing_slots(
     }
 
 
+from core.validation.outcomes import normalize_phrase, validate_phrase
+
+
+class TriageUpdate(BaseModel):
+    """Triage update model with manual validation."""
+    diagnostic_triage: str
+    actions: str
+
+
 @router.put("/triage/{node_id}")
 async def update_triage(
     node_id: int,
-    triage_data: TriageDTO,
+    update: TriageUpdate,
     repo: SQLiteRepository = Depends(get_repository)
 ):
     """Update triage for a node (leaf-only)."""
@@ -275,25 +330,29 @@ async def update_triage(
     node = repo.get_node(node_id)
     if not node or not node.is_leaf:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=422,
             detail="Triage can only be updated for leaf nodes"
         )
-    
-    # Pydantic validators handle word caps, regex, and phrase rules
-    # If validation fails, FastAPI returns 422 with Pydantic detail array
-    
+
+    # Normalize and validate
+    triage = normalize_phrase(update.diagnostic_triage)
+    actions = normalize_phrase(update.actions)
+    validate_phrase("diagnostic_triage", triage)
+    validate_phrase("actions", actions)
+
     # Update triage
-    success = repo.update_triage(node_id, triage_data.diagnostic_triage, triage_data.actions)
+    success = repo.update_triage(node_id, triage, actions)
     if not success:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail="Failed to update triage"
         )
-    
+
     return {
-        "message": "Triage updated successfully",
         "node_id": node_id,
-        "updated_at": datetime.now().isoformat()
+        "diagnostic_triage": triage,
+        "actions": actions,
+        "is_leaf": True
     }
 
 
@@ -453,38 +512,7 @@ async def remove_flag(
         )
 
 
-@router.post("/import/excel")
-async def import_excel(
-    file: UploadFile = File(...),
-    repo: SQLiteRepository = Depends(get_repository)
-):
-    """Import Excel file via API (adapter does not parse Excel)."""
-    if not file.filename.endswith('.xlsx'):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Only .xlsx files are supported"
-        )
-    
-    try:
-        # Read file content
-        content = await file.read()
-        
-        # For now, just acknowledge receipt
-        # TODO: Implement actual Excel parsing logic in the repository
-        # This endpoint exists to satisfy the API-only requirement for Streamlit
-        
-        return {
-            "message": "Excel file received successfully",
-            "filename": file.filename,
-            "size_bytes": len(content),
-            "status": "queued_for_processing"
-        }
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to process Excel file: {str(e)}"
-        )
+# Import Excel endpoint moved to api/routers/import_jobs.py
 
 
 @router.get("/calc/export")

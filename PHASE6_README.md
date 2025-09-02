@@ -71,6 +71,35 @@
 - **Physical Devices**: `http://<LAN-IP>:8000/api/v1`
 - **Desktop/Web**: `http://localhost:8000/api/v1`
 
+## 🔧 **Backend-Sync Patch (Latest)** ✅
+
+### **Backend Changes** ✅
+- **LLM Health**: `GET /llm/health` returns `{ready, checked_at}` semantics
+- **Outcomes PUT**: New `/outcomes/{node_id}` endpoint delegating to triage upsert
+- **Import 422**: POST `/import` with strict ctx for schema errors (row/col/expected/received)
+- **Flags Paging**: `GET /flags?query=&limit=&offset=` with stable sort
+- **Next-Incomplete**: Returns 204 when none; includes label/depth fields
+
+### **Flutter Wiring** ✅
+- **Outcomes Fallback**: Repository uses `/outcomes` first, falls back to `/triage` on 404/405
+- **LLM Health Gating**: Parses `{ready, checked_at}`; shows checked_at in Settings/About
+- **Flags Affected**: "Affected: N" toast after cascade assign/remove operations
+- **Next-Incomplete 204**: Handles 204 status codes and null parent_id properly
+
+### **Streamlit Updates** ✅
+- **Import Route**: Unified `/import` route with detailed 422 ctx table rendering
+- **Conflicts 204**: Next-incomplete handling for 204/null responses
+- **Schema Errors**: User-friendly table showing mismatch details (row/col/expected/received)
+
+### **Tests Added** ✅
+- **API Tests**: LLM health, outcomes PUT, import 422 ctx, flags paging, next-incomplete 204
+- **Flutter Tests**: Repository fallback, LLM health semantics, flags paging, empty states
+- **Streamlit Tests**: Import ctx rendering, 204 handling
+
+### **Documentation** ✅
+- **API.md**: Updated with new endpoints, 422 semantics, LLM health format
+- **PHASE6_README.md**: Backend-sync patch documentation
+
 ## 🔧 **P1 Fixes Implemented** ✅
 
 ### **A1) Single Source of Truth for Connectivity** ✅
@@ -218,3 +247,34 @@ All Phase-6B deliverables (A-G) have been successfully implemented, tested, and 
 - **API.md**: Updated with word caps, LLM fill, telemetry
 - **PHASE6_README.md**: Comprehensive feature documentation
 - **Tests**: New test files for import header guard and health metrics toggle
+
+## 🧪 **Pre-Tag Sanity Check**
+
+### **Smoke Script Usage**
+```bash
+# Test with default local server
+./tools/smoke_beta.sh
+
+# Test with custom base URL
+./tools/smoke_beta.sh http://your-server.com/api/v1
+```
+
+### **Acceptance Gates - FINAL CHECKLIST** ✅
+
+- [x] **Outcomes**: ≤7 words, regex `^[A-Za-z0-9 ,\-]+$`, banned dosing tokens
+- [x] **LLM Health**: 200/503 with `{ready, checked_at}` (ISO-8601 UTC)
+- [x] **Import 422**: Precise ctx with `row`, `col_index`, `expected`, `received`
+- [x] **Next-Incomplete**: 204 when none, 200 with `parent_id`, `label`, `depth`, `missing_slots`
+- [x] **Tests**: Hermetic, contract-locking, all passing
+- [x] **Dual-mount**: All endpoints work on `/` and `/api/v1`
+- [x] **422 everywhere**: Semantic validation errors return 422
+- [x] **LLM OFF**: Default disabled, health returns usable/unusable status
+- [x] **8-column frozen**: Export header remains unchanged
+- [x] **Smoke script**: All checks pass before tagging
+
+### **Release Command**
+```bash
+# After smoke test passes:
+git tag v6.8.0-beta.1
+git push origin v6.8.0-beta.1
+```

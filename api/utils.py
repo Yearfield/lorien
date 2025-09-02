@@ -98,6 +98,21 @@ def get_missing_slots(parent_id: int, existing_children: List[Dict[str, Any]]) -
     return sorted(list(all_slots - existing_slots))
 
 
+def get_missing_slots_from_payload(children: List[Dict[str, Any]]) -> List[int]:
+    """
+    Get list of missing slot numbers from a children payload.
+    
+    Args:
+        children: List of child dictionaries with 'slot' keys
+        
+    Returns:
+        List[int]: List of missing slot numbers (1-5)
+    """
+    present = {c.get("slot") for c in children if c.get("slot") is not None}
+    expected = {1, 2, 3, 4, 5}
+    return sorted(list(expected - present))
+
+
 def format_error_response(error: str, detail: str = None, code: str = None) -> Dict[str, Any]:
     """
     Format a standardized error response.

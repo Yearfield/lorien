@@ -191,6 +191,17 @@ BEGIN
   END;
 END;
 
+-- Import jobs tracking
+CREATE TABLE IF NOT EXISTS import_jobs (
+    id          INTEGER PRIMARY KEY,
+    state       TEXT NOT NULL CHECK(state IN('queued','processing','done','failed')),
+    created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    finished_at TEXT,
+    message     TEXT,
+    filename    TEXT,
+    size_bytes  INTEGER
+);
+
 -- Triage only allowed for leaf nodes (depth = 5)
 CREATE TRIGGER IF NOT EXISTS tr_triage_only_leaf
 BEFORE INSERT ON triage

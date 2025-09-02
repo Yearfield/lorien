@@ -75,7 +75,7 @@ if uploaded_file is not None:
                 
                 # Upload file
                 status.write("📝 Processing Excel data...")
-                result = post_file("/import/excel", files)
+                result = post_file("/import", files)
                 
                 status.write("✅ Done!")
                 
@@ -121,6 +121,39 @@ if uploaded_file is not None:
                     st.write(result)
                     
         except Exception as e:
+            # Check for 422 with ctx (schema errors)
+            if hasattr(e, 'status_code') and e.status_code == 422:
+                try:
+                    error_data = e.response.json() if hasattr(e, 'response') else None
+                    if error_data and isinstance(error_data.get("detail"), list):
+                        ctx = error_data["detail"][0].get("ctx", {})
+                        if ctx:
+                            st.subheader("❌ Schema Error")
+                            st.error("The Excel file header doesn't match the expected format.")
+
+                            # Show mismatch details in a table
+                            st.write("**First mismatch details:**")
+                            mismatch_data = {
+                                "Property": ["Row", "Column Index", "Expected Headers", "Received Headers"],
+                                "Value": [
+                                    ctx.get("first_offending_row", ctx.get("row", "N/A")),
+                                    ctx.get("col_index", "N/A"),
+                                    ", ".join(ctx.get("expected", [])) if isinstance(ctx.get("expected"), list) else ctx.get("expected", "N/A"),
+                                    ", ".join(ctx.get("received", [])) if isinstance(ctx.get("received"), list) else ctx.get("received", "N/A")
+                                ]
+                            }
+                            st.table(mismatch_data)
+
+                            # Show error counts if available
+                            if ctx.get("error_counts"):
+                                st.write("**Error summary:**")
+                                for error_type, count in ctx["error_counts"].items():
+                                    st.write(f"- {error_type}: {count} errors")
+
+                            return  # Exit early, don't show generic error
+                except:
+                    pass  # Fall through to generic error
+
             st.error(f"❌ Import error: {str(e)[:100]}...")
             st.info("Please check your API connection and file format")
 

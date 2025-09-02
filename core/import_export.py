@@ -9,7 +9,7 @@ from pathlib import Path
 import logging
 
 from .constants import (
-    CANON_HEADERS, ROOT_DEPTH, MAX_DEPTH, LEAF_DEPTH,
+    CSV_HEADERS, ROOT_DEPTH, MAX_DEPTH, LEAF_DEPTH,
     ROOT_SLOT, MIN_CHILD_SLOT, MAX_CHILD_SLOT,
     STRATEGY_PLACEHOLDER, STRATEGY_PRUNE, PLACEHOLDER_TEXT
 )
@@ -17,6 +17,42 @@ from .models import Node, Triaging
 from .engine import DecisionTreeEngine
 
 logger = logging.getLogger(__name__)
+
+# CSV V1 Contract (frozen)
+CSV_V1_HEADER = [
+    "Vital Measurement", "Node 1", "Node 2", "Node 3", "Node 4", "Node 5", 
+    "Diagnostic Triage", "Actions"
+]
+
+def assert_csv_header(header: list[str]) -> None:
+    """
+    Assert CSV header matches V1 contract exactly.
+    
+    Args:
+        header: List of column headers from the sheet
+        
+    Raises:
+        ValueError: If headers don't match with detailed context
+    """
+    if header != CSV_V1_HEADER:
+        # Find first mismatch
+        for i, (expected, actual) in enumerate(zip(CSV_V1_HEADER, header)):
+            if expected != actual:
+                raise ValueError({
+                    "first_offending_row": 0,
+                    "col_index": i,
+                    "expected": CSV_V1_HEADER,
+                    "received": header
+                })
+        
+        # Handle length mismatch
+        if len(header) != len(CSV_V1_HEADER):
+            raise ValueError({
+                "first_offending_row": 0,
+                "col_index": 0,
+                "expected": CSV_V1_HEADER,
+                "received": header
+            })
 
 class ImportExportEngine:
     """
@@ -57,7 +93,7 @@ class ImportExportEngine:
     
     def validate_headers(self, headers: List[str]) -> bool:
         """
-        Validate that sheet headers match CANON_HEADERS exactly.
+        Validate that sheet headers match CSV_HEADERS exactly.
         Fail fast if mismatch.
         
         Args:
@@ -69,12 +105,12 @@ class ImportExportEngine:
         Raises:
             ValueError: If headers don't match canonical format
         """
-        if len(headers) != len(CANON_HEADERS):
+        if len(headers) != len(CSV_HEADERS):
             raise ValueError(
-                f"Expected {len(CANON_HEADERS)} columns, got {len(headers)}"
+                f"Expected {len(CSV_HEADERS)} columns, got {len(headers)}"
             )
         
-        for i, (expected, actual) in enumerate(zip(CANON_HEADERS, headers)):
+        for i, (expected, actual) in enumerate(zip(CSV_HEADERS, headers)):
             if expected != actual:
                 raise ValueError(
                     f"Column {i}: expected '{expected}', got '{actual}'"

@@ -55,6 +55,23 @@ async def health_check(repo: SQLiteRepository = Depends(get_repository)) -> Heal
             features=response_data["features"]
         )
 
+
+@router.get("/health/metrics")
+async def health_metrics():
+    """
+    Minimal telemetry endpoint returning non-PHI counters.
+
+    Only available when ANALYTICS_ENABLED=true.
+    Returns 404 when analytics is disabled.
+    """
+    analytics_enabled = os.getenv("ANALYTICS_ENABLED", "false").lower() == "true"
+    if not analytics_enabled:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Analytics disabled")
+
+    metrics_data = await _get_runtime_metrics()
+    return metrics_data
+
 async def _check_database_health(repo: SQLiteRepository) -> Dict[str, Any]:
     """Check database configuration and health."""
     try:

@@ -112,15 +112,29 @@ except Exception as e:
 # Next Incomplete Parent
 st.header("⏭️ Next Incomplete Parent")
 try:
-    next_incomplete = get_json("/tree/next-incomplete-parent")
-    if next_incomplete:
-        st.info(f"Next incomplete parent: {next_incomplete.get('id', 'Unknown')}")
-        st.write(f"**Label:** {next_incomplete.get('label', 'No label')}")
-        st.write(f"**Missing slots:** {next_incomplete.get('missing_slots', [])}")
-        if st.button("Jump to Next Incomplete", use_container_width=True):
-            st.switch_page("pages/2_Parent_Detail.py")
-    else:
+    # Use raw request to handle 204 status codes properly
+    import requests
+    from ui_streamlit.settings import get_api_base_url
+
+    base_url = get_api_base_url()
+    response = requests.get(f"{base_url}/tree/next-incomplete-parent", timeout=10)
+
+    if response.status_code == 204:
         st.success("✅ All parents are complete")
+    elif response.status_code == 200:
+        next_incomplete = response.json()
+        if next_incomplete:
+            st.info(f"Next incomplete parent: {next_incomplete.get('parent_id', 'Unknown')}")
+            st.write(f"**Label:** {next_incomplete.get('label', 'No label')}")
+            st.write(f"**Missing slots:** {next_incomplete.get('missing_slots', [])}")
+            st.write(f"**Depth:** {next_incomplete.get('depth', 'Unknown')}")
+            if st.button("Jump to Next Incomplete", use_container_width=True):
+                st.switch_page("pages/2_Parent_Detail.py")
+        else:
+            st.success("✅ All parents are complete")
+    else:
+        st.warning(f"⚠️ Unexpected response: {response.status_code}")
+
 except Exception as e:
     st.warning(f"⚠️ Could not fetch next incomplete parent: {str(e)[:100]}...")
 

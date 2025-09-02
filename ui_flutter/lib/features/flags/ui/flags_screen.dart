@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'flag_assigner_sheet.dart';
 import '../../../shared/widgets/app_scaffold.dart';
+import '../data/flags_api.dart';
 
 class FlagsScreen extends StatefulWidget {
   const FlagsScreen({super.key});
@@ -11,9 +13,69 @@ class FlagsScreen extends StatefulWidget {
 
 class _FlagsScreenState extends State<FlagsScreen> {
   final _searchController = TextEditingController();
+  List<dynamic> _flags = [];
+  bool _loading = false;
+  String _query = '';
+  int _limit = 20;
+  int _offset = 0;
+  int _total = 0;
+  String? _lastAffected;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFlags();
+  }
+
+  Future<void> _loadFlags() async {
+    setState(() => _loading = true);
+    try {
+      final api = context.read(flagsApiProvider);
+      final flags = await api.list(query: _query, limit: _limit, offset: _offset);
+      setState(() {
+        _flags = flags;
+        _loading = false;
+        // Assume total count from response if available, otherwise estimate
+        _total = flags.length >= _limit ? (_offset + _limit + 1) : (_offset + flags.length);
+      });
+    } catch (e) {
+      setState(() => _loading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load flags: $e')),
+        );
+      }
+    }
+  }
+
+  void _search(String value) {
+    setState(() {
+      _query = value;
+      _offset = 0; // Reset to first page
+    });
+    _loadFlags();
+  }
+
+  void _nextPage() {
+    if (_offset + _limit < _total) {
+      setState(() => _offset += _limit);
+      _loadFlags();
+    }
+  }
+
+  void _prevPage() {
+    if (_offset > 0) {
+      setState(() => _offset = (_offset - _limit).clamp(0, double.infinity).toInt());
+      _loadFlags();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final start = _offset + 1;
+    final end = (_offset + _flags.length).clamp(0, _total);
+    final showingText = _total > 0 ? 'Showing $start–$end of $_total' : 'No flags found';
+
     return AppScaffold(
       title: 'Flags',
       body: Column(
@@ -23,27 +85,62 @@ class _FlagsScreenState extends State<FlagsScreen> {
             child: TextField(
               controller: _searchController,
               decoration: const InputDecoration(
-                labelText: 'Search symptoms',
+                labelText: 'Search flags',
                 prefixIcon: Icon(Icons.search),
               ),
-              onChanged: (value) {
-                setState(() {
-                  // TODO: Implement search filtering
-                });
-              },
+              onChanged: _search,
+            ),
+          ),
+          if (_lastAffected != null)
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.all(8),
+              color: Theme.of(context).colorScheme.primaryContainer,
+              child: Row(
+                children: [
+                  Icon(Icons.info, color: Theme.of(context).colorScheme.primary),
+                  const SizedBox(width: 8),
+                  Text(_lastAffected!, style: const TextStyle(fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                Text(showingText, style: Theme.of(context).textTheme.bodySmall),
+                const Spacer(),
+                if (_flags.isNotEmpty) ...[
+                  IconButton(
+                    onPressed: _offset > 0 ? _prevPage : null,
+                    icon: const Icon(Icons.chevron_left),
+                    tooltip: 'Previous page',
+                  ),
+                  IconButton(
+                    onPressed: _offset + _limit < _total ? _nextPage : null,
+                    icon: const Icon(Icons.chevron_right),
+                    tooltip: 'Next page',
+                  ),
+                ],
+              ],
             ),
           ),
           Expanded(
-            child: ListView.builder(
-              itemCount: 10, // TODO: Replace with actual data
-              itemBuilder: (context, index) {
-                return _RecentBranchAuditItem(
-                  title: 'Branch Audit ${index + 1}',
-                  date: DateTime.now().subtract(Duration(days: index)),
-                  flagCount: (index + 1) % 3,
-                );
-              },
-            ),
+            child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : _flags.isEmpty && !_loading
+                ? const Center(child: Text('No flags found'))
+                : ListView.builder(
+                    itemCount: _flags.length,
+                    itemBuilder: (context, index) {
+                      final flag = _flags[index] as Map<String, dynamic>;
+                      return _FlagListItem(
+                        id: flag['id'] ?? index,
+                        label: flag['label'] ?? 'Unknown Flag',
+                        onAudit: () => _showAudit(flag['id'] ?? index),
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -52,7 +149,9 @@ class _FlagsScreenState extends State<FlagsScreen> {
           showModalBottomSheet(
             context: context,
             isScrollControlled: true,
-            builder: (context) => const FlagAssignerSheet(),
+            builder: (context) => FlagAssignerSheet(
+              onAssign: (flagId, nodeId, cascade) => _assignFlag(flagId, nodeId, cascade),
+            ),
           );
         },
         icon: const Icon(Icons.flag),
@@ -60,38 +159,100 @@ class _FlagsScreenState extends State<FlagsScreen> {
       ),
     );
   }
+
+  Future<void> _assignFlag(int flagId, int nodeId, bool cascade) async {
+    try {
+      final api = context.read(flagsApiProvider);
+      final result = await api.assign(nodeId: nodeId, flagId: flagId, cascade: cascade);
+      final affected = result['affected'] ?? 0;
+      setState(() => _lastAffected = 'Assigned flag to $affected nodes');
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Affected: $affected')),
+        );
+      }
+
+      _loadFlags(); // Refresh the list
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to assign flag: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _showAudit(int flagId) async {
+    try {
+      final api = context.read(flagsApiProvider);
+      final auditData = await api.audit(nodeId: flagId);
+
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Flag Audit'),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: auditData.isEmpty
+                ? const Text('No audit data available')
+                : ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: auditData.length,
+                    itemBuilder: (context, index) {
+                      final item = auditData[index] as Map<String, dynamic>;
+                      return ListTile(
+                        title: Text(item['action'] ?? 'Unknown action'),
+                        subtitle: Text('At: ${item['timestamp'] ?? 'Unknown time'}'),
+                        trailing: Text(item['details'] ?? ''),
+                      );
+                    },
+                  ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load audit: $e')),
+        );
+      }
+    }
+  }
 }
 
-class _RecentBranchAuditItem extends StatelessWidget {
-  const _RecentBranchAuditItem({
-    required this.title,
-    required this.date,
-    required this.flagCount,
+class _FlagListItem extends StatelessWidget {
+  const _FlagListItem({
+    required this.id,
+    required this.label,
+    required this.onAudit,
   });
 
-  final String title;
-  final DateTime date;
-  final int flagCount;
+  final int id;
+  final String label;
+  final VoidCallback onAudit;
 
   @override
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: ListTile(
-        title: Text(title),
-        subtitle: Text('Last updated: ${_formatDate(date)}'),
-        trailing: flagCount > 0
-            ? Chip(
-                label: Text('$flagCount flags'),
-                backgroundColor:
-                    Theme.of(context).colorScheme.secondaryContainer,
-              )
-            : null,
+        title: Text(label),
+        subtitle: Text('ID: $id'),
+        trailing: IconButton(
+          icon: const Icon(Icons.history),
+          tooltip: 'View audit',
+          onPressed: onAudit,
+        ),
       ),
     );
-  }
-
-  String _formatDate(DateTime date) {
-    return '${date.month}/${date.day}/${date.year}';
   }
 }
