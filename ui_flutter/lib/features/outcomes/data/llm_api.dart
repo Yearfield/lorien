@@ -8,12 +8,15 @@ class LlmApi {
   LlmApi(this._dio);
   final Dio _dio;
 
-  Future<bool> health() async {
+  Future<({bool usable, Map<String,dynamic> body})> health() async {
     try {
       final r = await _dio.get('/llm/health');
-      return r.statusCode == 200;
-    } catch (_) {
-      return false;
+      return (usable: r.statusCode == 200, body: Map<String,dynamic>.from(r.data ?? {}));
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 503) {
+        return (usable: false, body: Map<String,dynamic>.from(e.response?.data ?? {}));
+      }
+      rethrow;
     }
   }
 

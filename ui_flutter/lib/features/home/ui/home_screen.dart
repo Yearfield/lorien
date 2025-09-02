@@ -1,14 +1,36 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../features/tree/data/tree_api.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Lorien - Decision Tree Platform'),
+        actions: [
+          IconButton(
+            tooltip: 'Next incomplete parent',
+            icon: const Icon(Icons.skip_next),
+            onPressed: () async {
+              final data = await ref.read(treeApiProvider).nextIncompleteParent();
+              if (data == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('All parents complete.')));
+                return;
+              }
+              // Deterministic display for now (we don't have a full tree editor screen here)
+              showDialog(context: context, builder: (_) => AlertDialog(
+                title: const Text('Next incomplete parent'),
+                content: Text('ID: ${data['parent_id']}\nLabel: ${data['label']}\nMissing slots: ${data['missing_slots']}\nDepth: ${data['depth']}'),
+                actions: [TextButton(onPressed: ()=>Navigator.pop(context), child: const Text('OK'))],
+              ));
+            },
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
