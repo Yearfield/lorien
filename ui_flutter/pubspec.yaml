@@ -1,7 +1,7 @@
 name: lorien
 description: "Cross-platform decision tree management with AI-powered insights"
 publish_to: 'none'
-version: 0.6.1+2
+version: 0.6.2+3
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
