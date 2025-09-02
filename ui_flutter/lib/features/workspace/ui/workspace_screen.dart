@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/health_service.dart';
 import '../../../core/http/api_client.dart';
+import '../../../shared/widgets/app_scaffold.dart';
+import '../../../shared/widgets/route_guard.dart';
 
 class WorkspaceScreen extends ConsumerStatefulWidget {
   const WorkspaceScreen({super.key});
@@ -13,14 +15,18 @@ class WorkspaceScreen extends ConsumerStatefulWidget {
 class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
   String _importStatus = 'idle'; // idle, queued, processing, done
   List<HeaderMismatch> _headerMismatches = [];
+  
+  bool get _importInProgress => _importStatus == 'queued' || _importStatus == 'processing';
+  bool get _exportInProgress => false; // TODO: implement export progress tracking
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Workspace'),
-      ),
-      body: ListView(
+    return RouteGuard(
+      isBusy: () => _importInProgress || _exportInProgress,
+      confirmMessage: 'Import/Export is running. Leave and cancel?',
+      child: AppScaffold(
+        title: 'Workspace',
+        body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           Card(
@@ -118,7 +124,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
           ),
         ],
       ),
-    );
+        ),
   }
 
   Widget _buildImportProgress() {

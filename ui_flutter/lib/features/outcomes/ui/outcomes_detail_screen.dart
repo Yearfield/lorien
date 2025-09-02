@@ -6,6 +6,9 @@ import '../../../core/http/api_client.dart';
 import '../../../core/validators/field_validators.dart';
 import '../../../core/util/error_mapper.dart';
 import '../../../shared/widgets/field_error_text.dart';
+import '../../../shared/widgets/app_scaffold.dart';
+import '../../../shared/widgets/toasts.dart';
+import '../../../shared/widgets/route_guard.dart';
 
 class OutcomesDetailScreen extends ConsumerStatefulWidget {
   const OutcomesDetailScreen({super.key, required this.outcomeId});
@@ -21,6 +24,7 @@ class _S extends ConsumerState<OutcomesDetailScreen> {
   String? _errTriage, _errActions;
   bool _saving = false;
   bool _llmOn = false;
+  bool _dirty = false;
 
   int _wc(String s) =>
       s.trim().isEmpty ? 0 : s.trim().split(RegExp(r'\s+')).length;
@@ -47,9 +51,9 @@ class _S extends ConsumerState<OutcomesDetailScreen> {
         'diagnostic_triage': _triage.text.trim(),
         'actions': _actions.text.trim(),
       });
+      setState(() => _dirty = false);
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Saved')));
+        showSuccess(context, 'Saved successfully');
       }
     } on DioException catch (e) {
       if (e.response?.statusCode == 422) {
@@ -59,8 +63,9 @@ class _S extends ConsumerState<OutcomesDetailScreen> {
           _errActions = mapped['actions'];
         });
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error ${e.response?.statusCode ?? ''}')));
+        if (mounted) {
+          showError(context, 'Error ${e.response?.statusCode ?? ''}');
+        }
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -75,53 +80,92 @@ class _S extends ConsumerState<OutcomesDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Outcomes Detail')),
-      body: Form(
-        key: _fKey,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            TextFormField(
-              controller: _triage,
-              validator: (v) =>
-                  maxSevenWordsAndAllowed(v, field: 'Diagnostic Triage'),
-              decoration: InputDecoration(
-                  labelText: 'Diagnostic Triage',
-                  helperText: 'Keep under 7 words, concise phrase only.',
-                  suffixText: '${_wc(_triage.text)}/7'),
-              onChanged: (_) => setState(() {}),
+    return RouteGuard(
+      // busy guard during save
+      isBusy: () => _saving,
+      confirmMessage: 'A save is in progress. Leave and cancel?',
+      child: WillPopScope(
+        onWillPop: () async {
+          if (!_dirty) return true;
+          final go = await showDialog<bool>(
+            context: context,
+            builder: (_) => AlertDialog(
+              title: const Text('Discard changes?'),
+              content: const Text('You have unsaved edits. Do you want to discard them?'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false), 
+                  child: const Text('Stay')
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(context).pop(true), 
+                  child: const Text('Discard')
+                ),
+              ],
             ),
-            FieldErrorText(_errTriage),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _actions,
-              validator: (v) => maxSevenWordsAndAllowed(v, field: 'Actions'),
-              decoration: InputDecoration(
-                  labelText: 'Actions',
-                  helperText: 'Keep under 7 words, concise phrase only.',
-                  suffixText: '${_wc(_actions.text)}/7'),
-              onChanged: (_) => setState(() {}),
-            ),
-            FieldErrorText(_errActions),
-            const SizedBox(height: 24),
-            Row(children: [
-              if (_llmOn)
-                OutlinedButton.icon(
-                    onPressed: () {/* GET suggestions only */},
-                    icon: const Icon(Icons.auto_awesome),
-                    label: const Text('LLM Fill')),
-              const Spacer(),
-              FilledButton(
-                  onPressed: _saving ? null : _save,
-                  child: _saving
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Text('Save')),
-            ]),
-          ],
+          );
+          return go ?? false;
+        },
+        child: AppScaffold(
+        title: 'Outcomes Detail',
+        body: Form(
+          key: _fKey,
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              TextFormField(
+                controller: _triage,
+                validator: (v) =>
+                    maxSevenWordsAndAllowed(v, field: 'Diagnostic Triage'),
+                decoration: InputDecoration(
+                    labelText: 'Diagnostic Triage',
+                    helperText: 'Keep under 7 words, concise phrase only.',
+                    suffixText: '${_wc(_triage.text)}/7'),
+                onChanged: (_) => setState(() { _dirty = true; }),
+              ),
+              FieldErrorText(_errTriage),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _actions,
+                validator: (v) => maxSevenWordsAndAllowed(v, field: 'Actions'),
+                decoration: InputDecoration(
+                    labelText: 'Actions',
+                    helperText: 'Keep under 7 words, concise phrase only.',
+                    suffixText: '${_wc(_actions.text)}/7'),
+                onChanged: (_) => setState(() { _dirty = true; }),
+              ),
+              FieldErrorText(_errActions),
+              const SizedBox(height: 24),
+              Row(children: [
+                if (_llmOn)
+                  OutlinedButton.icon(
+                      onPressed: () {/* GET suggestions only */},
+                      icon: const Icon(Icons.auto_awesome),
+                      label: const Text('LLM Fill')),
+                const Spacer(),
+                FilledButton(
+                    onPressed: _saving ? null : _save,
+                    child: _saving
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Text('Save')),
+              ]),
+            ],
+          ),
+        ),
+        persistentFooterButtons: [
+          FilledButton(
+            onPressed: _saving ? null : _save,
+            child: _saving
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2))
+                : const Text('Save'),
+          )
+        ],
         ),
       ),
     );

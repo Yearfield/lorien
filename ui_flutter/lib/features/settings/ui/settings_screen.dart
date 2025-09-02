@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/health_service.dart';
 import '../../../shared/widgets/connected_badge.dart';
+import '../../../shared/widgets/app_scaffold.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -35,10 +36,11 @@ class _S extends ConsumerState<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Settings'), actions: const [
+    return AppScaffold(
+      title: 'Settings',
+      actions: const [
         Padding(padding: EdgeInsets.all(8), child: ConnectedBadge())
-      ]),
+      ],
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
