@@ -13,12 +13,12 @@ class LlmApi {
       final r = await _dio.get('/llm/health');
       if (r.statusCode == 200) {
         return (
-          ready: r.data?['ready'] ?? true,
+          ready: (r.data?['ready'] as bool?) ?? true,
           checkedAt: r.data?['checked_at'] as String?
         );
       } else if (r.statusCode == 503) {
         return (
-          ready: r.data?['ready'] ?? false,
+          ready: (r.data?['ready'] as bool?) ?? false,
           checkedAt: r.data?['checked_at'] as String?
         );
       }

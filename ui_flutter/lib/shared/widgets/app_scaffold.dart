@@ -14,7 +14,7 @@ class AppScaffold extends StatelessWidget {
     this.persistentFooterButtons,
     this.resizeToAvoidBottomInset,
   });
-  
+
   final String title;
   final Widget body;
   final List<Widget>? actions;
@@ -67,6 +67,13 @@ class AppScaffold extends StatelessWidget {
       floatingActionButton: floatingActionButton,
       bottomNavigationBar: bottomNavigationBar,
       persistentFooterButtons: persistentFooterButtons,
+    );
+  }
+
+  static void showShortcutsHelp(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => const ShortcutsHelp(),
     );
   }
 }

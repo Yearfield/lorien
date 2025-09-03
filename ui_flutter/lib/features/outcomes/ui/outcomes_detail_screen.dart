@@ -9,6 +9,7 @@ import '../../../shared/widgets/field_error_text.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/toasts.dart';
 import '../../../shared/widgets/route_guard.dart';
+import '../../../state/health_provider.dart';
 import '../data/llm_api.dart';
 
 class OutcomesDetailScreen extends ConsumerStatefulWidget {
@@ -80,13 +81,59 @@ class _S extends ConsumerState<OutcomesDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final health = ref.watch(healthControllerProvider).valueOrNull;
+    final llmEnabled = (health?.features.llm ?? false);
+
+    // Show disabled notice if LLM features are not available
+    if (!llmEnabled) {
+      return AppScaffold(
+        title: 'Outcomes Detail',
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.auto_awesome,
+                  size: 64,
+                  color: Colors.grey[400],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'LLM Features Disabled',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'LLM suggestions are disabled by server configuration. '
+                  'Contact your administrator to enable LLM features.',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.grey[600],
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                OutlinedButton.icon(
+                  onPressed: () => ref.read(healthControllerProvider.notifier).ping(),
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Check Status'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return RouteGuard(
       // busy guard during save
       isBusy: () => _saving,
       confirmMessage: 'A save is in progress. Leave and cancel?',
-      child: WillPopScope(
-        onWillPop: () async {
-          if (!_dirty) return true;
+      child: PopScope(
+        canPop: !_dirty,
+        onPopInvoked: (didPop) async {
+          if (didPop || !_dirty) return;
           final go = await showDialog<bool>(
             context: context,
             builder: (_) => AlertDialog(
@@ -94,17 +141,19 @@ class _S extends ConsumerState<OutcomesDetailScreen> {
               content: const Text('You have unsaved edits. Do you want to discard them?'),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.of(context).pop(false), 
+                  onPressed: () => Navigator.of(context).pop(false),
                   child: const Text('Stay')
                 ),
                 FilledButton(
-                  onPressed: () => Navigator.of(context).pop(true), 
+                  onPressed: () => Navigator.of(context).pop(true),
                   child: const Text('Discard')
                 ),
               ],
             ),
           );
-          return go ?? false;
+          if (go == true && context.mounted) {
+            Navigator.of(context).pop();
+          }
         },
         child: AppScaffold(
         title: 'Outcomes Detail',
@@ -137,11 +186,10 @@ class _S extends ConsumerState<OutcomesDetailScreen> {
               FieldErrorText(_errActions),
               const SizedBox(height: 24),
               Row(children: [
-                if (_llmOn)
-                  OutlinedButton.icon(
-                      onPressed: () {/* GET suggestions only */},
-                      icon: const Icon(Icons.auto_awesome),
-                      label: const Text('LLM Fill')),
+                OutlinedButton.icon(
+                    onPressed: () {/* GET suggestions only */},
+                    icon: const Icon(Icons.auto_awesome),
+                    label: const Text('LLM Fill')),
                 const Spacer(),
                 FilledButton(
                     onPressed: _saving ? null : _save,

@@ -46,6 +46,13 @@ class _HomeIntent extends Intent {
   const _HomeIntent(); 
 }
 
-class _HelpIntent extends Intent { 
-  const _HelpIntent(); 
+class _HelpIntent extends Intent {
+  const _HelpIntent();
+}
+
+void showShortcutsHelp(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (context) => const ShortcutsHelp(),
+  );
 }

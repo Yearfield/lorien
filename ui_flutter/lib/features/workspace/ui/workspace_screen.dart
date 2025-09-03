@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/services/health_service.dart';
-import '../../../core/http/api_client.dart';
-import '../../../shared/widgets/app_scaffold.dart';
-import '../../../shared/widgets/route_guard.dart';
+import 'package:file_selector/file_selector.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:dio/dio.dart';
+import 'dart:io';
+import '../../../data/api_client.dart';
+import '../../../widgets/layout/scroll_scaffold.dart';
+import '../../../widgets/app_back_leading.dart';
+import '../../../widgets/calc_export_dialog.dart';
+import '../../../state/health_provider.dart';
 
 class WorkspaceScreen extends ConsumerStatefulWidget {
   const WorkspaceScreen({super.key});
@@ -13,333 +18,411 @@ class WorkspaceScreen extends ConsumerStatefulWidget {
 }
 
 class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
-  String _importStatus = 'idle'; // idle, queued, processing, done
-  List<HeaderMismatch> _headerMismatches = [];
+  String? _status;
+  bool _busy = false;
+  bool _csvSupported = true;
+  bool _checkedFromFeatures = false;
+  bool _apiAvailable = true;
 
-  // 422: strict schema ctx
-  String? _schemaError;
-  Map<String, dynamic>? _schemaCtx;
+  @override
+  void initState() {
+    super.initState();
+    // Don't make network calls during widget tests
+    if (!const bool.fromEnvironment('FLUTTER_TEST')) {
+      _detectCsvSupported();
+    }
+  }
 
-  bool get _importInProgress => _importStatus == 'queued' || _importStatus == 'processing';
-  bool get _exportInProgress => false; // TODO: implement export progress tracking
+  Future<void> _importFile(String path, {required bool isExcel}) async {
+    // Gate behind health check
+    final health = await ref.read(healthControllerProvider.future)
+        .timeout(const Duration(seconds: 2), onTimeout: () => null);
+    _apiAvailable = health?.ok == true;
+    if (!_apiAvailable) {
+      setState(() {
+        _status = '❌ API is offline at ${ApiClient.I().baseUrl}. Start the server or update Settings → API Base URL.';
+      });
+      return;
+    }
+
+    setState(() {
+      _busy = true;
+      _status = 'Uploading file...';
+    });
+
+    try {
+      final fileName = path.split('/').last;
+      setState(() => _status = 'Uploading $fileName...');
+
+      final file = File(path);
+      final bytes = await file.readAsBytes();
+
+      // Create proper FormData with filename for server compatibility
+      final formData = FormData.fromMap({
+        'file': MultipartFile.fromBytes(bytes, filename: fileName),
+        'source': 'workspace',
+      });
+
+      final data = await ApiClient.I().postMultipart(
+        'import',
+        formData: formData,
+        onSendProgress: (sent, total) {
+          if (!mounted) return;
+          if (total > 0) {
+            final percent = ((sent / total) * 100).toInt();
+            setState(() => _status = 'Uploading $fileName... ${percent}%');
+          }
+        },
+      );
+
+      final summary = data['summary'] ?? 'Successfully imported';
+      setState(() => _status = '✅ Import complete: $summary');
+
+    } on ApiUnavailable catch (e) {
+      setState(() {
+        _status = '❌ Connection failed: Could not reach ${ApiClient.I().baseUrl}. Is the server running?';
+        _apiAvailable = false;
+      });
+    } on ApiFailure catch (e) {
+      if (e.statusCode == 422) {
+        setState(() => _status = '⚠️ Validation error (422): ${e.message}');
+      } else if (e.statusCode == 400) {
+        setState(() => _status = '❌ Invalid file format or data structure');
+      } else if (e.statusCode == 500) {
+        setState(() => _status = '❌ Server error: Please try again later');
+      } else {
+        setState(() => _status = '❌ Import failed (${e.statusCode ?? 'error'}): ${e.message}');
+      }
+    } catch (e) {
+      final errorMsg = e.toString();
+      setState(() => _status = '❌ Import failed: $errorMsg');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _onPickExcelCsv() async {
+    try {
+      final typeGroup = XTypeGroup(
+        label: 'Spreadsheets',
+        extensions: ['xlsx', 'xls', 'csv'],
+      );
+      final XFile? x = await openFile(acceptedTypeGroups: [typeGroup]);
+      if (x != null) {
+        final isExcel = x.path.endsWith('.xlsx') || x.path.endsWith('.xls');
+        await _importFile(x.path, isExcel: isExcel);
+      }
+    } catch (e) {
+      setState(() => _status = 'File selection failed: $e');
+    }
+  }
+
+  Future<void> _onPickCsv() async {
+    try {
+      final typeGroup = XTypeGroup(
+        label: 'CSV Files',
+        extensions: ['csv'],
+      );
+      final XFile? x = await openFile(acceptedTypeGroups: [typeGroup]);
+      if (x != null) {
+        await _importFile(x.path, isExcel: false);
+      }
+    } catch (e) {
+      setState(() => _status = 'File selection failed: $e');
+    }
+  }
+
+  // Helper to build calculator payload for CSV export
+  Future<Map<String, dynamic>> _buildCalcPayloadOrPrompt(BuildContext context) async {
+    // For now, return a minimal payload structure
+    // In a real implementation, this would prompt the user for diagnosis and node values
+    return {
+      'diagnosis': 'Sample Diagnosis',
+      'nodes': [
+        {'id': 1, 'value': 'Node 1'},
+        {'id': 2, 'value': 'Node 2'},
+        {'id': 3, 'value': 'Node 3'},
+        {'id': 4, 'value': 'Node 4'},
+        {'id': 5, 'value': 'Node 5'},
+      ],
+    };
+  }
+
+  Future<void> _detectCsvSupported() async {
+    try {
+      final health = await ref.read(healthControllerProvider.future);
+      if (health != null && health.features.csvExport != false) { // true or absent -> optimistic
+        _csvSupported = health.features.csvExport == true;
+        _checkedFromFeatures = true;
+      }
+    } catch (_) {/* ignore; fall through */}
+    if (!_checkedFromFeatures) {
+      // Fallback probe if features key absent
+      try { await ApiClient.I().head('export/csv'); _csvSupported = true; }
+      catch (_) { _csvSupported = false; }
+    }
+    if (mounted) setState((){});
+  }
+
+  Future<void> _exportCsv() async {
+    setState(() => _status = 'Preparing CSV export...');
+    try {
+      // Always prompt for CSV V1 payload; dialog enforces exactly 5.
+      final result = await CalcExportDialog.open(context);
+      if (result == null) return;
+      final payload = {
+        'diagnosis': result.diagnosis,
+        'nodes': result.nodes.map((n)=> {
+          'rank': n.rank,
+          'symptom_id': n.symptomId,
+          'symptom_label': n.symptomLabel,
+          'quality': n.quality,
+        }).toList(),
+      };
+      final resp = await ApiClient.I().postBytes('export/csv', body: payload,
+        headers: {'Accept':'text/csv'});
+      setState(() => _status = 'Downloading CSV file...');
+
+      final dir = await getDownloadsDirectory() ?? await getApplicationDocumentsDirectory();
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final file = File('${dir.path}/lorien_calc_export_$timestamp.csv');
+      await file.writeAsBytes(resp.data ?? const <int>[]);
+
+      setState(() => _status = '✅ CSV exported: ${file.path}');
+    } on ApiFailure catch (e) {
+      if (e.statusCode == 404) {
+        setState(() => _status = '❌ CSV export endpoint not found on server. Check API version or use XLSX export.');
+        setState(()=>_csvSupported=false);
+      } else {
+        setState(() => _status = '❌ Export failed: ${e.message}');
+      }
+    } catch (e) {
+      setState(() => _status = '❌ Export failed: $e');
+    }
+  }
+
+  Future<void> _exportXlsx() async {
+    setState(() => _status = 'Preparing XLSX export...');
+    try {
+      final resp = await ApiClient.I().download('export/xlsx');
+      setState(() => _status = 'Downloading XLSX file...');
+
+      final dir = await getDownloadsDirectory() ?? await getApplicationDocumentsDirectory();
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final file = File('${dir.path}/lorien_tree_export_$timestamp.xlsx');
+      await file.writeAsBytes(resp.data ?? const <int>[]);
+
+      setState(() => _status = '✅ XLSX exported: ${file.path}');
+    } catch (e) {
+      final errorMsg = e.toString();
+      if (errorMsg.contains('404')) {
+        setState(() => _status = '❌ No data available for export');
+      } else if (errorMsg.contains('500')) {
+        setState(() => _status = '❌ Server error during export');
+      } else {
+        setState(() => _status = '❌ Export failed: $errorMsg');
+      }
+    }
+  }
+
+
 
   @override
   Widget build(BuildContext context) {
-    return RouteGuard(
-      isBusy: () => _importInProgress || _exportInProgress,
-      confirmMessage: 'Import/Export is running. Leave and cancel?',
-      child: AppScaffold(
-        title: 'Workspace',
-        body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Import Data',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed:
-                              _importStatus == 'idle' ? _pickExcelFile : null,
-                          icon: const Icon(Icons.file_upload),
-                          label: const Text('Select Excel/CSV'),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed:
-                              _importStatus == 'idle' ? _pickCSVFile : null,
-                          icon: const Icon(Icons.file_upload),
-                          label: const Text('Select CSV'),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  _buildImportProgress(),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          if (_headerMismatches.isNotEmpty) ...[
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Header Mismatches',
-                      style:
-                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 16),
-                    _buildHeaderMismatchTable(),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
-          if (_schemaCtx != null) ...[
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Schema Error: ${_schemaError ?? 'Unknown error'}',
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.red),
-                    ),
-                    const SizedBox(height: 16),
-                    _buildSchemaCtxTable(),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Export Data',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed: _exportCSV,
-                          icon: const Icon(Icons.file_download),
-                          label: const Text('Export CSV'),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed: _exportXLSX,
-                          icon: const Icon(Icons.file_download),
-                          label: const Text('Export XLSX'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildImportProgress() {
-    if (_importStatus == 'idle') {
-      return const Text('No import in progress');
-    }
-
-    String statusText;
-    IconData statusIcon;
-
-    switch (_importStatus) {
-      case 'queued':
-        statusText = 'Queued for processing...';
-        statusIcon = Icons.schedule;
-        break;
-      case 'processing':
-        statusText = 'Processing import...';
-        statusIcon = Icons.hourglass_empty;
-        break;
-      case 'done':
-        statusText = 'Import completed';
-        statusIcon = Icons.check_circle;
-        break;
-      default:
-        statusText = 'Unknown status';
-        statusIcon = Icons.help;
-    }
-
-    return Row(
+    return ScrollScaffold(
+      title: 'Workspace',
+      leading: const AppBackLeading(),
       children: [
-        Icon(statusIcon),
-        const SizedBox(width: 8),
-        Text(statusText),
+        _ImportPanel(
+          busy: _busy,
+          apiAvailable: _apiAvailable,
+          onPickExcelCsv: _onPickExcelCsv,
+          onPickCsv: _onPickCsv,
+          status: _status,
+          onRetry: () {
+            ref.refresh(healthControllerProvider);
+            setState(() {
+              _apiAvailable = true;
+              _status = null;
+            });
+          },
+        ),
+        const SizedBox(height: 24),
+        _ExportPanel(onExportCsv: _exportCsv, onExportXlsx: _exportXlsx, csvSupported: _csvSupported),
       ],
     );
   }
 
-  Widget _buildHeaderMismatchTable() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: DataTable(
-        columns: const [
-          DataColumn(label: Text('Position')),
-          DataColumn(label: Text('Expected')),
-          DataColumn(label: Text('Got')),
-        ],
-        rows: _headerMismatches
-            .map((mismatch) => DataRow(
-                  cells: [
-                    DataCell(Text('${mismatch.position}')),
-                    DataCell(Text(mismatch.expected)),
-                    DataCell(Text(mismatch.got)),
-                  ],
-                ))
-            .toList(),
-      ),
-    );
-  }
+}
 
-  Widget _buildSchemaCtxTable() {
-    if (_schemaCtx == null) return const SizedBox();
+class _ImportPanel extends StatelessWidget {
+  const _ImportPanel({
+    required this.busy,
+    required this.apiAvailable,
+    required this.onPickExcelCsv,
+    required this.onPickCsv,
+    required this.status,
+    required this.onRetry,
+  });
+  final bool busy;
+  final bool apiAvailable;
+  final VoidCallback onPickExcelCsv;
+  final VoidCallback onPickCsv;
+  final String? status;
+  final VoidCallback onRetry;
 
-    final row = _schemaCtx!['first_offending_row'] ?? '?';
-    final col = _schemaCtx!['col_index'] ?? '?';
-    final expected = (_schemaCtx!['expected'] as List?)?.join(', ') ?? '?';
-    final received = (_schemaCtx!['received'] as List?)?.join(', ') ?? '?';
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: DataTable(
-        columns: const [
-          DataColumn(label: Text('Row')),
-          DataColumn(label: Text('Column')),
-          DataColumn(label: Text('Expected')),
-          DataColumn(label: Text('Received')),
-        ],
-        rows: [
-          DataRow(cells: [
-            DataCell(Text('$row')),
-            DataCell(Text('$col')),
-            DataCell(Text(expected)),
-            DataCell(Text(received)),
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Import Data', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 12),
+          Row(children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: (busy || !apiAvailable) ? null : onPickExcelCsv,
+                icon: busy ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.upload),
+                label: Text(busy ? 'Importing...' : 'Select Excel/CSV')
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: (busy || !apiAvailable) ? null : onPickCsv,
+                icon: busy ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.upload),
+                label: Text(busy ? 'Importing...' : 'Select CSV')
+              ),
+            ),
           ]),
-        ],
+          if (!apiAvailable) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red[200]!),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.wifi_off, color: Colors.red),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'API Offline',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Colors.red,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Cannot import files while the API is offline. Start the server and try again.',
+                          style: TextStyle(color: Colors.red[700]),
+                        ),
+                      ],
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: onRetry,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Retry'),
+                    style: TextButton.styleFrom(foregroundColor: Colors.red),
+                  ),
+                ],
+              ),
+            ),
+          ] else if (status != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: status!.startsWith('✅')
+                  ? Colors.green[50]
+                  : status!.startsWith('❌') || status!.startsWith('⚠️')
+                    ? Colors.red[50]
+                    : Colors.blue[50],
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(
+                  color: status!.startsWith('✅')
+                    ? Colors.green[200]!
+                    : status!.startsWith('❌') || status!.startsWith('⚠️')
+                      ? Colors.red[200]!
+                      : Colors.blue[200]!,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    status!.startsWith('✅')
+                      ? Icons.check_circle
+                      : status!.startsWith('❌') || status!.startsWith('⚠️')
+                        ? Icons.error
+                        : Icons.info,
+                    size: 16,
+                    color: status!.startsWith('✅')
+                      ? Colors.green[700]
+                      : status!.startsWith('❌') || status!.startsWith('⚠️')
+                        ? Colors.red[700]
+                        : Colors.blue[700],
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      status!,
+                      style: TextStyle(
+                        color: status!.startsWith('✅')
+                          ? Colors.green[700]
+                          : status!.startsWith('❌') || status!.startsWith('⚠️')
+                            ? Colors.red[700]
+                            : Colors.blue[700],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ]),
       ),
     );
-  }
-
-  Future<void> _pickExcelFile() async {
-    // TODO: Implement file picker
-    final file = MultipartFile.fromBytes([]); // Placeholder - implement actual file picker
-    setState(() => _importStatus = 'queued');
-    await _performImport(file);
-  }
-
-  Future<void> _pickCSVFile() async {
-    // TODO: Implement file picker
-    final file = MultipartFile.fromBytes([]); // Placeholder - implement actual file picker
-    setState(() => _importStatus = 'queued');
-    await _performImport(file);
-  }
-
-  Future<void> _simulateImport() async {
-    await Future.delayed(const Duration(seconds: 1));
-    setState(() => _importStatus = 'processing');
-
-    await Future.delayed(const Duration(seconds: 2));
-
-    setState(() {
-      _importStatus = 'done';
-      _headerMismatches = [
-        HeaderMismatch(1, 'Vital Measurement', 'VitalMeasurement'),
-        HeaderMismatch(3, 'Node 3', 'Node3'),
-      ];
-    });
-  }
-
-  Future<void> _performImport(MultipartFile file) async {
-    setState(() => _importStatus = 'processing');
-    try {
-      final api = ref.read(workspaceApiProvider);
-      final result = await api.importExcel(file);
-      setState(() {
-        _importStatus = 'done';
-        _schemaError = null;
-        _schemaCtx = null;
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Import completed successfully')));
-      }
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 422) {
-        final detail = (e.response?.data?['detail'] as List? ?? const []);
-        final first = (detail.isNotEmpty ? detail.first : null) as Map<String,dynamic>?;
-        setState(() {
-          _schemaError = first?['msg']?.toString();
-          _schemaCtx = Map<String,dynamic>.from(first?['ctx'] ?? const {});
-        });
-        // Render ctx table: first_offending_row, col_index, expected[], received[]
-      } else {
-        // non-422 error toast
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Import failed: ${e.message}')));
-        }
-      }
-      setState(() => _importStatus = 'idle');
-    }
-  }
-
-  Future<void> _exportCSV() async {
-    try {
-      final dio = ref.read(dioProvider);
-      await dio.get('/export/csv');
-      // TODO: Handle file download
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('CSV exported successfully')));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Export failed: $e')));
-      }
-    }
-  }
-
-  Future<void> _exportXLSX() async {
-    try {
-      final dio = ref.read(dioProvider);
-      await dio.get('/export/xlsx');
-      // TODO: Handle file download
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('XLSX exported successfully')));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Export failed: $e')));
-      }
-    }
   }
 }
 
-class HeaderMismatch {
-  final int position;
-  final String expected;
-  final String got;
+class _ExportPanel extends StatelessWidget {
+  const _ExportPanel({super.key, required this.onExportCsv, required this.onExportXlsx, required this.csvSupported});
+  final VoidCallback onExportCsv;
+  final VoidCallback onExportXlsx;
+  final bool csvSupported;
 
-  HeaderMismatch(this.position, this.expected, this.got);
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Export Data', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 12),
+          Row(children: [
+            Expanded(child: Tooltip(
+              message: csvSupported ? 'Export to CSV' : 'CSV not supported by server',
+              child: ElevatedButton.icon(
+                onPressed: (csvSupported) ? onExportCsv : null,
+                icon: const Icon(Icons.download),
+                label: const Text('Export CSV'),
+              ),
+            )),
+            const SizedBox(width: 16),
+            Expanded(child: ElevatedButton.icon(onPressed: onExportXlsx, icon: const Icon(Icons.download), label: const Text('Export XLSX'))),
+          ]),
+        ]),
+      ),
+    );
+  }
 }

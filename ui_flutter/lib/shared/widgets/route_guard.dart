@@ -40,10 +40,14 @@ class RouteGuard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
-        if (!isBusy()) return true;
-        return _confirm(context);
+    return PopScope(
+      canPop: !isBusy(),
+      onPopInvoked: (didPop) async {
+        if (didPop || !isBusy()) return;
+        final confirmed = await _confirm(context);
+        if (confirmed && context.mounted) {
+          Navigator.of(context).pop();
+        }
       },
       child: GuardScope(
         isBusy: isBusy, 

@@ -6,7 +6,7 @@ part 'triage_dto.g.dart';
 @freezed
 class TriageDTO with _$TriageDTO {
   const factory TriageDTO({
-    String? diagnostic_triage,
+    @JsonKey(name: 'diagnostic_triage') String? diagnosticTriage,
     String? actions,
   }) = _TriageDTO;
 

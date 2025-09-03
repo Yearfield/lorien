@@ -5,7 +5,7 @@ import '../utils/env.dart';
 
 // API Client Provider
 final apiClientProvider = Provider<ApiClient>((ref) {
-  return ApiClient();
+  return ApiClient.I();
 });
 
 // API Base URL Provider
@@ -94,7 +94,7 @@ class ConnectionStatusNotifier extends StateNotifier<ConnectionStatus> {
     state = ConnectionStatus.unknown;
 
     try {
-      _apiClient.setBaseUrl(baseUrl);
+      ApiClient.setBaseUrl(baseUrl);
       final response = await _apiClient.get('health');
 
       if (response.statusCode == 200) {

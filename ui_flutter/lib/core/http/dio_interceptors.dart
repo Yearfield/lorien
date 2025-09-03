@@ -5,10 +5,10 @@ class BaseUrlInterceptor extends Interceptor {
   final String Function() getBase;
 
   @override
-  void onRequest(RequestOptions opts, RequestInterceptorHandler h) {
-    if (opts.path.startsWith('http')) return h.next(opts);
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    if (options.path.startsWith('http')) return handler.next(options);
     final base = getBase().replaceAll(RegExp(r'\/$'), '');
-    opts.path = '$base${opts.path.startsWith('/') ? '' : '/'}${opts.path}';
-    h.next(opts);
+    options.path = '$base${options.path.startsWith('/') ? '' : '/'}${options.path}';
+    handler.next(options);
   }
 }

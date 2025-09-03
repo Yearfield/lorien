@@ -12,7 +12,7 @@ class TreeApi {
   Future<Map<String,dynamic>?> nextIncompleteParent() async {
     try {
       final r = await _dio.get('/tree/next-incomplete-parent',
-          validateStatus: (s) => s != null && (s == 200 || s == 204));
+          options: Options(validateStatus: (s) => s != null && (s == 200 || s == 204)));
       if (r.statusCode == 204) return null;
       final data = Map<String,dynamic>.from(r.data ?? const {});
       if (data['parent_id'] == null) return null;

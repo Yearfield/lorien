@@ -1,29 +1,51 @@
 import 'package:dio/dio.dart';
 import 'package:pretty_dio_logger/pretty_dio_logger.dart';
+import 'package:uuid/uuid.dart';
 import '../utils/env.dart';
 
 class ApiClient {
-  late final Dio _dio;
-  late final String baseUrl;
+  ApiClient._(this._dio, this.baseUrl);
+  final Dio _dio;
+  String baseUrl;
 
-  ApiClient() {
-    baseUrl = resolveApiBaseUrl();
-    _dio = Dio(BaseOptions(
+  static ApiClient? _instance;
+
+  static const _kConnectTimeout = Duration(seconds: 2);
+  static const _kReceiveTimeout = Duration(seconds: 8);
+  static const _kSendTimeout = Duration(seconds: 8);
+
+  static ApiClient I() {
+    if (_instance != null) return _instance!;
+    final base = resolveApiBaseUrl();
+    final dio = Dio(BaseOptions(
       // Dio requires a trailing slash for reliable relative path joining.
-      baseUrl: baseUrl, // must end with /api/v1/
-      connectTimeout: const Duration(seconds: 2),
-      receiveTimeout: const Duration(seconds: 5),
-      sendTimeout: const Duration(seconds: 5),
+      baseUrl: base, // must end with /api/v1/
+      connectTimeout: _kConnectTimeout,
+      receiveTimeout: _kReceiveTimeout,
+      sendTimeout: _kSendTimeout,
       responseType: ResponseType.json,
       followRedirects: true,
       validateStatus: (code) => code != null && code >= 200 && code < 400,
     ));
-    _setupInterceptors();
+    _setupInterceptors(dio);
+    _instance = ApiClient._(dio, base);
+    // ignore: avoid_print
+    print('[ApiClient] baseUrl=$base');
+    return _instance!;
   }
 
-  void _setupInterceptors() {
+  /// Allow runtime override of baseUrl (used by Settings). Resets Dio safely.
+  static void setBaseUrl(String newBase) {
+    final inst = I();
+    inst.baseUrl = newBase.endsWith('/') ? newBase : '$newBase/';
+    inst._dio.options.baseUrl = inst.baseUrl;
+    // ignore: avoid_print
+    print('[ApiClient] baseUrl updated to ${inst.baseUrl}');
+  }
+
+  static void _setupInterceptors(Dio dio) {
     // Add pretty logger for development
-    _dio.interceptors.add(
+    dio.interceptors.add(
       PrettyDioLogger(
         requestHeader: true,
         requestBody: true,
@@ -35,33 +57,42 @@ class ApiClient {
       ),
     );
 
-    // Add error interceptor
-    _dio.interceptors.add(
+    // Add structured logging interceptor
+    dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) {
-          // Light logging with safe print of fully-resolved URL
-          final url =
-              Uri.parse(options.baseUrl).resolve(options.path).toString();
-          // ignore: avoid_print
-          print('[ApiClient] ${options.method} $url');
+          // Attach request id
+          options.headers['X-Request-ID'] = const Uuid().v4();
+          // Redact sensitive headers in logs
+          _log('[HTTP] → ${options.method} ${options.uri}', extra: {
+            'id': options.headers['X-Request-ID'],
+            'timeoutMs': options.connectTimeout?.inMilliseconds,
+          });
           handler.next(options);
         },
-        onError: (error, handler) {
-          // ignore: avoid_print
-          print('[ApiClient:Error] ${error.type} ${error.message}');
-          handler.next(error);
+        onResponse: (response, handler) {
+          _log('[HTTP] ← ${response.statusCode} ${response.requestOptions.uri}', extra: {
+            'id': response.requestOptions.headers['X-Request-ID'],
+            'ms': response.requestOptions.extra['rt_ms'],
+          });
+          handler.next(response);
+        },
+        onError: (e, handler) {
+          _log('[HTTP] ✖ ${e.requestOptions.uri} ${e.type} ${e.message}', level: 'warn');
+          handler.next(e);
         },
       ),
     );
   }
 
-  void setBaseUrl(String baseUrl) {
-    this.baseUrl = baseUrl;
-    _dio.options.baseUrl = baseUrl;
-    // DEBUG: verify the base URL used by the client
+  static void _log(String msg, {String level = 'info', Map<String, Object?> extra = const {}}) {
+    // Central logging hook; ensure redaction if ever logging headers/bodies
+    // (we never log Authorization/cookies)
     // ignore: avoid_print
-    print('[ApiClient] baseUrl=${_dio.options.baseUrl}');
+    print('[$level] $msg ${extra.isEmpty ? '' : extra}');
   }
+
+
 
   Dio get dio => _dio;
 
@@ -151,6 +182,134 @@ class ApiClient {
     }
   }
 
+  Future<Map<String, dynamic>> getJson(String resource, {Map<String, dynamic>? query}) async {
+    _log('[HTTP] → GET $baseUrl$resource');
+    try {
+      final p = _join(resource);
+      final res = await _retryIdempotent(() => _dio.get<Map<String, dynamic>>(p, queryParameters: query));
+      return res.data ?? <String, dynamic>{};
+    } on DioException catch (e) {
+      throw _normalizeDioError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> postJson(String resource, {Object? body}) async {
+    try {
+      final p = _join(resource);
+      final res = await _dio.post<Map<String, dynamic>>(p, data: body);
+      return res.data ?? <String, dynamic>{};
+    } on DioException catch (e) {
+      throw _normalizeDioError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> postMultipart(
+    String resource, {
+    String? filePath,
+    String fieldName = 'file',
+    Map<String, Object?> extras = const {},
+    FormData? formData,
+    ProgressCallback? onSendProgress,
+  }) async {
+    _log('[HTTP] → POST(multipart) $baseUrl$resource');
+    try {
+      final p = _join(resource);
+      final form = formData ??
+          FormData.fromMap({
+            fieldName: await MultipartFile.fromFile(filePath!),
+            ...extras,
+          });
+      final res = await _dio.post<Map<String, dynamic>>(
+        p,
+        data: form,
+        onSendProgress: onSendProgress,
+      );
+      return res.data ?? <String, dynamic>{};
+    } on DioException catch (e) {
+      throw _normalizeDioError(e);
+    }
+  }
+
+  /// Download bytes and return them. Caller persists to disk.
+  Future<Response<List<int>>> download(String resource, {Map<String, dynamic>? query}) async {
+    try {
+      final p = _join(resource);
+      final res = await _dio.get<List<int>>(
+        p,
+        queryParameters: query,
+        options: Options(responseType: ResponseType.bytes),
+      );
+      return res;
+    } on DioException catch (e) {
+      throw _normalizeDioError(e);
+    }
+  }
+
+  /// HEAD request to check if endpoint exists
+  Future<void> head(String resource) async {
+    _log('[HTTP] → HEAD $baseUrl$resource');
+    try {
+      final p = _join(resource);
+      final res = await _dio.head(p);
+      if (res.statusCode != null && res.statusCode! >= 400) {
+        throw ApiFailure(message: 'HEAD $p failed', statusCode: res.statusCode);
+      }
+    } on DioException catch (e) {
+      throw _normalizeDioError(e);
+    }
+  }
+
+  /// POST with body and return bytes response. For CSV export with payload.
+  Future<Response<List<int>>> postBytes(String resource, {
+    Object? body,
+    Map<String, String>? headers,
+  }) async {
+    _log('[HTTP] → POST(bytes) $baseUrl$resource');
+    try {
+      final p = _join(resource);
+      final res = await _dio.post<List<int>>(
+        p,
+        data: body,
+        options: Options(
+          responseType: ResponseType.bytes,
+          headers: headers,
+        ),
+      );
+      return res;
+    } on DioException catch (e) {
+      throw _normalizeDioError(e);
+    }
+  }
+
+  // Simple retry/backoff for idempotent GET/HEAD only
+  Future<Response<T>> _retryIdempotent<T>(Future<Response<T>> Function() run,
+      {int max = 2}) async {
+    int attempt = 0;
+    DioException? last;
+    while (attempt <= max) {
+      final sw = Stopwatch()..start();
+      try {
+        final r = await run();
+        r.requestOptions.extra['rt_ms'] = sw.elapsedMilliseconds;
+        return r;
+      } on DioException catch (e) {
+        last = e;
+        if (!_isRetriable(e) || attempt == max) rethrow;
+        await Future.delayed(Duration(milliseconds: 150 * (1 << attempt)));
+        attempt++;
+      }
+    }
+    throw last!;
+  }
+
+  bool _isRetriable(DioException e) {
+    final m = e.requestOptions.method.toUpperCase();
+    if (m != 'GET' && m != 'HEAD') return false;
+    return e.type == DioExceptionType.connectionError ||
+        e.type == DioExceptionType.receiveTimeout ||
+        e.type == DioExceptionType.connectionTimeout;
+  }
+
   Object _normalizeDioError(DioException e) {
     // Connection refused / network down should not crash UI
     if (e.type == DioExceptionType.connectionError ||
@@ -158,7 +317,11 @@ class ApiClient {
         e.type == DioExceptionType.receiveTimeout) {
       return ApiUnavailable(message: e.message ?? 'API unavailable');
     }
-    return ApiFailure(message: e.message ?? 'Request failed', cause: e);
+    return ApiFailure(
+      message: e.message ?? 'Request failed',
+      cause: e,
+      statusCode: e.response?.statusCode,
+    );
   }
 }
 
@@ -170,9 +333,10 @@ class ApiUnavailable implements Exception {
 }
 
 class ApiFailure implements Exception {
-  ApiFailure({required this.message, this.cause});
+  ApiFailure({required this.message, this.cause, this.statusCode});
   final String message;
   final Object? cause;
+  final int? statusCode;
   @override
   String toString() => 'ApiFailure($message)';
 }

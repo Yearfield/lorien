@@ -2,15 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/flags_api.dart';
 
-class FlagAssignerSheet extends StatefulWidget {
+class FlagAssignerSheet extends ConsumerStatefulWidget {
   const FlagAssignerSheet({super.key, this.onAssign});
   final void Function(int flagId, int nodeId, bool cascade)? onAssign;
 
   @override
-  State<FlagAssignerSheet> createState() => _S();
+  ConsumerState<FlagAssignerSheet> createState() => _S();
 }
 
-class _S extends State<FlagAssignerSheet> {
+class _S extends ConsumerState<FlagAssignerSheet> {
   final _q = TextEditingController();
   final _nodeIdController = TextEditingController();
   final Set<int> _selectedFlagIds = {};
@@ -28,7 +28,7 @@ class _S extends State<FlagAssignerSheet> {
   Future<void> _loadFlags() async {
     setState(() => _loading = true);
     try {
-      final api = context.read(flagsApiProvider);
+      final api = ref.read(flagsApiProvider);
       final flags = await api.list(query: _q.text, limit: 50, offset: 0);
       setState(() {
         _flags = flags;
@@ -59,7 +59,7 @@ class _S extends State<FlagAssignerSheet> {
     }
 
     try {
-      final api = context.read(flagsApiProvider);
+      final api = ref.read(flagsApiProvider);
       final nodeId = int.tryParse(_nodeIdController.text);
       if (nodeId != null) {
         // For now, just estimate based on cascade

@@ -20,7 +20,8 @@ TriageDTO _$TriageDTOFromJson(Map<String, dynamic> json) {
 
 /// @nodoc
 mixin _$TriageDTO {
-  String? get diagnostic_triage => throw _privateConstructorUsedError;
+  @JsonKey(name: 'diagnostic_triage')
+  String? get diagnosticTriage => throw _privateConstructorUsedError;
   String? get actions => throw _privateConstructorUsedError;
 
   /// Serializes this TriageDTO to a JSON map.
@@ -38,7 +39,9 @@ abstract class $TriageDTOCopyWith<$Res> {
   factory $TriageDTOCopyWith(TriageDTO value, $Res Function(TriageDTO) then) =
       _$TriageDTOCopyWithImpl<$Res, TriageDTO>;
   @useResult
-  $Res call({String? diagnostic_triage, String? actions});
+  $Res call(
+      {@JsonKey(name: 'diagnostic_triage') String? diagnosticTriage,
+      String? actions});
 }
 
 /// @nodoc
@@ -56,13 +59,13 @@ class _$TriageDTOCopyWithImpl<$Res, $Val extends TriageDTO>
   @pragma('vm:prefer-inline')
   @override
   $Res call({
-    Object? diagnostic_triage = freezed,
+    Object? diagnosticTriage = freezed,
     Object? actions = freezed,
   }) {
     return _then(_value.copyWith(
-      diagnostic_triage: freezed == diagnostic_triage
-          ? _value.diagnostic_triage
-          : diagnostic_triage // ignore: cast_nullable_to_non_nullable
+      diagnosticTriage: freezed == diagnosticTriage
+          ? _value.diagnosticTriage
+          : diagnosticTriage // ignore: cast_nullable_to_non_nullable
               as String?,
       actions: freezed == actions
           ? _value.actions
@@ -80,7 +83,9 @@ abstract class _$$TriageDTOImplCopyWith<$Res>
       __$$TriageDTOImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call({String? diagnostic_triage, String? actions});
+  $Res call(
+      {@JsonKey(name: 'diagnostic_triage') String? diagnosticTriage,
+      String? actions});
 }
 
 /// @nodoc
@@ -96,13 +101,13 @@ class __$$TriageDTOImplCopyWithImpl<$Res>
   @pragma('vm:prefer-inline')
   @override
   $Res call({
-    Object? diagnostic_triage = freezed,
+    Object? diagnosticTriage = freezed,
     Object? actions = freezed,
   }) {
     return _then(_$TriageDTOImpl(
-      diagnostic_triage: freezed == diagnostic_triage
-          ? _value.diagnostic_triage
-          : diagnostic_triage // ignore: cast_nullable_to_non_nullable
+      diagnosticTriage: freezed == diagnosticTriage
+          ? _value.diagnosticTriage
+          : diagnosticTriage // ignore: cast_nullable_to_non_nullable
               as String?,
       actions: freezed == actions
           ? _value.actions
@@ -115,19 +120,22 @@ class __$$TriageDTOImplCopyWithImpl<$Res>
 /// @nodoc
 @JsonSerializable()
 class _$TriageDTOImpl implements _TriageDTO {
-  const _$TriageDTOImpl({this.diagnostic_triage, this.actions});
+  const _$TriageDTOImpl(
+      {@JsonKey(name: 'diagnostic_triage') this.diagnosticTriage,
+      this.actions});
 
   factory _$TriageDTOImpl.fromJson(Map<String, dynamic> json) =>
       _$$TriageDTOImplFromJson(json);
 
   @override
-  final String? diagnostic_triage;
+  @JsonKey(name: 'diagnostic_triage')
+  final String? diagnosticTriage;
   @override
   final String? actions;
 
   @override
   String toString() {
-    return 'TriageDTO(diagnostic_triage: $diagnostic_triage, actions: $actions)';
+    return 'TriageDTO(diagnosticTriage: $diagnosticTriage, actions: $actions)';
   }
 
   @override
@@ -135,14 +143,14 @@ class _$TriageDTOImpl implements _TriageDTO {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
             other is _$TriageDTOImpl &&
-            (identical(other.diagnostic_triage, diagnostic_triage) ||
-                other.diagnostic_triage == diagnostic_triage) &&
+            (identical(other.diagnosticTriage, diagnosticTriage) ||
+                other.diagnosticTriage == diagnosticTriage) &&
             (identical(other.actions, actions) || other.actions == actions));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(runtimeType, diagnostic_triage, actions);
+  int get hashCode => Object.hash(runtimeType, diagnosticTriage, actions);
 
   /// Create a copy of TriageDTO
   /// with the given fields replaced by the non-null parameter values.
@@ -162,14 +170,15 @@ class _$TriageDTOImpl implements _TriageDTO {
 
 abstract class _TriageDTO implements TriageDTO {
   const factory _TriageDTO(
-      {final String? diagnostic_triage,
+      {@JsonKey(name: 'diagnostic_triage') final String? diagnosticTriage,
       final String? actions}) = _$TriageDTOImpl;
 
   factory _TriageDTO.fromJson(Map<String, dynamic> json) =
       _$TriageDTOImpl.fromJson;
 
   @override
-  String? get diagnostic_triage;
+  @JsonKey(name: 'diagnostic_triage')
+  String? get diagnosticTriage;
   @override
   String? get actions;
 

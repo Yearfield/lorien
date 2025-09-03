@@ -3,18 +3,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/api_client.dart';
 import '../../state/health_provider.dart';
 import '../../widgets/layout/scroll_scaffold.dart';
+import '../../widgets/app_back_leading.dart';
 
 class AboutScreen extends ConsumerWidget {
   const AboutScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final baseUrl = ApiClient().baseUrl;
+    final baseUrl = ApiClient.I().baseUrl;
     final health = ref.watch(healthControllerProvider).valueOrNull;
     final last = health?.lastPing;
 
     return ScrollScaffold(
       title: 'About / Status',
+      leading: const AppBackLeading(),
       children: [
         ListTile(
           title: const Text('API Base URL'),
@@ -27,12 +29,26 @@ class AboutScreen extends ConsumerWidget {
             subtitle: Text(last.toLocal().toString()),
             leading: const Icon(Icons.access_time),
           ),
-        if (health != null)
+        if (health != null) ...[
           ListTile(
-            title: const Text('Version'),
-            subtitle: Text(health.version),
-            leading: const Icon(Icons.info),
+            title: const Text('API Status'),
+            subtitle: Text('OK: ${health.ok} • Version: ${health.version}'),
+            leading: Icon(
+              health.ok ? Icons.check_circle : Icons.error,
+              color: health.ok ? Colors.green : Colors.red,
+            ),
           ),
+          ListTile(
+            title: const Text('Database'),
+            subtitle: Text('${health.db.path} • WAL: ${health.db.wal ? 'ON' : 'OFF'} • FK: ${health.db.foreignKeys ? 'ON' : 'OFF'}'),
+            leading: const Icon(Icons.storage),
+          ),
+          ListTile(
+            title: const Text('Features'),
+            subtitle: Text('LLM: ${health.features.llm ? 'ENABLED' : 'DISABLED'}'),
+            leading: const Icon(Icons.settings),
+          ),
+        ],
         const SizedBox(height: 24),
         const Text(
           'App Information',

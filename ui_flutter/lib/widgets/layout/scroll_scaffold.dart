@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/app_back_leading.dart';
 
 /// ScrollScaffold: a drop-in Scaffold that guarantees a scrollable body
 /// and a fixed bottom action bar (no more overflow).
@@ -8,18 +9,23 @@ class ScrollScaffold extends StatelessWidget {
     required this.title,
     required this.children,
     this.actions = const <Widget>[],
+    this.leading,
     this.padding = const EdgeInsets.all(16),
   });
 
   final String title;
   final List<Widget> children;
   final List<Widget> actions; // e.g., Save / Test Connection
+  final Widget? leading;
   final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(title)),
+      appBar: AppBar(
+        title: Text(title),
+        leading: leading ?? const AppBackLeading(), // Home on root, Back on child
+      ),
       body: ListView(
         padding: padding,
         children: children,
@@ -29,8 +35,7 @@ class ScrollScaffold extends StatelessWidget {
           : SafeArea(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                child:
-                    Row(children: _withGaps(actions, const SizedBox(width: 8))),
+                child: Row(children: _withGaps(actions, const SizedBox(width: 8))),
               ),
             ),
     );

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../shared/widgets/app_scaffold.dart';
+import '../../../widgets/layout/scroll_scaffold.dart';
+import '../../../widgets/app_back_leading.dart';
 import '../../../shared/widgets/scroll_to_top_fab.dart';
 
 class OutcomesListScreen extends StatefulWidget {
@@ -23,70 +24,52 @@ class _OutcomesListScreenState extends State<OutcomesListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return AppScaffold(
+    return ScrollScaffold(
       title: 'Outcomes',
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: const InputDecoration(
-                      labelText: 'Search outcomes',
-                      prefixIcon: Icon(Icons.search),
-                    ),
-                    onChanged: (value) {
-                      setState(() {
-                        // TODO: Implement search filtering
-                      });
-                    },
-                  ),
+      leading: const AppBackLeading(),
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _searchController,
+                decoration: const InputDecoration(
+                  labelText: 'Search outcomes',
+                  prefixIcon: Icon(Icons.search),
                 ),
-                const SizedBox(width: 16),
-                DropdownButton<String>(
-                  value: _selectedVitalMeasurement,
-                  items: _vitalMeasurements.map((String value) {
-                    return DropdownMenuItem<String>(
-                      value: value,
-                      child: Text(value),
-                    );
-                  }).toList(),
-                  onChanged: (String? newValue) {
-                    setState(() {
-                      _selectedVitalMeasurement = newValue!;
-                      // TODO: Implement VM filtering
-                    });
-                  },
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: () async {
-                // TODO: Implement refresh logic
-                await Future.delayed(const Duration(milliseconds: 500));
-              },
-              child: ListView.builder(
-                controller: _scrollController,
-                itemCount: 10, // TODO: Replace with actual data
-                itemBuilder: (context, index) {
-                  return _OutcomeListItem(
-                    id: 'outcome_$index',
-                    title: 'Outcome ${index + 1}',
-                    vitalMeasurement: 'Blood Pressure',
-                    isLeaf: index % 3 == 0,
-                  );
+                onChanged: (value) {
+                  setState(() {
+                    // TODO: Implement search filtering
+                  });
                 },
               ),
             ),
-          ),
-        ],
-      ),
-      floatingActionButton: ScrollToTopFab(controller: _scrollController),
+            const SizedBox(width: 16),
+            DropdownButton<String>(
+              value: _selectedVitalMeasurement,
+              items: _vitalMeasurements.map((String value) {
+                return DropdownMenuItem<String>(
+                  value: value,
+                  child: Text(value),
+                );
+              }).toList(),
+              onChanged: (String? newValue) {
+                setState(() {
+                  _selectedVitalMeasurement = newValue!;
+                  // TODO: Implement VM filtering
+                });
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        ...List.generate(10, (index) => _OutcomeListItem(
+          id: 'outcome_$index',
+          title: 'Outcome ${index + 1}',
+          vitalMeasurement: 'Blood Pressure',
+          isLeaf: index % 3 == 0,
+        )),
+      ],
     );
   }
 }

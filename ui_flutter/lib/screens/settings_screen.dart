@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:dio/dio.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../data/api_client.dart';
 import '../utils/env.dart';
 import '../widgets/layout/scroll_scaffold.dart';
+import '../widgets/app_back_leading.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -15,12 +16,39 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   final TextEditingController _baseUrlController = TextEditingController();
   bool _testingConnection = false;
+  bool _saving = false;
   String? _connectionStatus;
 
   @override
   void initState() {
     super.initState();
-    _baseUrlController.text = ApiClient().baseUrl;
+    _load();
+  }
+
+  Future<void> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final override = prefs.getString('api_base_override');
+    _baseUrlController.text = override ?? ApiClient.I().baseUrl;
+    setState(() {});
+  }
+
+  Future<void> _onSave() async {
+    setState(() => _saving = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final val = _baseUrlController.text.trim();
+      await prefs.setString('api_base_override', val);
+      ApiClient.setBaseUrl(val);
+      if (mounted) {
+        setState(() => _saving = false);
+        _showSnackBar('Settings saved successfully');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _saving = false);
+        _showSnackBar('Failed to save settings: $e');
+      }
+    }
   }
 
   Future<void> _testConnection() async {
@@ -31,37 +59,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _connectionStatus = null;
     });
 
-    final testedUrl = '${_baseUrlController.text}/health';
-    
     try {
-      final dio = Dio();
-      final response = await dio.get(testedUrl);
-
-      if (response.statusCode == 200) {
+      // Use the shared ApiClient for testing
+      final response = await ApiClient.I().get('health');
+      final data = response.data as Map<String, dynamic>?;
+      
+      if (response.statusCode == 200 && data?['ok'] == true) {
         setState(() {
-          _connectionStatus = 'Connected: $testedUrl';
+          _connectionStatus = 'Connected: ${ApiClient.I().baseUrl}';
         });
-        _showSnackBar('Connected: $testedUrl');
+        _showSnackBar('Connected successfully');
       } else {
         setState(() {
-          _connectionStatus = 'HTTP ${response.statusCode} at $testedUrl';
+          _connectionStatus = 'HTTP ${response.statusCode} - API not healthy';
         });
-        _showSnackBar('HTTP ${response.statusCode} at $testedUrl');
+        _showSnackBar('HTTP ${response.statusCode} - API not healthy');
       }
-    } catch (e) {
-      final res = (e is DioException) ? e.response : null;
-      final status = res?.statusCode ?? 'n/a';
-      final body =
-          (res?.data is String ? res?.data : res?.toString() ?? e.toString())
-              .toString();
-      final truncatedBody =
-          body.length > 100 ? '${body.substring(0, 100)}...' : body;
-
+    } on ApiUnavailable catch (e) {
       setState(() {
-        _connectionStatus =
-            'Failed: $testedUrl · HTTP $status · $truncatedBody';
+        _connectionStatus = 'Connection failed: ${e.message}';
       });
-      _showSnackBar('Failed: $testedUrl · HTTP $status · $truncatedBody');
+      _showSnackBar('Connection failed: ${e.message}');
+    } catch (e) {
+      setState(() {
+        _connectionStatus = 'Connection failed: $e';
+      });
+      _showSnackBar('Connection failed: $e');
     } finally {
       setState(() {
         _testingConnection = false;
@@ -248,18 +271,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     return ScrollScaffold(
       title: 'Settings',
+      leading: const AppBackLeading(),
       children: _buildFields(context),
       actions: <Widget>[
         ElevatedButton(
-          onPressed: () {
-            // TODO: Implement save functionality
-          },
-          child: const Text('Save'),
+          onPressed: _saving ? null : _onSave,
+          child: _saving ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Save'),
         ),
         OutlinedButton(
-          onPressed: () {
-            // TODO: Implement test connection
-          },
+          onPressed: _testConnection,
           child: const Text('Test Connection'),
         ),
       ],

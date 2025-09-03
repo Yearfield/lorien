@@ -17,7 +17,7 @@ void main() {
   });
 
   test('ApiClient join forbids leading slash and /api/v1 in resource', () {
-    final client = ApiClient();
+    final client = ApiClient.I();
 
     // Test that leading slash throws assertion error
     expect(() => client.get('/health'), throwsA(isA<AssertionError>()));
@@ -31,7 +31,7 @@ void main() {
   });
 
   test('ApiClient properly joins base URL with resource paths', () {
-    final client = ApiClient();
+    final client = ApiClient.I();
     final baseUrl = client.baseUrl;
 
     // Verify base URL format

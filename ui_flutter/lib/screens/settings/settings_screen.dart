@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../state/app_settings_provider.dart';
 import '../../state/repository_providers.dart';
+import '../../core/crash_report_service.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -14,6 +16,7 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _baseUrlController = TextEditingController();
   bool _isTestingConnection = false;
+  bool _telemetryEnabled = false;
 
   @override
   void initState() {
@@ -30,6 +33,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Future<void> _loadCurrentSettings() async {
     final baseUrl = ref.read(apiBaseUrlProvider);
     _baseUrlController.text = baseUrl;
+
+    final prefs = await SharedPreferences.getInstance();
+    _telemetryEnabled = prefs.getBool('telemetry_remote') ?? false;
+    CrashReportService.enableRemote(_telemetryEnabled);
+
+    if (mounted) setState(() {});
   }
 
   Future<void> _testConnection() async {
@@ -91,6 +100,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         );
       }
     }
+  }
+
+  Future<void> _toggleTelemetry(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('telemetry_remote', value);
+    setState(() => _telemetryEnabled = value);
+    CrashReportService.enableRemote(value);
   }
 
   @override
@@ -189,9 +205,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.1),
+                        color: Colors.blue.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                        border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -267,6 +283,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           ),
                         ],
                       ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // Privacy & Telemetry Section
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Privacy & Telemetry',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 16),
+                    SwitchListTile(
+                      title: const Text('Send crash telemetry (opt-in)'),
+                      subtitle: const Text('Includes error message and stack trace; no PII.'),
+                      value: _telemetryEnabled,
+                      onChanged: _toggleTelemetry,
                     ),
                   ],
                 ),
