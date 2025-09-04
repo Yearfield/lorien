@@ -5,6 +5,7 @@ Text utility functions for Lorien.
 import re
 
 PHRASE_RE = re.compile(r"^[A-Za-z0-9 ,\-]+$")
+PROHIBITED = { "mg","ml","mcg","g","kg","iv","im","po","sc","pr","q6h","q8h","qid","tid","bid","od","qod","prn","stat" }
 
 def words(text: str) -> list[str]:
     """Extract words from text."""
@@ -20,6 +21,10 @@ def enforce_phrase_rules(text: str, max_words: int) -> str:
         raise ValueError(f"must be ≤{max_words} words")
     if not PHRASE_RE.match(text):
         raise ValueError("must contain clinical tokens only (letters/numbers/space/comma/hyphen)")
+    # Prohibit dosing/route/time tokens
+    low = [t.lower() for t in toks]
+    if any(t in PROHIBITED for t in low):
+        raise ValueError("must not include dosing/route/time tokens")
     # reject obvious sentence markers
     if any(s in text for s in [".", "!", "?", ":"]) or text.lower().startswith(("hi", "hello", "thanks", "you should")):
         raise ValueError("must be a concise phrase, not a sentence")

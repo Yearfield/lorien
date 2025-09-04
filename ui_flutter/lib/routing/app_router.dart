@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../features/workspace/ui/workspace_screen.dart';
 import '../features/flags/ui/flags_screen.dart';
+import '../features/dictionary/ui/dictionary_screen.dart';
 import '../screens/settings_screen.dart';
 import '../screens/about/about_screen.dart';
 
@@ -16,6 +17,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/flags',
         builder: (_, __) => const FlagsScreen(),
+      ),
+      GoRoute(
+        path: '/dictionary',
+        builder: (_, __) => const DictionaryScreen(),
       ),
       GoRoute(
         path: '/settings',

@@ -55,6 +55,11 @@ class HomeScreen extends ConsumerWidget {
               onTap: () => context.go('/flags'),
             ),
             _NavigationTile(
+              title: 'Dictionary',
+              icon: Icons.book,
+              onTap: () => context.go('/dictionary'),
+            ),
+            _NavigationTile(
               title: 'Settings',
               icon: Icons.settings,
               onTap: () => context.go('/settings'),

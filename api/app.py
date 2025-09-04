@@ -16,6 +16,7 @@ from .routers.import_jobs import router as import_jobs_router
 from .routers.importer import router as importer_router
 from .routers.flags import router as flags_router
 from .routers.outcomes import router as outcomes_router
+from .routers.dictionary import router as dictionary_router
 from .additional_routes import router as additional_router
 from .exceptions import (
     DecisionTreeAPIException, handle_value_error, handle_integrity_error,
@@ -85,6 +86,7 @@ app.include_router(import_jobs_router, prefix=API_PREFIX)
 app.include_router(importer_router, prefix=API_PREFIX)
 app.include_router(flags_router, prefix=API_PREFIX)
 app.include_router(outcomes_router, prefix=API_PREFIX)
+app.include_router(dictionary_router, prefix=API_PREFIX)
 app.include_router(additional_router, prefix=API_PREFIX)
 
 # Also mount at root for dual-mount requirement
@@ -96,6 +98,7 @@ app.include_router(import_jobs_router)
 app.include_router(importer_router)
 app.include_router(flags_router)
 app.include_router(outcomes_router)
+app.include_router(dictionary_router)
 app.include_router(additional_router)
 
 # Always include LLM router for health endpoint, but functionality controlled by LLM_ENABLED

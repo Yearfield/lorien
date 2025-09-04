@@ -1,5 +1,33 @@
 # Lorien Phase-6 Development
 
+## 🎯 **Phase-6C Status: COMPLETE** ✅
+
+**Flutter + Backend Dictionary + Validation Phase**
+
+### New in Phase-6C
+- **Flutter: Symptoms tab** (chained selectors, remaining leaves, Next Incomplete, leaf preview)
+- **Flutter: Outcomes breadcrumb** and stricter client hints; still ≤7-word caps and 422 mapping
+- **Flutter: Dictionary tab** (browse/search/add/edit/delete) with normalize preview
+- **API: Dictionary CRUD** + normalize; Outcomes validator rejects dosing/route tokens
+
+### Flutter Implementation
+- **SymptomsScreen**: ConsumerState with chained dropdowns, API integration for options and preview
+- **DictionaryScreen**: Full CRUD with search, type filtering, normalize preview
+- **OutcomesDetailScreen**: Enhanced with breadcrumb and prohibited token hints
+
+### Backend Implementation
+- **SQL Migration**: `003_add_dictionary_terms.sql` with indexes and triggers
+- **Dictionary Router**: Full CRUD with Pydantic validation, uniqueness constraints
+- **Text Utils**: Added `PROHIBITED` set for dosing/route/time tokens validation
+- **Dual Mount**: Dictionary router mounted at both `/` and `/api/v1`
+
+### Testing
+- **API Tests**: Dictionary CRUD, normalize endpoint, outcomes prohibit tokens
+- **Flutter Tests**: Widget tests for symptoms, dictionary, outcomes screens
+- **Deterministic**: No real HTTP, using Dio mock adapters
+
+---
+
 ## 🎯 **Phase-6B Status: COMPLETE** ✅
 
 **Target beta start:** 2024-12-20  

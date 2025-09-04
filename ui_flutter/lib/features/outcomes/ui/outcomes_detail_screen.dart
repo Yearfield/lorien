@@ -28,6 +28,9 @@ class _S extends ConsumerState<OutcomesDetailScreen> {
   bool _llmOn = false;
   String? _llmCheckedAt;
   bool _dirty = false;
+  List<String> _breadcrumb = [];
+  bool _loading = true;
+  String? _vmLabel;
 
   int _wc(String s) =>
       s.trim().isEmpty ? 0 : s.trim().split(RegExp(r'\s+')).length;
@@ -38,6 +41,94 @@ class _S extends ConsumerState<OutcomesDetailScreen> {
       _llmOn = res.ready;
       _llmCheckedAt = res.checkedAt;
     });
+  }
+
+  Future<void> _loadBreadcrumb() async {
+    try {
+      final api = ref.read(outcomesApiProvider);
+      final path = await api.getTreePath(widget.outcomeId);
+      final labels = path['labels'] as List<dynamic>? ?? [];
+      setState(() {
+        _breadcrumb = labels.map((l) => l.toString()).toList();
+        _vmLabel = _breadcrumb.isNotEmpty ? _breadcrumb.first : null;
+      });
+    } catch (e) {
+      // Fallback breadcrumb if API fails
+      setState(() => _breadcrumb = ['VM', 'N1', 'N2', 'N3', 'N4', 'N5']);
+    }
+  }
+
+  Future<void> _loadInitialData() async {
+    setState(() => _loading = true);
+    await Future.wait([_probeLlm(), _loadBreadcrumb()]);
+    // Load existing data
+    try {
+      final api = ref.read(outcomesApiProvider);
+      final data = await api.getDetail(widget.outcomeId);
+      _triage.text = data['diagnostic_triage'] ?? '';
+      _actions.text = data['actions'] ?? '';
+    } catch (e) {
+      // Data loading will fail gracefully, form will be empty
+    }
+    setState(() => _loading = false);
+  }
+
+  Future<void> _llmFill() async {
+    if (!_llmOn) return;
+    try {
+      final api = ref.read(llmApiProvider);
+      final suggestions = await api.fill(widget.outcomeId);
+      // Update fields with LLM suggestions (≤7 words each)
+      setState(() {
+        if (suggestions['diagnostic_triage'] != null) {
+          _triage.text = suggestions['diagnostic_triage'].toString();
+        }
+        if (suggestions['actions'] != null) {
+          _actions.text = suggestions['actions'].toString();
+        }
+        _dirty = true;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('LLM fill failed: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _copyFromVm() async {
+    if (_vmLabel == null) return;
+    try {
+      final api = ref.read(outcomesApiProvider);
+      final result = await api.copyFromVm(_vmLabel!);
+      final items = result['items'] as List<dynamic>? ?? [];
+      if (items.isNotEmpty) {
+        final item = items.first as Map<String, dynamic>;
+        setState(() {
+          _triage.text = item['diagnostic_triage'] ?? '';
+          _actions.text = item['actions'] ?? '';
+          _dirty = true;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Copied from most recent VM outcome')),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No previous outcomes found for this VM')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Copy failed: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _save() async {
@@ -76,7 +167,7 @@ class _S extends ConsumerState<OutcomesDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _probeLlm();
+    _loadInitialData();
   }
 
   @override
@@ -157,18 +248,43 @@ class _S extends ConsumerState<OutcomesDetailScreen> {
         },
         child: AppScaffold(
         title: 'Outcomes Detail',
-        body: Form(
-          key: _fKey,
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              TextFormField(
+        body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : Form(
+            key: _fKey,
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                // Breadcrumb
+                if (_breadcrumb.isNotEmpty) ...[
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surfaceVariant,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.location_on, size: 16),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _breadcrumb.join(' > '),
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                TextFormField(
                 controller: _triage,
                 validator: (v) =>
                     maxSevenWordsAndAllowed(v, field: 'Diagnostic Triage'),
                 decoration: InputDecoration(
                     labelText: 'Diagnostic Triage',
-                    helperText: 'Keep under 7 words, concise phrase only.',
+                    helperText: 'Keep under 7 words. Avoid dosing/route/time tokens (mg, ml, IV, q6h, etc.).',
                     suffixText: '${_wc(_triage.text)}/7'),
                 onChanged: (_) => setState(() { _dirty = true; }),
               ),
@@ -179,17 +295,32 @@ class _S extends ConsumerState<OutcomesDetailScreen> {
                 validator: (v) => maxSevenWordsAndAllowed(v, field: 'Actions'),
                 decoration: InputDecoration(
                     labelText: 'Actions',
-                    helperText: 'Keep under 7 words, concise phrase only.',
+                    helperText: 'Keep under 7 words. Avoid dosing/route/time tokens (mg, ml, IV, q6h, etc.).',
                     suffixText: '${_wc(_actions.text)}/7'),
                 onChanged: (_) => setState(() { _dirty = true; }),
               ),
               FieldErrorText(_errActions),
               const SizedBox(height: 24),
               Row(children: [
-                OutlinedButton.icon(
-                    onPressed: () {/* GET suggestions only */},
+                if (_vmLabel != null)
+                  OutlinedButton.icon(
+                    onPressed: _copyFromVm,
+                    icon: const Icon(Icons.content_copy),
+                    label: const Text('Copy from VM'),
+                  ),
+                if (_vmLabel != null) const SizedBox(width: 8),
+                if (_llmOn)
+                  OutlinedButton.icon(
+                    onPressed: _llmFill,
                     icon: const Icon(Icons.auto_awesome),
-                    label: const Text('LLM Fill')),
+                    label: const Text('LLM Fill'),
+                  ),
+                if (!_llmOn && llmEnabled)
+                  OutlinedButton.icon(
+                    onPressed: null,
+                    icon: const Icon(Icons.auto_awesome),
+                    label: const Text('LLM Unavailable'),
+                  ),
                 const Spacer(),
                 FilledButton(
                     onPressed: _saving ? null : _save,
@@ -200,21 +331,28 @@ class _S extends ConsumerState<OutcomesDetailScreen> {
                             child: CircularProgressIndicator(strokeWidth: 2))
                         : const Text('Save')),
               ]),
+              // Show LLM status if enabled but not ready
+              if (!llmEnabled) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'LLM features disabled by server',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                ),
+              ] else if (!_llmOn && _llmCheckedAt != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'LLM unavailable (last checked: $_llmCheckedAt)',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                ),
+              ],
             ],
           ),
         ),
-        persistentFooterButtons: [
-          FilledButton(
-            onPressed: _saving ? null : _save,
-            child: _saving
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2))
-                : const Text('Save'),
-          )
-        ],
-        ),
+      ),
       ),
     );
   }

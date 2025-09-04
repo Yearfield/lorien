@@ -14,6 +14,19 @@ Endpoints: `GET /calc/export`, `GET /tree/export`, and XLSX variants `/calc/expo
 
 UI (Flutter/Streamlit) must not construct CSV/XLSX; always call the API.
 
+## Dictionary
+**Table:** dictionary_terms(id, type['vital_measurement'|'node_label'|'outcome_template'], term, normalized, hints, updated_at)
+**Uniqueness:** (type, normalized)
+
+### Dictionary CRUD
+**GET** `/dictionary?type=&query=&limit=&offset=` → `{items,total,limit,offset}`
+**POST** `/dictionary` body `{type, term, normalized?, hints?}` → 200 created
+**PUT** `/dictionary/{id}` body `{term?, normalized?, hints?}` → 200 updated
+**DELETE** `/dictionary/{id}` → 200
+
+### Dictionary Normalize
+**GET** `/dictionary/normalize?type=&term=` → `{normalized:"..."}` (identity fallback, canonical lower+trim)
+
 ## LLM Health
 `GET /llm/health` → Top-level JSON response with status codes 200/503/500.
 
@@ -215,8 +228,14 @@ PUT `/api/v1/triage/{node_id}`
 { "diagnostic_triage": "...", "actions": "..." }
 ```
 - **200** updated object
-- **422** validation (≤7 words, regex, prohibited dosing tokens)
+- **422** validation (≤7 words, regex, prohibited dosing/route/time tokens)
 - **400** if not a leaf
+
+### Outcomes Validation
+Server rejects dosing/route/time tokens with **422** field-level detail:
+- Prohibited tokens: mg, ml, mcg, g, kg, iv, im, po, sc, pr, q6h, q8h, qid, tid, bid, od, qod, prn, stat
+- Applies to both `diagnostic_triage` and `actions` fields
+- Combined with existing ≤7 words and character validation
 
 ### Put outcomes (alias for triage)
 PUT `/api/v1/outcomes/{node_id}`
@@ -224,7 +243,7 @@ PUT `/api/v1/outcomes/{node_id}`
 { "diagnostic_triage": "...", "actions": "..." }
 ```
 - **200** updated object (delegates to triage upsert)
-- **422** validation (≤7 words, regex `^[A-Za-z0-9 ,\-]+$`, prohibited dosing tokens)
+- **422** validation (≤7 words, regex `^[A-Za-z0-9 ,\-]+$`, prohibited dosing/route/time tokens)
 
 ---
 

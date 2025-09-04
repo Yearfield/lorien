@@ -14,6 +14,17 @@ class OutcomesApi {
     return Map<String, dynamic>.from(res.data);
   }
 
+  Future<Map<String, dynamic>> getTreePath(String id) async {
+    final res = await _dio.get('/tree/path/$id');
+    return Map<String, dynamic>.from(res.data);
+  }
+
+  Future<Map<String, dynamic>> copyFromVm(String vm) async {
+    final res = await _dio.get('/triage/search',
+        queryParameters: {'vm': vm, 'leaf_only': true, 'sort': 'updated_at:desc', 'limit': 1});
+    return Map<String, dynamic>.from(res.data);
+  }
+
   Future<void> updateDetail(String id,
       {required String triage, required String actions}) async {
     Future<void> put(String path) => _dio.put(path, data: {
