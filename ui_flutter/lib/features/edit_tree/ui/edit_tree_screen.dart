@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -30,19 +31,69 @@ class _EditTreeScreenState extends ConsumerState<EditTreeScreen> {
   bool _dirty = false;
   int _tabIndex = 1; // Default to Editor tab on mobile
 
-  Future<void> _loadList() async {
-    setState(() => _loadingList = true);
-    final repo = ref.read(editTreeRepositoryProvider);
-    final page = await repo.listIncomplete(
-      query: _searchController.text,
-      depth: _depth,
-      limit: _limit,
-      offset: _offset,
-    );
+  // NEW: List pagination and scroll management
+  final ScrollController _listScrollController = ScrollController();
+  Timer? _searchDebounceTimer;
+  bool _isLoadingMore = false;
+  bool _hasMoreData = true;
+
+  Future<void> _loadList({bool append = false}) async {
+    if (append && (_isLoadingMore || !_hasMoreData)) return;
+
     setState(() {
-      _items = page.items;
-      _total = page.total;
-      _loadingList = false;
+      if (append) {
+        _isLoadingMore = true;
+      } else {
+        _loadingList = true;
+      }
+    });
+
+    try {
+      final repo = ref.read(editTreeRepositoryProvider);
+      final currentQuery = _searchController.text.trim();
+      final page = await repo.listIncomplete(
+        query: currentQuery.isEmpty ? null : currentQuery,
+        depth: _depth,
+        limit: _limit,
+        offset: append ? _offset + _limit : 0,
+      );
+
+      if (mounted) {
+        setState(() {
+          if (append) {
+            _items.addAll(page.items);
+            _offset += _limit;
+            _isLoadingMore = false;
+          } else {
+            _items = page.items;
+            _total = page.total;
+            _offset = 0;
+            _loadingList = false;
+          }
+          _hasMoreData = page.items.length == _limit;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loadingList = false;
+          _isLoadingMore = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load list: $e')),
+        );
+      }
+    }
+  }
+
+  void _onSearchChanged(String query) {
+    _searchDebounceTimer?.cancel();
+    _searchDebounceTimer = Timer(const Duration(milliseconds: 300), () {
+      setState(() {
+        _offset = 0;
+        _hasMoreData = true;
+      });
+      _loadList();
     });
   }
 
@@ -101,6 +152,54 @@ class _EditTreeScreenState extends ConsumerState<EditTreeScreen> {
       _focusNodes[i] = FocusNode(debugLabel: 'slot_$i');
     }
     _loadList();
+    _setupScrollListener();
+  }
+
+  void _setupScrollListener() {
+    _listScrollController.addListener(() {
+      if (_listScrollController.position.pixels >
+              _listScrollController.position.maxScrollExtent * 0.8 &&
+          !_isLoadingMore &&
+          _hasMoreData &&
+          !_loadingList) {
+        _loadMoreData();
+      }
+    });
+  }
+
+  Future<void> _loadMoreData() async {
+    if (_isLoadingMore || !_hasMoreData) return;
+
+    setState(() => _isLoadingMore = true);
+
+    try {
+      final repo = ref.read(editTreeRepositoryProvider);
+      final currentQuery = _searchController.text.trim();
+      final nextOffset = _offset + _limit;
+
+      final page = await repo.listIncomplete(
+        query: currentQuery.isEmpty ? null : currentQuery,
+        depth: _depth,
+        limit: _limit,
+        offset: nextOffset,
+      );
+
+      if (mounted) {
+        setState(() {
+          _items.addAll(page.items);
+          _offset = nextOffset;
+          _hasMoreData = page.items.length == _limit;
+          _isLoadingMore = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingMore = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load more data: $e')),
+        );
+      }
+    }
   }
 
   @override
@@ -111,6 +210,8 @@ class _EditTreeScreenState extends ConsumerState<EditTreeScreen> {
     for (final f in _focusNodes.values) {
       f.dispose();
     }
+    _listScrollController.dispose();
+    _searchDebounceTimer?.cancel();
     super.dispose();
   }
 
@@ -130,10 +231,7 @@ class _EditTreeScreenState extends ConsumerState<EditTreeScreen> {
                       prefixIcon: Icon(Icons.search),
                       labelText: 'Search parents',
                     ),
-                    onChanged: (_) {
-                      _offset = 0;
-                      _loadList();
-                    },
+                    onChanged: _onSearchChanged,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -141,8 +239,11 @@ class _EditTreeScreenState extends ConsumerState<EditTreeScreen> {
                   value: _depth,
                   hint: const Text('Depth'),
                   onChanged: (v) {
-                    setState(() => _depth = v);
-                    _offset = 0;
+                    setState(() {
+                      _depth = v;
+                      _offset = 0;
+                      _hasMoreData = true;
+                    });
                     _loadList();
                   },
                   items: const [null, 0, 1, 2, 3, 4, 5].map((d) =>
@@ -171,27 +272,57 @@ class _EditTreeScreenState extends ConsumerState<EditTreeScreen> {
           ),
           const Divider(height: 1),
           Expanded(
-            child: _loadingList
-                ? const Center(child: CircularProgressIndicator())
-                : ListView.separated(
-                    itemCount: _items.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
-                    itemBuilder: (_, i) {
-                      final it = _items[i];
-                      return ListTile(
-                        title: Text(it.label),
-                        subtitle: Text(
-                          'Depth ${it.depth} • Missing: ${it.missingSlots.isEmpty ? "—" : it.missingSlots}',
-                        ),
-                        onTap: () => _openParent(
-                          it.parentId,
-                          it.label,
-                          it.depth,
-                          it.missingSlots,
-                        ),
-                      );
-                    },
+            child: Stack(
+              children: [
+                _loadingList
+                    ? const Center(child: CircularProgressIndicator())
+                    : ListView.separated(
+                        controller: _listScrollController,
+                        itemCount: _items.length + (_isLoadingMore ? 1 : 0),
+                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        itemBuilder: (_, i) {
+                          if (i == _items.length) {
+                            // Loading indicator for infinite scroll
+                            return const Padding(
+                              padding: EdgeInsets.all(16),
+                              child: Center(child: CircularProgressIndicator()),
+                            );
+                          }
+
+                          final it = _items[i];
+                          return ListTile(
+                            title: Text(it.label),
+                            subtitle: Text(
+                              'Depth ${it.depth} • Missing: ${it.missingSlots.isEmpty ? "—" : it.missingSlots}',
+                            ),
+                            onTap: () => _openParent(
+                              it.parentId,
+                              it.label,
+                              it.depth,
+                              it.missingSlots,
+                            ),
+                          );
+                        },
+                      ),
+                if (_listScrollController.hasClients &&
+                    _listScrollController.position.pixels > 200)
+                  Positioned(
+                    bottom: 16,
+                    right: 16,
+                    child: FloatingActionButton.small(
+                      onPressed: () {
+                        _listScrollController.animateTo(
+                          0,
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                        );
+                      },
+                      child: const Icon(Icons.arrow_upward),
+                      tooltip: 'Scroll to top',
+                    ),
                   ),
+              ],
+            ),
           ),
         ],
       ),
