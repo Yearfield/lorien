@@ -322,6 +322,36 @@ class _EditorPaneState extends State<_EditorPane> {
           ],
         ),
         const SizedBox(height: 12),
+
+        // Conflict/Error Banner
+        if (widget.state.banner != null) ...[
+          Card(
+            color: Theme.of(context).colorScheme.errorContainer,
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  const Icon(Icons.warning_amber, color: Colors.orange),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      widget.state.banner!.message,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ),
+                  if (widget.state.banner!.action != null) ...[
+                    const SizedBox(width: 12),
+                    OutlinedButton(
+                      onPressed: widget.state.banner!.action,
+                      child: Text(widget.state.banner!.actionLabel),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
         Expanded(
           child: ListView.separated(
             itemCount: 5,

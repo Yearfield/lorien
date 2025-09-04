@@ -117,15 +117,14 @@ class EditTreeController extends StateNotifier<EditTreeState> {
       );
     } on DioException catch (e) {
       if (e.response?.statusCode == 409) {
+        // Show banner for concurrent changes, preserve user input
         final slot = (e.response?.data is Map)
             ? (e.response?.data['slot'] as int?)
             : null;
-        final slots = state.slots.map((s) =>
-            s.slot == slot
-                ? s.copyWith(error: "Concurrent edit on slot ${slot ?? ''}. Reload and retry.")
-                : s).toList();
-        state = state.copyWith(slots: slots, saving: false);
+        final banner = EditBanner.conflict(slot: slot, action: () => reloadLatest());
+        state = state.copyWith(saving: false, banner: banner);
       } else if (e.response?.statusCode == 422) {
+        // Map 422 errors to specific slots and show banner
         final details = (e.response?.data?['detail'] as List?) ?? [];
         var slots = state.slots;
         for (final d in details) {
@@ -137,7 +136,12 @@ class EditTreeController extends StateNotifier<EditTreeState> {
                 s.slot == slot ? s.copyWith(error: msg) : s).toList();
           }
         }
-        state = state.copyWith(slots: slots, saving: false);
+        final banner = EditBanner(
+          message: 'Validation errors found. Please fix the highlighted fields.',
+          actionLabel: 'Dismiss',
+          action: () => state = state.copyWith(banner: null),
+        );
+        state = state.copyWith(slots: slots, saving: false, banner: banner);
       } else {
         state = state.copyWith(saving: false);
         rethrow;
@@ -148,6 +152,34 @@ class EditTreeController extends StateNotifier<EditTreeState> {
   Future<void> reset() async {
     if (state.parentId != null) {
       await loadParent(state.parentId!);
+    }
+  }
+
+  Future<void> reloadLatest() async {
+    if (state.parentId == null) return;
+
+    try {
+      // Keep user's current input for ghost values
+      final userInput = Map.fromEntries(
+        state.slots.map((s) => MapEntry(s.slot, s.text))
+      );
+
+      // Reload fresh data from server
+      await loadParent(state.parentId!);
+
+      // Clear banner after successful reload
+      state = state.copyWith(banner: null);
+
+      // Optionally show ghost values or keep fresh server state
+      // For now, we keep the fresh server state as the source of truth
+    } catch (e) {
+      // If reload fails, keep banner but update message
+      final banner = EditBanner(
+        message: 'Failed to reload latest data. Please try again.',
+        actionLabel: 'Retry',
+        action: () => reloadLatest(),
+      );
+      state = state.copyWith(banner: banner);
     }
   }
 }

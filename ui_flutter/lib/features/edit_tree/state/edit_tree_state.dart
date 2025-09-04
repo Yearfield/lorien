@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 
 class SlotState {
   final int slot;
@@ -26,6 +27,7 @@ class EditTreeState {
   final List<SlotState> slots;
   final bool dirty;
   final bool saving;
+  final EditBanner? banner;
 
   EditTreeState({
     this.parentId,
@@ -35,6 +37,7 @@ class EditTreeState {
     required this.slots,
     this.dirty = false,
     this.saving = false,
+    this.banner,
   });
 
   EditTreeState copyWith({
@@ -45,6 +48,7 @@ class EditTreeState {
     List<SlotState>? slots,
     bool? dirty,
     bool? saving,
+    EditBanner? banner,
   }) =>
       EditTreeState(
         parentId: parentId ?? this.parentId,
@@ -54,8 +58,30 @@ class EditTreeState {
         slots: slots ?? this.slots,
         dirty: dirty ?? this.dirty,
         saving: saving ?? this.saving,
+        banner: banner ?? this.banner,
       );
 
   static EditTreeState empty() =>
       EditTreeState(slots: List.generate(5, (i) => SlotState(i + 1)));
+}
+
+class EditBanner {
+  final String message;
+  final String actionLabel;
+  final VoidCallback? action;
+
+  const EditBanner({
+    required this.message,
+    required this.actionLabel,
+    this.action,
+  });
+
+  factory EditBanner.conflict({int? slot, VoidCallback? action}) {
+    final slotMsg = slot != null ? ' in slot $slot' : '';
+    return EditBanner(
+      message: 'Concurrent changes detected$slotMsg. Your input is preserved.',
+      actionLabel: 'Reload Latest',
+      action: action,
+    );
+  }
 }
