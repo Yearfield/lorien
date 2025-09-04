@@ -370,6 +370,27 @@ class _EditorPaneState extends State<_EditorPane> {
                                   fontSize: 12,
                                 ),
                               ),
+                            ] else if (s.warning != null) ...[
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.warning_amber,
+                                    size: 14,
+                                    color: Theme.of(context).colorScheme.secondary,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(
+                                      s.warning!,
+                                      style: TextStyle(
+                                        color: Theme.of(context).colorScheme.secondary,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ],
                           ],
                         ),

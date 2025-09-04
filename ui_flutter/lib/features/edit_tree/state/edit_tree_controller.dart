@@ -45,12 +45,45 @@ class EditTreeController extends StateNotifier<EditTreeState> {
       slots: slots,
       dirty: false,
     );
+
+    _computeDuplicateWarnings();
   }
 
   void putSlot(int slot, String text) {
     final slots = state.slots.map((s) =>
-        s.slot == slot ? s.copyWith(text: text, error: null) : s).toList();
+        s.slot == slot ? s.copyWith(text: text, error: null, warning: null) : s).toList();
     state = state.copyWith(slots: slots, dirty: true);
+    _computeDuplicateWarnings();
+  }
+
+  void _computeDuplicateWarnings() {
+    final map = <String, List<int>>{};
+    for (final s in state.slots) {
+      final trimmed = s.text.trim().toLowerCase();
+      if (trimmed.isNotEmpty) {
+        map.putIfAbsent(trimmed, () => []).add(s.slot);
+      }
+    }
+
+    final warnings = <int, String>{};
+    map.forEach((label, slots) {
+      if (slots.length > 1) {
+        for (final slot in slots) {
+          warnings[slot] = 'Duplicate label under same parent (will fail on save)';
+        }
+      }
+    });
+
+    final updatedSlots = state.slots.map((s) {
+      final warning = warnings[s.slot];
+      if (warning != null) {
+        return s.copyWith(warning: warning);
+      } else {
+        return SlotState(s.slot, text: s.text, error: s.error, warning: null, existing: s.existing);
+      }
+    }).toList();
+
+    state = state.copyWith(slots: updatedSlots);
   }
 
   Future<void> save() async {
@@ -71,9 +104,9 @@ class EditTreeController extends StateNotifier<EditTreeState> {
           orElse: () => {},
         );
         if (hit is Map && hit.isNotEmpty) {
-          return s.copyWith(existing: true);
+          return s.copyWith(existing: true, warning: null); // Clear warnings on success
         }
-        return s;
+        return s.copyWith(warning: null); // Clear warnings on success
       }).toList();
 
       state = state.copyWith(

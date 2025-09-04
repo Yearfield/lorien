@@ -4,14 +4,16 @@ class SlotState {
   final int slot;
   String text;
   String? error;
+  String? warning;
   bool existing;
 
-  SlotState(this.slot, {this.text = "", this.error, this.existing = false});
+  SlotState(this.slot, {this.text = "", this.error, this.warning, this.existing = false});
 
-  SlotState copyWith({String? text, String? error, bool? existing}) => SlotState(
+  SlotState copyWith({String? text, String? error, String? warning, bool? existing}) => SlotState(
         slot,
         text: text ?? this.text,
-        error: error,
+        error: error ?? this.error,
+        warning: warning ?? this.warning,
         existing: existing ?? this.existing,
       );
 }
