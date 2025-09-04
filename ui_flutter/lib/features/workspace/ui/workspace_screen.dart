@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:dio/dio.dart';
@@ -248,6 +249,8 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
           },
         ),
         const SizedBox(height: 24),
+        _EditTreePanel(),
+        const SizedBox(height: 24),
         _ExportPanel(onExportCsv: _exportCsv, onExportXlsx: _exportXlsx, csvSupported: _csvSupported),
       ],
     );
@@ -422,6 +425,39 @@ class _ExportPanel extends StatelessWidget {
             Expanded(child: ElevatedButton.icon(onPressed: onExportXlsx, icon: const Icon(Icons.download), label: const Text('Export XLSX'))),
           ]),
         ]),
+      ),
+    );
+  }
+}
+
+class _EditTreePanel extends StatelessWidget {
+  const _EditTreePanel();
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Edit Tree',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Browse and edit incomplete parent nodes in the decision tree.',
+              style: TextStyle(color: Colors.grey),
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              onPressed: () => context.go('/edit-tree'),
+              icon: const Icon(Icons.edit),
+              label: const Text('Open Edit Tree'),
+            ),
+          ],
+        ),
       ),
     );
   }
