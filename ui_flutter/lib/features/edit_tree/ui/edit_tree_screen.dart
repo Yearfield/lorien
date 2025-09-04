@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/edit_tree_provider.dart';
+import '../data/edit_tree_repository.dart';
 import '../state/edit_tree_controller.dart';
 import '../state/edit_tree_state.dart';
 
@@ -83,6 +84,12 @@ class _EditTreeScreenState extends ConsumerState<EditTreeScreen> {
     setState(() {}); // refresh right pane
   }
 
+  Future<void> _onNextIncompleteTap() async {
+    // For now, call the existing _nextIncomplete method
+    // Later this will be enhanced with unsaved guard
+    await _nextIncomplete();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -107,11 +114,11 @@ class _EditTreeScreenState extends ConsumerState<EditTreeScreen> {
     return Shortcuts(
       shortcuts: <LogicalKeySet, Intent>{
         LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyS):
-            const Intent(ActivateAction.key),
+            const ActivateIntent(),
       },
       child: Actions(
         actions: <Type, Action<Intent>>{
-          ActivateAction: CallbackAction(
+          ActivateIntent: CallbackAction(
             onInvoke: (_) => ref.read(editTreeControllerProvider.notifier).save(),
           ),
         },
@@ -238,8 +245,6 @@ class _EditTreeScreenState extends ConsumerState<EditTreeScreen> {
                   onReset: () => ref.read(editTreeControllerProvider.notifier).reset(),
                 ),
         ),
-      ),
-          ),
         ),
       ),
     );
@@ -279,17 +284,40 @@ class _EditorPaneState extends State<_EditorPane> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Header with breadcrumb + missing badges + Next Incomplete
         Row(
           children: [
             Expanded(
-              child: Text(
-                'Parent: ${state.parentLabel} (Depth ${state.depth})',
-                style: Theme.of(context).textTheme.titleMedium,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Path: VM > ${widget.state.parentLabel}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    'Parent: ${widget.state.parentLabel} (Depth ${widget.state.depth})',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ],
               ),
             ),
             const SizedBox(width: 8),
-            Chip(
-              label: Text('Missing: ${state.missingSlots.isEmpty ? "—" : state.missingSlots}'),
+            widget.state.missingSlots.isEmpty
+                ? Chip(
+                    label: const Text('Complete ✓'),
+                    backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                  )
+                : Chip(
+                    label: Text('Missing: ${widget.state.missingSlots}'),
+                    backgroundColor: Theme.of(context).colorScheme.errorContainer,
+                  ),
+            const SizedBox(width: 8),
+            OutlinedButton.icon(
+              onPressed: () {}, // TODO: Wire to parent widget's next incomplete handler
+              icon: const Icon(Icons.skip_next),
+              label: const Text('Next Incomplete'),
             ),
           ],
         ),
@@ -299,7 +327,7 @@ class _EditorPaneState extends State<_EditorPane> {
             itemCount: 5,
             separatorBuilder: (_, __) => const SizedBox(height: 8),
             itemBuilder: (_, i) {
-              final s = state.slots[i];
+              final s = widget.state.slots[i];
               return Card(
                 child: Padding(
                   padding: const EdgeInsets.all(12),
@@ -314,32 +342,37 @@ class _EditorPaneState extends State<_EditorPane> {
                       ),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: TextField(
-                          key: ValueKey('slot_${s.slot}'),
-                          decoration: InputDecoration(
-                            labelText: 'Label',
-                            helperText: s.existing ? 'Existing' : 'Empty',
-                            errorText: s.error,
-                          ),
-                          controller: widget.controllers[s.slot]!,
-                          focusNode: widget.focusNodes[s.slot]!,
-                          textInputAction: TextInputAction.next,
-                          onChanged: (v) {
-                            widget.onChange(s.slot, v);
-                            widget.onDirtyChanged(true);
-                            setState(() {}); // updates counters/dup warnings
-                          },
-                        ),
-                        if (s.error != null) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            s.error!,
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.error,
-                              fontSize: 12,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            TextField(
+                              key: ValueKey('slot_${s.slot}'),
+                              decoration: InputDecoration(
+                                labelText: 'Label',
+                                helperText: s.existing ? 'Existing' : 'Empty',
+                                errorText: s.error,
+                              ),
+                              controller: widget.controllers[s.slot]!,
+                              focusNode: widget.focusNodes[s.slot]!,
+                              textInputAction: TextInputAction.next,
+                              onChanged: (v) {
+                                widget.onChange(s.slot, v);
+                                widget.onDirtyChanged(true);
+                                setState(() {}); // updates counters/dup warnings
+                              },
                             ),
-                          ),
-                        ],
+                            if (s.error != null) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                s.error!,
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.error,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -352,18 +385,18 @@ class _EditorPaneState extends State<_EditorPane> {
         Row(
           children: [
             ElevatedButton.icon(
-              onPressed: state.saving ? null : onSave,
+              onPressed: widget.state.saving ? null : widget.onSave,
               icon: const Icon(Icons.save),
               label: const Text('Save All  (Ctrl+S)'),
             ),
             const SizedBox(width: 8),
             OutlinedButton.icon(
-              onPressed: state.saving ? null : onReset,
+              onPressed: widget.state.saving ? null : widget.onReset,
               icon: const Icon(Icons.refresh),
               label: const Text('Reset'),
             ),
             const SizedBox(width: 12),
-            if (state.missingSlots.isEmpty) const Chip(
+            if (widget.state.missingSlots.isEmpty) const Chip(
               avatar: Icon(Icons.check, size: 16),
               label: Text('Complete'),
             ),
