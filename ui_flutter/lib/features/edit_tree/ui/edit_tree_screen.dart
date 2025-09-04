@@ -5,6 +5,7 @@ import '../data/edit_tree_provider.dart';
 import '../data/edit_tree_repository.dart';
 import '../state/edit_tree_controller.dart';
 import '../state/edit_tree_state.dart';
+import '../../dictionary/ui/dictionary_suggestions_overlay.dart';
 
 class EditTreeScreen extends ConsumerStatefulWidget {
   const EditTreeScreen({super.key});
@@ -418,21 +419,47 @@ class _EditorPaneState extends State<_EditorPane> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            TextField(
-                              key: ValueKey('slot_${s.slot}'),
-                              decoration: InputDecoration(
-                                labelText: 'Label',
-                                helperText: s.existing ? 'Existing' : 'Empty',
-                                errorText: s.error,
-                              ),
-                              controller: widget.controllers[s.slot]!,
-                              focusNode: widget.focusNodes[s.slot]!,
-                              textInputAction: TextInputAction.next,
-                              onChanged: (v) {
-                                widget.onChange(s.slot, v);
-                                widget.onDirtyChanged(true);
-                                setState(() {}); // updates counters/dup warnings
-                              },
+                            Stack(
+                              children: [
+                                TextField(
+                                  key: ValueKey('slot_${s.slot}'),
+                                  decoration: InputDecoration(
+                                    labelText: 'Label',
+                                    helperText: s.existing ? 'Existing' : 'Empty',
+                                    errorText: s.error,
+                                  ),
+                                  controller: widget.controllers[s.slot]!,
+                                  focusNode: widget.focusNodes[s.slot]!,
+                                  textInputAction: TextInputAction.next,
+                                  onChanged: (v) {
+                                    widget.onChange(s.slot, v);
+                                    widget.onDirtyChanged(true);
+                                    setState(() {}); // updates counters/dup warnings
+                                  },
+                                ),
+                                if (widget.focusNodes[s.slot]!.hasFocus &&
+                                    widget.controllers[s.slot]!.text.trim().length >= 2)
+                                  Positioned(
+                                    left: 0,
+                                    right: 0,
+                                    top: 56, // Position below the TextField
+                                    child: DictionarySuggestionsOverlay(
+                                      type: 'node_label',
+                                      currentText: widget.controllers[s.slot]!.text,
+                                      onSuggestionSelected: (suggestion) {
+                                        widget.controllers[s.slot]!.text = suggestion;
+                                        widget.controllers[s.slot]!.selection =
+                                            TextSelection.collapsed(offset: suggestion.length);
+                                        widget.onChange(s.slot, suggestion);
+                                        widget.onDirtyChanged(true);
+                                        widget.focusNodes[s.slot]!.unfocus(); // Hide overlay
+                                      },
+                                      onDismiss: () {
+                                        widget.focusNodes[s.slot]!.unfocus();
+                                      },
+                                    ),
+                                  ),
+                              ],
                             ),
                             if (s.error != null) ...[
                               const SizedBox(height: 4),
