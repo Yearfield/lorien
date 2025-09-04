@@ -97,7 +97,60 @@ class _EditTreeScreenState extends ConsumerState<EditTreeScreen> {
     });
   }
 
+  Future<bool> _guardUnsavedChanges() async {
+    if (!_dirty) return true;
+
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Unsaved Changes'),
+        content: const Text(
+          'You have unsaved changes. What would you like to do?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false), // Stay
+            child: const Text('Stay'),
+          ),
+          TextButton(
+            onPressed: () async {
+              // Try to save and continue if successful
+              try {
+                await ref.read(editTreeControllerProvider.notifier).save();
+                if (mounted) {
+                  Navigator.of(context).pop(true); // Continue
+                }
+              } catch (e) {
+                // Save failed, stay on current
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to save: $e')),
+                  );
+                  Navigator.of(context).pop(false); // Stay
+                }
+              }
+            },
+            child: const Text('Save & Continue'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true), // Discard
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('Discard Changes'),
+          ),
+        ],
+      ),
+    );
+
+    return result ?? false; // Default to staying if dialog is dismissed
+  }
+
   Future<void> _nextIncomplete() async {
+    final shouldContinue = await _guardUnsavedChanges();
+    if (!shouldContinue) return;
+
     final repo = ref.read(editTreeRepositoryProvider);
     final j = await repo.nextIncomplete();
     if (j == null) {
@@ -122,6 +175,9 @@ class _EditTreeScreenState extends ConsumerState<EditTreeScreen> {
     int depth,
     String missing,
   ) async {
+    final shouldContinue = await _guardUnsavedChanges();
+    if (!shouldContinue) return;
+
     final c = ref.read(editTreeControllerProvider.notifier);
     await c.loadParent(parentId, label: label, depth: depth, missing: missing);
     // NEW: hydrate controllers without losing user edits if dirty
@@ -138,8 +194,6 @@ class _EditTreeScreenState extends ConsumerState<EditTreeScreen> {
   }
 
   Future<void> _onNextIncompleteTap() async {
-    // For now, call the existing _nextIncomplete method
-    // Later this will be enhanced with unsaved guard
     await _nextIncomplete();
   }
 
