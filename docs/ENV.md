@@ -1,6 +1,6 @@
 # Lorien Environment Configuration
 
-This document describes the environment variables used by Lorien and their configuration options.
+This document describes the environment variables used by Lorien v6.8.0-beta.1 and their configuration options.
 
 ## Server Environment Variables
 

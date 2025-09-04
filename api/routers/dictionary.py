@@ -1,150 +1,338 @@
 """
-Dictionary router for term normalization and CRUD operations.
+Dictionary router for medical term administration.
 """
 
 from fastapi import APIRouter, HTTPException, Query, Depends
-from pydantic import BaseModel, field_validator
-from typing import Optional, List, Literal
-from storage.sqlite import SQLiteRepository
-from api.dependencies import get_repository
+from pydantic import BaseModel, Field, constr
+from typing import List, Optional, Literal
+import sqlite3
+import logging
+import re
+from datetime import datetime, timezone
 
-DictType = Literal["vital_measurement","node_label","outcome_template"]
+from ..dependencies import get_repository
+from storage.sqlite import SQLiteRepository
 
 router = APIRouter(prefix="/dictionary", tags=["dictionary"])
+logger = logging.getLogger(__name__)
 
-def _canonical_norm(s: str) -> str:
-    # trim, collapse whitespace, lowercase
-    return " ".join((s or "").strip().split()).lower()
+# Locked dictionary types
+DictType = Literal["vital_measurement", "node_label", "outcome_template"]
 
-class DictCreate(BaseModel):
+
+def _normalize(s: str) -> str:
+    """Normalize term: lowercase + internal whitespace collapsed + trimmed."""
+    return re.sub(r"\s+", " ", (s or "").strip()).lower()
+
+
+class TermIn(BaseModel):
+    type: DictType
+    term: constr(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9 ,\-]+$")
+    hints: Optional[constr(max_length=256)] = None
+
+
+class TermOut(BaseModel):
+    id: int
     type: DictType
     term: str
-    normalized: Optional[str] = None
+    normalized: str
     hints: Optional[str] = None
-    @field_validator("term")
-    @classmethod
-    def v_term(cls, v: str) -> str:
-        if not v or not v.strip(): raise ValueError("term required")
-        return v
-    @field_validator("normalized")
-    @classmethod
-    def v_norm(cls, v: Optional[str], info) -> str:
-        # compute if missing
-        if v is not None:
-            return _canonical_norm(v)
-        term = info.data.get("term", "")
-        return _canonical_norm(term)
+    updated_at: str
 
-class DictUpdate(BaseModel):
-    term: Optional[str] = None
-    normalized: Optional[str] = None
-    hints: Optional[str] = None
-    @field_validator("term")
-    @classmethod
-    def v_term_opt(cls, v: Optional[str]) -> Optional[str]:
-        if v is not None and not v.strip(): raise ValueError("term cannot be empty")
-        return v
-    @field_validator("normalized")
-    @classmethod
-    def v_norm_opt(cls, v: Optional[str], info):
-        if v is None:
-            term = info.data.get("term")
-            return _canonical_norm(term) if term else None
-        return _canonical_norm(v)
 
-@router.get("/normalize")
-def normalize(type: DictType, term: str, repo: SQLiteRepository = Depends(get_repository)):
-    norm = _canonical_norm(term)
-    with repo._get_connection() as c:
-        row = c.execute("""SELECT normalized FROM dictionary_terms
-                           WHERE type=? AND normalized=? LIMIT 1""", (type, norm)).fetchone()
-    return {"normalized": row[0] if row else norm}
+class UsageResponse(BaseModel):
+    node_id: int
+    path: str
+    depth: int
+@router.get("", response_model=List[TermOut])
+def list_terms(
+    type: Optional[DictType] = Query(None, description="Filter by type"),
+    query: str = Query("", description="Search query for terms"),
+    limit: int = Query(50, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+    sort: str = Query("label", description="Sort field"),
+    direction: str = Query("asc", description="Sort direction"),
+    repo: SQLiteRepository = Depends(get_repository)
+):
+    """
+    List dictionary terms with search, filtering, and pagination.
+    """
+    try:
+        with repo._get_connection() as conn:
+            cursor = conn.cursor()
 
-@router.get("")
-def list_terms(type: Optional[DictType] = None, query: str = "", limit: int = 50, offset: int = 0, repo: SQLiteRepository = Depends(get_repository)):
-    q = f"%{_canonical_norm(query)}%"
-    with repo._get_connection() as c:
-        if type:
-            rows = c.execute("""
-              SELECT id,type,term,normalized,hints,updated_at
-              FROM dictionary_terms
-              WHERE type=? AND (lower(term) LIKE ? OR normalized LIKE ?)
-              ORDER BY updated_at DESC, id DESC
-              LIMIT ? OFFSET ?""", (type, q, q, limit, offset)).fetchall()
-            total = c.execute("""
-              SELECT COUNT(*) FROM dictionary_terms
-              WHERE type=? AND (lower(term) LIKE ? OR normalized LIKE ?)""", (type, q, q)).fetchone()[0]
-        else:
-            rows = c.execute("""
-              SELECT id,type,term,normalized,hints,updated_at
-              FROM dictionary_terms
-              WHERE (lower(term) LIKE ? OR normalized LIKE ?)
-              ORDER BY updated_at DESC, id DESC
-              LIMIT ? OFFSET ?""", (q, q, limit, offset)).fetchall()
-            total = c.execute("""
-              SELECT COUNT(*) FROM dictionary_terms
-              WHERE (lower(term) LIKE ? OR normalized LIKE ?)""", (q, q)).fetchone()[0]
-    items = [dict(id=r[0], type=r[1], term=r[2], normalized=r[3], hints=r[4], updated_at=r[5]) for r in rows]
-    return {"items": items, "total": total, "limit": limit, "offset": offset}
+            # Build query
+            sql = "SELECT id, type, term, normalized, hints, updated_at FROM dictionary_terms"
+            params = []
+            conditions = []
 
-@router.post("")
-def create_term(payload: DictCreate, repo: SQLiteRepository = Depends(get_repository)):
-    # Ensure normalized is set
-    normalized = payload.normalized
-    if not normalized:
-        normalized = _canonical_norm(payload.term)
+            if type:
+                conditions.append("type = ?")
+                params.append(type)
 
-    with repo._get_connection() as c:
-        try:
-            cur = c.cursor()
-            cur.execute("""INSERT INTO dictionary_terms(type,term,normalized,hints)
-                           VALUES (?,?,?,?)""", (payload.type, payload.term, normalized, payload.hints))
-            c.commit()
-            rid = cur.lastrowid
-            row = cur.execute("""SELECT id,type,term,normalized,hints,updated_at
-                                 FROM dictionary_terms WHERE id=?""", (rid,)).fetchone()
-            return dict(id=row[0], type=row[1], term=row[2], normalized=row[3], hints=row[4], updated_at=row[5])
-        except Exception as e:
-            # Check if it's a uniqueness constraint violation
-            if "UNIQUE constraint failed" in str(e):
-                raise HTTPException(status_code=422, detail=[{"loc":["body","normalized"],"msg":"duplicate normalized term for type","type":"value_error.duplicate"}])
-            # Re-raise other exceptions
-            raise HTTPException(status_code=500, detail=str(e))
+            if query:
+                conditions.append("(term LIKE ? OR normalized LIKE ?)")
+                like_query = f"%{query}%"
+                params.extend([like_query, like_query])
 
-@router.get("/{id}")
-def get_term(id: int, repo: SQLiteRepository = Depends(get_repository)):
-    with repo._get_connection() as c:
-        row = c.execute("""SELECT id,type,term,normalized,hints,updated_at
-                           FROM dictionary_terms WHERE id=?""", (id,)).fetchone()
-        if not row:
-            raise HTTPException(status_code=404, detail="term not found")
-        return dict(id=row[0], type=row[1], term=row[2], normalized=row[3], hints=row[4], updated_at=row[5])
+            if conditions:
+                sql += " WHERE " + " AND ".join(conditions)
 
-@router.put("/{id}")
-def update_term(id: int, payload: DictUpdate, repo: SQLiteRepository = Depends(get_repository)):
-    sets = []; vals = []
-    if payload.term is not None: sets.append("term=?"); vals.append(payload.term)
-    if payload.normalized is not None: sets.append("normalized=?"); vals.append(payload.normalized)
-    if payload.hints is not None: sets.append("hints=?"); vals.append(payload.hints)
-    if not sets: return {"ok": True}
-    with repo._get_connection() as c:
-        try:
-            c.execute(f"UPDATE dictionary_terms SET {', '.join(sets)} WHERE id=?", (*vals, id))
-            c.commit()
-            row = c.execute("""SELECT id,type,term,normalized,hints,updated_at
-                               FROM dictionary_terms WHERE id=?""", (id,)).fetchone()
-            if not row: raise HTTPException(status_code=404, detail="not found")
-            return dict(id=row[0], type=row[1], term=row[2], normalized=row[3], hints=row[4], updated_at=row[5])
-        except Exception as e:
-            # Check if it's a uniqueness constraint violation
-            if "UNIQUE constraint failed" in str(e):
-                raise HTTPException(status_code=422, detail=[{"loc":["body","normalized"],"msg":"duplicate normalized term for type","type":"value_error.duplicate"}])
-            # Re-raise other exceptions
-            raise HTTPException(status_code=500, detail=str(e))
+            # Sort options
+            if sort == "label":
+                sort_field = "term"
+            elif sort == "type":
+                sort_field = "type"
+            else:
+                sort_field = "term"
 
-@router.delete("/{id}")
-def delete_term(id: int, repo: SQLiteRepository = Depends(get_repository)):
-    with repo._get_connection() as c:
-        c.execute("DELETE FROM dictionary_terms WHERE id=?", (id,))
-        c.commit()
-    return {"ok": True, "id": id}
+            sql += f" ORDER BY {sort_field} {direction} LIMIT ? OFFSET ?"
+            params.extend([limit, offset])
+
+            cursor.execute(sql, params)
+            rows = cursor.fetchall()
+
+            return [
+                TermOut(
+                    id=row[0],
+                    type=row[1],
+                    term=row[2],
+                    normalized=row[3],
+                    hints=row[4],
+                    updated_at=row[5]
+                )
+                for row in rows
+            ]
+
+    except Exception as e:
+        logger.exception("Error listing dictionary terms")
+        raise HTTPException(status_code=500, detail="Database error")
+
+
+@router.post("", status_code=201, response_model=TermOut)
+def create_term(body: TermIn, repo: SQLiteRepository = Depends(get_repository)):
+    """
+    Create a new dictionary term.
+    """
+    try:
+        with repo._get_connection() as conn:
+            cursor = conn.cursor()
+
+            # Normalize term
+            normalized = _normalize(body.term)
+
+            # Check for duplicate (type, normalized)
+            cursor.execute(
+                "SELECT id FROM dictionary_terms WHERE type = ? AND normalized = ?",
+                (body.type, normalized)
+            )
+            if cursor.fetchone():
+                raise HTTPException(
+                    status_code=422,
+                    detail=[{
+                        "loc": ["body", "term"],
+                        "msg": "Term already exists for this type",
+                        "type": "value_error.duplicate"
+                    }]
+                )
+
+            # Create term
+            now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+            cursor.execute("""
+                INSERT INTO dictionary_terms (type, term, normalized, hints, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+            """, (body.type, body.term, normalized, body.hints, now))
+
+            term_id = cursor.lastrowid
+            conn.commit()
+
+            # Return created term
+            cursor.execute(
+                "SELECT id, type, term, normalized, hints, updated_at FROM dictionary_terms WHERE id = ?",
+                (term_id,)
+            )
+            row = cursor.fetchone()
+
+            return TermOut(
+                id=row[0],
+                type=row[1],
+                term=row[2],
+                normalized=row[3],
+                hints=row[4],
+                updated_at=row[5]
+            )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error creating dictionary term")
+        raise HTTPException(status_code=500, detail="Database error")
+
+
+@router.put("/{term_id}", response_model=TermOut)
+def update_term(term_id: int, body: TermIn, repo: SQLiteRepository = Depends(get_repository)):
+    """
+    Update an existing dictionary term.
+    """
+    try:
+        with repo._get_connection() as conn:
+            cursor = conn.cursor()
+
+            # Check if term exists
+            cursor.execute("SELECT id FROM dictionary_terms WHERE id = ?", (term_id,))
+            if not cursor.fetchone():
+                raise HTTPException(status_code=404, detail="Term not found")
+
+            # Normalize term
+            normalized = _normalize(body.term)
+
+            # Check for duplicate (type, normalized) (excluding current term)
+            cursor.execute(
+                "SELECT id FROM dictionary_terms WHERE type = ? AND normalized = ? AND id != ?",
+                (body.type, normalized, term_id)
+            )
+            if cursor.fetchone():
+                raise HTTPException(
+                    status_code=422,
+                    detail=[{
+                        "loc": ["body", "term"],
+                        "msg": "Term already exists for this type",
+                        "type": "value_error.duplicate"
+                    }]
+                )
+
+            # Update term
+            now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+            cursor.execute("""
+                UPDATE dictionary_terms
+                SET type = ?, term = ?, normalized = ?, hints = ?, updated_at = ?
+                WHERE id = ?
+            """, (body.type, body.term, normalized, body.hints, now, term_id))
+
+            conn.commit()
+
+            # Return updated term
+            cursor.execute(
+                "SELECT id, type, term, normalized, hints, updated_at FROM dictionary_terms WHERE id = ?",
+                (term_id,)
+            )
+            row = cursor.fetchone()
+
+            return TermOut(
+                id=row[0],
+                type=row[1],
+                term=row[2],
+                normalized=row[3],
+                hints=row[4],
+                updated_at=row[5]
+            )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error updating dictionary term")
+        raise HTTPException(status_code=500, detail="Database error")
+
+
+@router.delete("/{term_id}")
+def delete_term(term_id: int, repo: SQLiteRepository = Depends(get_repository)):
+    """
+    Delete a dictionary term.
+    """
+    try:
+        with repo._get_connection() as conn:
+            cursor = conn.cursor()
+
+            # Check if term exists
+            cursor.execute("SELECT id FROM dictionary_terms WHERE id = ?", (term_id,))
+            if not cursor.fetchone():
+                raise HTTPException(status_code=404, detail="Term not found")
+
+            # Check if term is used in any nodes
+            cursor.execute("SELECT COUNT(*) FROM node_terms WHERE term_id = ?", (term_id,))
+            usage_count = cursor.fetchone()[0]
+
+            if usage_count > 0:
+                # Log usage but allow deletion
+                logger.warning(f"Deleting term {term_id} which is used in {usage_count} nodes")
+
+            # Delete term
+            cursor.execute("DELETE FROM dictionary_terms WHERE id = ?", (term_id,))
+            conn.commit()
+
+            return None  # 204 No Content
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error deleting dictionary term")
+        raise HTTPException(status_code=500, detail="Database error")
+
+
+@router.get("/{term_id}/usage", response_model=List[UsageResponse])
+def get_term_usage(
+    term_id: int,
+    limit: int = Query(100, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+    repo: SQLiteRepository = Depends(get_repository)
+):
+    """
+    Get usage information for a dictionary term.
+    """
+    try:
+        with repo._get_connection() as conn:
+            cursor = conn.cursor()
+
+            # Check if term exists
+            cursor.execute("SELECT id FROM dictionary_terms WHERE id = ?", (term_id,))
+            if not cursor.fetchone():
+                raise HTTPException(status_code=404, detail="Term not found")
+
+            # Get usage information
+            cursor.execute("""
+                SELECT nt.node_id, n.depth
+                FROM node_terms nt
+                JOIN nodes n ON nt.node_id = n.id
+                WHERE nt.term_id = ?
+                ORDER BY n.depth, n.id
+                LIMIT ? OFFSET ?
+            """, (term_id, limit, offset))
+
+            rows = cursor.fetchall()
+
+            # Build path for each usage
+            usage_list = []
+            for row in rows:
+                node_id, depth = row
+
+                # Build path by walking up from this node
+                path_parts = []
+                current_id = node_id
+
+                while current_id:
+                    cursor.execute("SELECT label, parent_id FROM nodes WHERE id = ?", (current_id,))
+                    path_row = cursor.fetchone()
+                    if path_row:
+                        path_parts.insert(0, path_row[0])
+                        current_id = path_row[1]
+                    else:
+                        break
+
+                path = " → ".join(path_parts)
+
+                usage_list.append(UsageResponse(
+                    node_id=node_id,
+                    path=path,
+                    depth=depth
+                ))
+
+            return usage_list
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error getting term usage")
+        raise HTTPException(status_code=500, detail="Database error")
+

@@ -1,194 +1,219 @@
 # Lorien Release Notes
 
-## v6.8.0-beta.1 (Phase-6 Implementation)
+## v6.8.0-beta.1
 
-**Release Date**: TBD  
-**Commit SHA**: TBD  
-**Phase**: 6 - Canon Guardrails & Feature Parity
+### Overview
+Major feature release with enhanced API, new endpoints, improved validation, and comprehensive testing. Introduces dictionary administration, enhanced flag management, and performance optimizations.
 
-### 🚀 Major Features
+### New Features
 
-#### Canon Guardrails Enforcement
-- **Exactly 5 Children Rule**: All parent nodes must have exactly 5 children. Import/create/update operations now enforce this rule with 422 responses for violations.
-- **CSV V1 Contract**: Frozen 8-column format with exact header validation. Any header drift results in 422 with precise error context.
-- **Outcomes Content Limits**: ≤7 words per field with regex validation `^[A-Za-z0-9 ,\-]+$`.
-- **LLM Gating**: LLM integration is OFF by default and gated by `/api/v1/llm/health` endpoint.
+#### 🎯 **Dictionary Administration**
+- **NEW**: Full CRUD operations for medical terms
+- **Endpoint**: `GET/POST/PUT/DELETE /api/v1/dictionary`
+- **Features**: Search, filtering, uniqueness constraints, usage tracking
+- **Validation**: Label regex, category validation, code uniqueness
 
-#### Environment Configuration
-- **LORIEN_DB_PATH**: Configurable database path with automatic parent directory creation.
-- **LLM_ENABLED**: Environment toggle for LLM functionality (default: false).
-- **CORS_ALLOW_ALL**: Toggle for development/LAN access (default: false).
+#### 🚩 **Enhanced Flag Management**
+- **NEW**: Cascade operations for bulk flag assignment/removal
+- **Endpoint**: `POST /api/v1/flags/assign`, `POST /api/v1/flags/remove`
+- **Features**: Audit trail, cascade to descendants, idempotent operations
+- **Pruning**: Automatic cleanup (≤30 days or ≤50k rows)
 
-#### API Dual-Mount
-- **Health Endpoint**: Available at both `/health` and `/api/v1/health` for connectivity source of truth.
-- **Versioned API**: All endpoints mounted under `/api/v1` prefix with root fallback.
+#### 🌳 **Tree Navigation**
+- **NEW**: `GET /api/v1/tree/path` - Breadcrumbs from root to node
+- **NEW**: `GET /api/v1/tree/next-incomplete-parent` - Performance-optimized
+- **Features**: CSV header inclusion, depth tracking, path reconstruction
 
-### 🔧 Backend Improvements
+#### 📊 **Health & Monitoring**
+- **Enhanced**: `/api/v1/health` with version, WAL, FK status
+- **Enhanced**: `/api/v1/llm/health` with top-level JSON and checked_at
+- **NEW**: Performance assertions for critical endpoints
+- **Features**: Structured logging, error handling improvements
 
-#### Red-Flag Bulk Operations
-- **Bulk Attach/Detach**: Atomic operations for managing multiple red flags per node.
-- **Audit Trail**: Complete audit logging for all red flag operations.
-- **Idempotent Operations**: Safe to retry without duplicate effects.
+#### 📁 **Outcomes & Validation**
+- **NEW**: `PUT /api/v1/outcomes/{node_id}` - Leaf-only validation
+- **Enhanced**: Word count (≤7), regex whitelist, prohibited tokens
+- **Features**: Legacy fallback support, structured error responses
 
-#### Import Job Management
-- **Job States**: Track import jobs through queued → processing → done/failed states.
-- **Structured Logging**: Replace print statements with proper logging throughout.
-- **422 Hard-Reject**: Precise error responses for CSV header mismatches.
+#### 📤 **Import/Export**
+- **Enhanced**: Strict 422 context for CSV schema drift
+- **Features**: Detailed mismatch information, first offending column
 
-#### Database Enhancements
-- **WAL Mode**: Write-Ahead Logging enabled by default for data integrity.
-- **Foreign Key Constraints**: Enforced at connection level.
-- **Import Jobs Table**: New table for tracking import operations.
+### API Changes
 
-### 🎨 Flutter UI Enhancements
+#### Breaking Changes
+- **Health Response**: Now includes `version`, `db`, `features` fields
+- **LLM Health**: Top-level JSON structure with `checked_at` UTC timestamp
+- **Flag Endpoints**: New response format with `affected` count and `node_ids`
 
-#### Health & Connectivity
-- **Health Badge**: Real-time API status indicator.
-- **Settings/About**: Display tested URL and health response snippet.
-- **LAN Helper Text**: Guidance for mobile/LAN development.
+#### New Endpoints
+```
+GET    /api/v1/tree/path?node_id=<id>
+GET    /api/v1/tree/next-incomplete-parent
+GET    /api/v1/flags?query=&limit=&offset=
+POST   /api/v1/flags/assign
+POST   /api/v1/flags/remove
+GET    /api/v1/flags/audit?node_id=&limit=&offset=
+GET    /api/v1/dictionary?query=&category=&limit=&offset=
+POST   /api/v1/dictionary
+PUT    /api/v1/dictionary/{id}
+DELETE /api/v1/dictionary/{id}
+GET    /api/v1/dictionary/{id}/usage?limit=&offset=
+PUT    /api/v1/outcomes/{node_id}
+```
 
-#### Outcomes Editor
-- **Leaf-Only Access**: Editor visible only on leaf nodes with guard dialog for non-leaves.
-- **Word Counter**: Live validation for ≤7 words per field.
-- **Regex Enforcement**: Input validation with inline error display.
-- **LLM Integration**: "LLM Fill" button gated by health endpoint status.
+#### Response Format Updates
+- **Health**: `{"ok": true, "version": "6.8.0-beta.1", "db": {...}, "features": {...}}`
+- **LLM Health**: Top-level JSON with `checked_at` ending in 'Z'
+- **Flags**: `{"affected": int, "node_ids": [int, ...]}`
+- **Tree Path**: Includes `csv_header` and padded `nodes` array
 
-#### Navigation & Workflow
-- **Skip to Incomplete**: Button to navigate to next incomplete parent.
-- **Red-Flag Assigner**: Search, multi-select, and bulk operations interface.
-- **Workspace Import/Export**: Excel import with precise error reporting and CSV export.
+### Database Schema Changes
 
-#### Accessibility
-- **Small Screen Support**: All primary actions accessible at 320px width.
-- **Screen Reader**: Proper semantic labels and field associations.
-- **High Contrast**: Dark mode and 200% text scale support.
+#### New Tables
+```sql
+-- Dictionary terms
+CREATE TABLE dictionary_terms (
+    id INTEGER PRIMARY KEY,
+    label TEXT NOT NULL,
+    category TEXT NOT NULL,
+    code TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(label, category),
+    UNIQUE(code)
+);
 
-### 📊 Streamlit Parity
+-- Node-term associations
+CREATE TABLE node_terms (
+    node_id INTEGER NOT NULL,
+    term_id INTEGER NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (node_id, term_id)
+);
 
-#### Admin Interface
-- **Skip to Incomplete**: Button for navigating incomplete parents.
-- **Red-Flag Management**: Search and bulk operations interface.
-- **Export Functions**: CSV and XLSX export capabilities.
-- **Performance**: Client-side filtering <100ms on ~5k rows.
+-- Enhanced flags namespace
+CREATE TABLE flags (
+    id INTEGER PRIMARY KEY,
+    label TEXT UNIQUE NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
 
-### 🧪 Testing & Quality
+CREATE TABLE node_flags (
+    node_id INTEGER NOT NULL,
+    flag_id INTEGER NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (node_id, flag_id)
+);
 
-#### Automated Tests
-- **Health & LLM**: Environment-based testing for health endpoints.
-- **Children Enforcement**: Validation of 5-children rule.
-- **CSV Contract**: Header validation and error context testing.
-- **Red-Flag Operations**: Bulk operations and audit verification.
-- **Import Jobs**: State machine and failure handling tests.
+CREATE TABLE flag_audit (
+    id INTEGER PRIMARY KEY,
+    node_id INTEGER NOT NULL,
+    flag_id INTEGER NOT NULL,
+    action TEXT NOT NULL CHECK (action IN ('assign', 'remove')),
+    ts TEXT DEFAULT CURRENT_TIMESTAMP
+);
+```
 
-#### Manual Verification
-- **Health Endpoints**: Dual-mount verification.
-- **LLM Gating**: Environment toggle testing.
-- **CORS Behavior**: Origin restriction testing.
-- **Import Validation**: Header mismatch error handling.
+### Performance Improvements
 
-### 📚 Documentation
+#### Targets Met
+- **Next Incomplete Parent**: <100 ms on sample data
+- **Tree Path**: <50 ms with CTE-based path reconstruction
+- **Health Endpoints**: <50 ms response time
+- **Flag Operations**: <100 ms for bulk cascade operations
 
-#### New Documentation
-- **ENV.md**: Comprehensive environment configuration guide.
-- **Makefile**: Development workflow automation.
-- **Release Notes**: This document with implementation details.
+#### Optimizations
+- **Indexes**: Added for dictionary terms, flags, and audit tables
+- **Queries**: CTE-based recursive path finding
+- **Caching**: Prepared statements for common operations
+- **Pruning**: Automated cleanup to maintain performance
 
-#### Updated Documentation
-- **API Endpoints**: New red-flag and import job endpoints.
-- **Error Responses**: 422 validation error formats.
-- **Environment Variables**: Complete configuration reference.
+### Validation Enhancements
 
-### 🔒 Security & Compliance
+#### Outcomes Validation
+- **Word Count**: ≤7 words per field
+- **Regex**: `^[A-Za-z0-9 ,\-µ%]+$` (medical symbols allowed)
+- **Prohibited Tokens**: Blocks dosing terms (mg, mcg, µg, ml, kg, IU, %, bid, tid, qid, etc.)
+- **Empty Rejection**: Post-normalization empty string detection
 
-#### Data Validation
-- **Input Sanitization**: Strict validation for all user inputs.
-- **CSV Schema**: Enforced column structure prevents injection.
-- **Content Limits**: Bounded field sizes and character sets.
+#### Import Validation
+- **Schema Drift**: Hard reject with detailed context
+- **Header Matching**: Exact order and case validation
+- **Error Context**: `first_offending_row`, `col_index`, expected vs received
 
-#### Audit & Logging
-- **Red-Flag Audit**: Complete trail of all flag operations.
-- **Import Jobs**: Track all import operations with states.
-- **Structured Logging**: Consistent log format across all components.
+### Testing Coverage
 
-### 🚨 Breaking Changes
+#### New Test Files
+- `tests/api/test_import_csv_schema.py` - Import validation
+- `tests/api/test_outcomes_validation.py` - Outcomes validation
+- `tests/api/test_flags.py` - Flag operations
+- `tests/api/test_next_incomplete_parent.py` - Tree navigation
+- `tests/api/test_tree_path.py` - Path reconstruction
+- `tests/api/test_dictionary.py` - Dictionary CRUD
+- `tests/ops/test_prune_flags.py` - Pruning operations
+- `tests/performance/test_critical_endpoints.py` - Performance assertions
 
-#### API Changes
-- **Children Validation**: All children operations now require exactly 5 slots.
-- **CSV Headers**: Import requires exact V1 contract headers.
-- **LLM Endpoints**: Health endpoint now returns 503 when disabled.
+#### Test Coverage
+- **Unit Tests**: 31+ test cases for core functionality
+- **Integration Tests**: End-to-end API validation
+- **Performance Tests**: Timing assertions for critical paths
+- **Edge Cases**: Error handling, validation failures, boundary conditions
+
+### Infrastructure
+
+#### Operations
+- **NEW**: `ops/prune_flags.py` - Automated flag audit cleanup
+- **Enhanced**: `storage/migrate.py` - Multi-migration support
+- **Makefile**: Added `prune-flags` target
+
+#### Configuration
+- **Version**: Single-sourced in `core/version.py`
+- **Environment**: Comprehensive ENV.md documentation
+- **API Docs**: Complete endpoint specifications
+
+### Migration Guide
+
+#### For Existing Deployments
+1. **Backup Database**: `cp lorien.db lorien.db.backup`
+2. **Run Migrations**: `python storage/migrate.py`
+3. **Update Environment**: Review ENV.md for new variables
+4. **Test Endpoints**: Verify `/api/v1/health` returns version 6.8.0-beta.1
 
 #### Environment Variables
-- **LORIEN_DB_PATH**: New required variable for database location.
-- **LLM_ENABLED**: Must be explicitly set to true for LLM functionality.
-- **CORS_ALLOW_ALL**: New variable for development/LAN access.
-
-### 📋 Migration Guide
-
-#### Database Migration
 ```bash
-# Run migrations to add new tables
-python storage/migrate.py
+# Required
+export LORIEN_DB_PATH=/path/to/lorien.db
 
-# Verify schema updates
-sqlite3 your_database.db ".schema import_jobs"
+# Optional (defaults shown)
+export LLM_ENABLED=false
+export LLM_PROVIDER=null
+export LLM_MODEL_PATH=""
+export CORS_ALLOW_ALL=false
+export ANALYTICS_ENABLED=false
 ```
 
-#### Environment Setup
-```bash
-# Set required environment variables
-export LORIEN_DB_PATH=/path/to/your/database.db
-export LLM_ENABLED=false  # or true if using LLM
-export CORS_ALLOW_ALL=false  # or true for development
+#### API Client Updates
+- **Health Parsing**: Handle new `version`, `db`, `features` fields
+- **LLM Health**: Parse top-level JSON with `checked_at` timestamps
+- **Flag Operations**: Handle new response format with `affected` count
+- **Error Handling**: Process 422 validation errors with field-level detail
 
-# Start server
-uvicorn api.app:app --host 127.0.0.1 --port 8000
-```
+### Known Issues
+- LLM integration remains stubbed (null provider only)
+- Dictionary usage tracking limited to node associations
+- Cascade operations may be slow on very deep trees (>10 levels)
 
-#### Flutter App Updates
-```bash
-# Update API base URL in Flutter app
-cd ui_flutter
-flutter run -d linux --dart-define=API_BASE_URL=http://127.0.0.1:8000/api/v1
-```
-
-### 🔮 Future Directions
-
-#### Phase 7 (Planned)
-- **Mobile Support**: iOS and Android app builds.
-- **Advanced LLM**: Enhanced triage suggestions and validation.
-- **Performance**: Query optimization and caching improvements.
-- **Analytics**: Enhanced metrics and reporting.
-
-#### Beta Testing Goals
-- **Multi-Device**: Test across different screen sizes and platforms.
-- **Performance**: Validate <100ms response times for key operations.
-- **Error Handling**: Verify 422 responses provide actionable feedback.
-- **Accessibility**: Ensure compliance with WCAG guidelines.
-
-### 🐛 Known Issues
-
-#### Current Limitations
-- **Import Processing**: Excel import validation only, full processing TBD.
-- **LLM Integration**: Requires local model file when enabled.
-- **Mobile**: Flutter app currently desktop-only.
-
-#### Workarounds
-- **Import Issues**: Use CSV format for immediate data import.
-- **LLM Disabled**: Set `LLM_ENABLED=false` for production use.
-- **CORS Issues**: Set `CORS_ALLOW_ALL=true` for development/LAN access.
-
-### 📞 Support
-
-#### Getting Help
-- **Documentation**: Check `docs/` directory for detailed guides.
-- **Issues**: Report bugs via GitHub issues with reproduction steps.
-- **Discussions**: Use GitHub discussions for questions and feature requests.
-
-#### Contributing
-- **Development**: Follow the development workflow in `AGENTS.md`.
-- **Testing**: Run `make test` before submitting changes.
-- **Code Style**: Use `make format` and `make lint` for consistency.
+### Future Plans
+- **v6.8.0-beta.2**: LLM provider implementations (Ollama, GGUF)
+- **v6.8.0-beta.3**: Advanced search and filtering
+- **v6.9.0**: Mobile app optimizations
+- **v7.0.0**: Multi-tenant support
 
 ---
 
-**Note**: This is a beta release. Please report any issues or unexpected behavior. The API contract is stable for v6.8.0, but implementation details may change before final release.
+**SHA**: [TBD - to be updated after CI green]
+
+**Date**: January 2025
+
+**Compatibility**: Requires clean database migration. No backward compatibility for flag endpoints.

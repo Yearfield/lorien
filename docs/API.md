@@ -15,17 +15,42 @@ Endpoints: `GET /calc/export`, `GET /tree/export`, and XLSX variants `/calc/expo
 UI (Flutter/Streamlit) must not construct CSV/XLSX; always call the API.
 
 ## Dictionary
-**Table:** dictionary_terms(id, type['vital_measurement'|'node_label'|'outcome_template'], term, normalized, hints, updated_at)
-**Uniqueness:** (type, normalized)
 
-### Dictionary CRUD
-**GET** `/dictionary?type=&query=&limit=&offset=` → `{items,total,limit,offset}`
-**POST** `/dictionary` body `{type, term, normalized?, hints?}` → 200 created
-**PUT** `/dictionary/{id}` body `{term?, normalized?, hints?}` → 200 updated
-**DELETE** `/dictionary/{id}` → 200
+### List dictionary terms
+GET `/api/v1/dictionary?query=&category=&limit=&offset=&sort=&direction=`
 
-### Dictionary Normalize
-**GET** `/dictionary/normalize?type=&term=` → `{normalized:"..."}` (identity fallback, canonical lower+trim)
+- **200** `[{"id": 1, "label": "...", "category": "...", "code": "...", "created_at": "...", "updated_at": "..."}]`
+
+### Create dictionary term
+POST `/api/v1/dictionary`
+```json
+{ "label": "Chest Pain", "category": "symptom", "code": "SYM:0001" }
+```
+- **200** created term object
+- **409** duplicate label+category or code
+- **422** invalid field values
+
+### Update dictionary term
+PUT `/api/v1/dictionary/{id}`
+```json
+{ "label": "Chest Pain", "category": "symptom", "code": "SYM:0001" }
+```
+- **200** updated term object
+- **404** term not found
+- **409** duplicate label+category or code
+- **422** invalid field values
+
+### Delete dictionary term
+DELETE `/api/v1/dictionary/{id}`
+
+- **204** No Content
+- **404** term not found
+
+### Get term usage
+GET `/api/v1/dictionary/{id}/usage?limit=&offset=`
+
+- **200** `[{"node_id": 123, "path": "...", "depth": 3}]`
+- **404** term not found
 
 ## LLM Health
 `GET /llm/health` → Top-level JSON response with status codes 200/503/500.
@@ -169,6 +194,12 @@ GET `/api/v1/tree/{parent_id}/children`
 
 - **200** `[{ slot: 1..5, label: "..." , id?: int }, ...]`
 
+### Get node path from root to leaf
+GET `/api/v1/tree/path?node_id=123`
+
+- **200** `{ "node_id": 123, "is_leaf": true, "depth": 5, "vital_measurement": "...", "nodes": ["...", "...", "...", "...", ""], "csv_header": ["Vital Measurement", "Node 1", "Node 2", "Node 3", "Node 4", "Node 5", "Diagnostic Triage", "Actions"] }`
+- **404** if node not found
+
 ### Upsert multiple slots atomically
 POST `/api/v1/tree/{parent_id}/children`
 ```json
@@ -252,19 +283,26 @@ PUT `/api/v1/outcomes/{node_id}`
 ### List flags (with paging)
 GET `/api/v1/flags?query=&limit=&offset=`
 
-- **200** `{"items": [{"id": 1, "label": "..."}], "total": 42, "limit": 50, "offset": 0}`
+- **200** `[{"id": 1, "label": "..."}]`
 
-### Search flags (legacy)
-GET `/api/v1/flags/search?q=term`
-
-- **200** `[{ "id": 1, "name": "..." }]`
-
-### Assign
+### Assign flag to node
 POST `/api/v1/flags/assign`
 ```json
-{ "node_id": 123, "red_flag_name": "..." }
+{ "node_id": 123, "flag_id": 7, "cascade": false }
 ```
-- **200** `{ ok: true }`
+- **200** `{ "affected": 1, "node_ids": [123] }`
+
+### Remove flag from node
+POST `/api/v1/flags/remove`
+```json
+{ "node_id": 123, "flag_id": 7, "cascade": false }
+```
+- **200** `{ "affected": 1, "node_ids": [123] }`
+
+### Get flag audit trail
+GET `/api/v1/flags/audit?node_id=&limit=&offset=`
+
+- **200** `[{"id": 1, "node_id": 123, "flag_id": 7, "action": "assign", "ts": "2024-01-01T12:00:00Z"}]`
 
 ---
 
@@ -526,3 +564,4 @@ Get tree completeness statistics.
 `GET /api/v1/triage/search?vm=<vital_measurement>&leaf_only=true&sort=updated_at:desc&limit=1`
 
 Returns the most recent record under the given Vital Measurement for pre-fill in the client.
+

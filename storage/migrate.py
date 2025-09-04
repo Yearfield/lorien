@@ -69,7 +69,9 @@ def main():
     
     # List of migrations to run (in order)
     migrations = [
-        "001_add_red_flag_audit.sql"
+        "001_add_red_flag_audit.sql",
+        "002_add_flags_namespace.sql",
+        "003_add_dictionary_terms.sql"
     ]
     
     print(f"\nFound {len(migrations)} migration(s) to apply")

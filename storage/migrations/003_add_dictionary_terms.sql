@@ -1,25 +1,33 @@
--- Migration: Add dictionary_terms table and indexes
+-- Migration: Add dictionary_terms table and node_terms association table
+-- Date: 2025-01-01
+-- Purpose: Add dictionary administration tables for medical terms
+
 CREATE TABLE IF NOT EXISTS dictionary_terms (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    type TEXT NOT NULL CHECK (type IN ('vital_measurement','node_label','outcome_template')),
-    term TEXT NOT NULL,
-    normalized TEXT NOT NULL,
-    hints TEXT,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    label TEXT NOT NULL,
+    category TEXT NOT NULL,
+    code TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(label, category),
+    UNIQUE(code)
 );
 
--- Uniqueness by (type, normalized) to avoid case/space dupes
-CREATE UNIQUE INDEX IF NOT EXISTS ux_dictionary_type_normalized
-    ON dictionary_terms(type, normalized);
+-- Node-Term associations (many-to-many)
+CREATE TABLE IF NOT EXISTS node_terms (
+    node_id INTEGER NOT NULL,
+    term_id INTEGER NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (node_id, term_id),
+    FOREIGN KEY (node_id) REFERENCES nodes(id) ON DELETE CASCADE,
+    FOREIGN KEY (term_id) REFERENCES dictionary_terms(id) ON DELETE RESTRICT
+);
 
--- Search helpers
-CREATE INDEX IF NOT EXISTS idx_dictionary_type_term
-    ON dictionary_terms(type, term);
-
--- Touch updated_at on update
-CREATE TRIGGER IF NOT EXISTS trg_dictionary_terms_upd
-AFTER UPDATE ON dictionary_terms
-FOR EACH ROW
-BEGIN
-  UPDATE dictionary_terms SET updated_at=CURRENT_TIMESTAMP WHERE id=OLD.id;
-END;
+-- Indexes for performance
+CREATE INDEX IF NOT EXISTS idx_dictionary_label ON dictionary_terms(label);
+CREATE INDEX IF NOT EXISTS idx_dictionary_category ON dictionary_terms(category);
+CREATE INDEX IF NOT EXISTS idx_dictionary_code ON dictionary_terms(code);
+CREATE INDEX IF NOT EXISTS idx_dictionary_created_at ON dictionary_terms(created_at);
+CREATE INDEX IF NOT EXISTS idx_dictionary_updated_at ON dictionary_terms(updated_at);
+CREATE INDEX IF NOT EXISTS idx_node_terms_node_id ON node_terms(node_id);
+CREATE INDEX IF NOT EXISTS idx_node_terms_term_id ON node_terms(term_id);

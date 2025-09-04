@@ -1,75 +1,159 @@
 """
-Outcomes router for PUT /outcomes/{node_id} endpoint.
-
-Delegates to triage upsert with Pydantic validation and leaf-only guardrails.
+Outcomes router for leaf-only triage and actions.
 """
 
 from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel, field_validator
-from core.text_utils import enforce_phrase_rules
-from storage.sqlite import SQLiteRepository
-from api.dependencies import get_repository
+from pydantic import BaseModel, Field
+from typing import Optional
+import sqlite3
+import logging
+
+from ..dependencies import get_db_connection
+from core.services.triage_service import upsert_triage
+from core.validation.outcomes import trim_words, validate_phrase
 
 router = APIRouter(prefix="/outcomes", tags=["outcomes"])
-
-# Constants from triage router
-TRIAGE_MAX_WORDS = 7
-ACTIONS_MAX_WORDS = 7
+logger = logging.getLogger(__name__)
 
 
-class OutcomesUpdate(BaseModel):
-    """Request model for updating outcomes (triage)."""
-    diagnostic_triage: str = ""
-    actions: str = ""
-
-    @field_validator("diagnostic_triage")
-    @classmethod
-    def _v_triage(cls, v: str) -> str:
-        if v is None:
-            return ""
-        return enforce_phrase_rules(v, TRIAGE_MAX_WORDS)
-
-    @field_validator("actions")
-    @classmethod
-    def _v_actions(cls, v: str) -> str:
-        if v is None:
-            return ""
-        return enforce_phrase_rules(v, ACTIONS_MAX_WORDS)
+class OutcomesRequest(BaseModel):
+    diagnostic_triage: str = Field(..., min_length=1)
+    actions: str = Field(..., min_length=1)
 
 
-@router.put("/{node_id}")
-async def put_outcomes(
+class OutcomesResponse(BaseModel):
+    diagnostic_triage: str
+    actions: str
+    applied: bool = True
+
+
+@router.put("/{node_id}", response_model=OutcomesResponse)
+def update_outcomes(
     node_id: int,
-    payload: OutcomesUpdate,
-    repo: SQLiteRepository = Depends(get_repository)
+    request: OutcomesRequest,
+    conn: sqlite3.Connection = Depends(get_db_connection)
 ):
     """
-    Update outcomes (triage) for a node (leaf-only).
+    Update diagnostic triage and actions for a leaf node.
 
-    Delegates to triage upsert with Pydantic validation and guardrails.
+    Validates content limits, regex, and prohibited tokens.
+    Only allows updates to leaf nodes.
+
+    Args:
+        node_id: The node ID to update
+        request: Outcomes data
+        conn: Database connection
+
+    Returns:
+        OutcomesResponse with validated content
+
+    Raises:
+        422: Validation failed (word count, regex, prohibited tokens, empty)
+        400: Database error or non-leaf node
     """
-    # Validate node is a leaf (same as triage endpoint)
-    node = repo.get_node(node_id)
-    if not node or not node.is_leaf:
+    # Normalize input
+    dt_raw = request.diagnostic_triage.strip()
+    ac_raw = request.actions.strip()
+
+    # Reject empty after normalization
+    if not dt_raw:
         raise HTTPException(
             status_code=422,
-            detail="Triage can only be updated for leaf nodes"
+            detail=[{
+                "loc": ["body", "diagnostic_triage"],
+                "msg": "Diagnostic triage cannot be empty",
+                "type": "value_error.empty"
+            }]
         )
 
-    # Pydantic validators handle word caps, regex, and phrase rules
-    # If validation fails, FastAPI returns 422 with Pydantic detail array
-
-    # Delegate to triage upsert (same logic as triage endpoint)
-    success = repo.update_triage(node_id, payload.diagnostic_triage, payload.actions)
-    if not success:
+    if not ac_raw:
         raise HTTPException(
-            status_code=500,
-            detail="Failed to update outcomes"
+            status_code=422,
+            detail=[{
+                "loc": ["body", "actions"],
+                "msg": "Actions cannot be empty",
+                "type": "value_error.empty"
+            }]
         )
 
-    return {
-        "node_id": node_id,
-        "diagnostic_triage": payload.diagnostic_triage,
-        "actions": payload.actions,
-        "is_leaf": True
-    }
+    # Check if node is a leaf
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT is_leaf FROM nodes WHERE id = ?", (node_id,))
+        row = cursor.fetchone()
+
+        if not row:
+            raise HTTPException(status_code=404, detail="Node not found")
+
+        if not row[0]:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot update outcomes for non-leaf node"
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error checking node type")
+        raise HTTPException(status_code=500, detail="Database error")
+
+    # Validate and clamp content
+    try:
+        # Word cap ≤7 words per field
+        dt = trim_words(dt_raw)
+        ac = trim_words(ac_raw)
+
+        # Whitelist regex ^[A-Za-z0-9 ,\-]+$
+        validate_phrase("diagnostic_triage", dt)
+        validate_phrase("actions", ac)
+
+        # Prohibited dosing tokens (case-insensitive & pattern)
+        # This is handled inside validate_phrase
+
+    except ValueError as e:
+        # Parse validation error
+        error_msg = str(e)
+        if "word count" in error_msg.lower():
+            error_type = "value_error.word_count"
+        elif "regex" in error_msg.lower():
+            error_type = "value_error.regex"
+        elif "dosing" in error_msg.lower() or "prohibited" in error_msg.lower():
+            error_type = "value_error.prohibited_token"
+        else:
+            error_type = "value_error.validation"
+
+        raise HTTPException(
+            status_code=422,
+            detail=[{
+                "loc": ["body", "diagnostic_triage" if "diagnostic" in error_msg.lower() else "actions"],
+                "msg": error_msg,
+                "type": error_type
+            }]
+        )
+
+    # Apply to database
+    try:
+        upsert_triage(conn, node_id, dt, ac)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return OutcomesResponse(
+        diagnostic_triage=dt,
+        actions=ac,
+        applied=True
+    )
+
+
+# Legacy fallback endpoint
+@router.put("/triage/{node_id}")
+def update_triage_legacy(
+    node_id: int,
+    request: OutcomesRequest,
+    conn: sqlite3.Connection = Depends(get_db_connection)
+):
+    """
+    Legacy endpoint for updating triage (redirects to outcomes endpoint).
+
+    DEPRECATED: Use PUT /outcomes/{node_id} instead.
+    """
+    # Reuse the same logic as the main outcomes endpoint
+    return update_outcomes(node_id, request, conn)

@@ -11,6 +11,7 @@ import '../../../shared/widgets/toasts.dart';
 import '../../../shared/widgets/route_guard.dart';
 import '../../../state/health_provider.dart';
 import '../data/llm_api.dart';
+import '../data/outcomes_api.dart';
 
 class OutcomesDetailScreen extends ConsumerStatefulWidget {
   const OutcomesDetailScreen({super.key, required this.outcomeId});

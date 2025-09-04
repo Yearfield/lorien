@@ -17,6 +17,7 @@ from .routers.importer import router as importer_router
 from .routers.flags import router as flags_router
 from .routers.outcomes import router as outcomes_router
 from .routers.dictionary import router as dictionary_router
+from .routers.tree import router as tree_router
 from .additional_routes import router as additional_router
 from .exceptions import (
     DecisionTreeAPIException, handle_value_error, handle_integrity_error,
@@ -85,6 +86,7 @@ app.include_router(red_flags_router, prefix=API_PREFIX)
 app.include_router(import_jobs_router, prefix=API_PREFIX)
 app.include_router(importer_router, prefix=API_PREFIX)
 app.include_router(flags_router, prefix=API_PREFIX)
+app.include_router(tree_router, prefix=API_PREFIX)
 app.include_router(outcomes_router, prefix=API_PREFIX)
 app.include_router(dictionary_router, prefix=API_PREFIX)
 app.include_router(additional_router, prefix=API_PREFIX)
@@ -97,6 +99,7 @@ app.include_router(red_flags_router)
 app.include_router(import_jobs_router)
 app.include_router(importer_router)
 app.include_router(flags_router)
+app.include_router(tree_router)
 app.include_router(outcomes_router)
 app.include_router(dictionary_router)
 app.include_router(additional_router)
@@ -116,7 +119,7 @@ async def root():
     """Root endpoint with pointers to docs and versioned health."""
     return {
         "message": "Lorien API",
-        "version": "v6.3.7",
+        "version": __version__,
         "docs": "/docs",
         "health": f"{API_PREFIX}/health"
     }

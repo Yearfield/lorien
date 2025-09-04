@@ -13,47 +13,36 @@ from ..models import HealthResponse, DBInfo
 
 router = APIRouter(tags=["health"])
 
-@router.get("/health", response_model=HealthResponse)
-async def health_check(repo: SQLiteRepository = Depends(get_repository)) -> HealthResponse:
+@router.get("/health")
+async def health_check(repo: SQLiteRepository = Depends(get_repository)):
     """
     Comprehensive health check endpoint.
-    
+
     Returns:
-        HealthResponse with health status, version, database info, and feature flags
+        200 with health status, version, database info, and feature flags
     """
     # Check database status
     db_info = await _check_database_health(repo)
-    
+
     # Check feature flags
     features = await _check_features()
-    
+
     # Build response
     response_data = {
         "ok": True,
         "version": __version__,
-        "db": DBInfo(**db_info),
+        "db": db_info,
         "features": features
     }
-    
-    # Add metrics if analytics is enabled
-    # Check environment variable at request time, not import time
+
+    # Add metrics if analytics is enabled (default false)
     analytics_enabled = os.getenv("ANALYTICS_ENABLED", "false").lower() == "true"
     if analytics_enabled:
         metrics_data = await _get_runtime_metrics()
         if metrics_data:
             response_data["metrics"] = metrics_data
-    
-    # Create response with or without metrics
-    if "metrics" in response_data:
-        return HealthResponse(**response_data)
-    else:
-        # Create response without metrics field
-        return HealthResponse(
-            ok=response_data["ok"],
-            version=response_data["version"],
-            db=response_data["db"],
-            features=response_data["features"]
-        )
+
+    return response_data
 
 
 @router.get("/health/metrics")

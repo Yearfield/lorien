@@ -55,7 +55,7 @@ migrate:
 # Prune flag audit table
 prune-flags:
 	@echo "Pruning flag audit table..."
-	python ops/prune_flags.py
+	python ops/prune_flags.py --max-age-days 30 --max-rows 50000
 
 # Lint code
 lint:
