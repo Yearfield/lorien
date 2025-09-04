@@ -52,7 +52,7 @@ class _EditTreeScreenState extends ConsumerState<EditTreeScreen> {
       final repo = ref.read(editTreeRepositoryProvider);
       final currentQuery = _searchController.text.trim();
       final page = await repo.listIncomplete(
-        query: currentQuery.isEmpty ? null : currentQuery,
+        query: currentQuery.isNotEmpty ? currentQuery : null,
         depth: _depth,
         limit: _limit,
         offset: append ? _offset + _limit : 0,
@@ -232,7 +232,7 @@ class _EditTreeScreenState extends ConsumerState<EditTreeScreen> {
       final nextOffset = _offset + _limit;
 
       final page = await repo.listIncomplete(
-        query: currentQuery.isEmpty ? null : currentQuery,
+        query: currentQuery.isNotEmpty ? currentQuery : null,
         depth: _depth,
         limit: _limit,
         offset: nextOffset,

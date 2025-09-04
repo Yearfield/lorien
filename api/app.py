@@ -18,6 +18,7 @@ from .routers.flags import router as flags_router
 from .routers.outcomes import router as outcomes_router
 from .routers.dictionary import router as dictionary_router
 from .routers.tree import router as tree_router
+from .routers.edit_tree import router as edit_tree_router
 from .routers.tree_parents import router as tree_parents_router
 from .routers.tree_children import router as tree_children_router
 from .additional_routes import router as additional_router
@@ -89,6 +90,7 @@ app.include_router(import_jobs_router, prefix=API_PREFIX)
 app.include_router(importer_router, prefix=API_PREFIX)
 app.include_router(flags_router, prefix=API_PREFIX)
 app.include_router(tree_router, prefix=API_PREFIX)
+app.include_router(edit_tree_router, prefix=API_PREFIX)
 app.include_router(tree_parents_router, prefix=API_PREFIX)
 app.include_router(tree_children_router, prefix=API_PREFIX)
 app.include_router(outcomes_router, prefix=API_PREFIX)
@@ -104,6 +106,7 @@ app.include_router(import_jobs_router)
 app.include_router(importer_router)
 app.include_router(flags_router)
 app.include_router(tree_router)
+app.include_router(edit_tree_router)
 app.include_router(tree_parents_router)
 app.include_router(tree_children_router)
 app.include_router(outcomes_router)

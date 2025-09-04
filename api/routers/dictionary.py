@@ -56,6 +56,9 @@ def list_terms(
 ):
     """
     List dictionary terms with search, filtering, and pagination.
+
+    For type=node_label with query, this provides autocomplete suggestions.
+    Query must be ≥2 characters for performance.
     """
     try:
         with repo._get_connection() as conn:
@@ -71,6 +74,10 @@ def list_terms(
                 params.append(type)
 
             if query:
+                # For node_label suggestions, enforce minimum query length
+                if type == "node_label" and len(query.strip()) < 2:
+                    return []  # Return empty for short queries
+
                 conditions.append("(term LIKE ? OR normalized LIKE ?)")
                 like_query = f"%{query}%"
                 params.extend([like_query, like_query])
