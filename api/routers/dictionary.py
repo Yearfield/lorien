@@ -343,3 +343,30 @@ def get_term_usage(
         logger.exception("Error getting term usage")
         raise HTTPException(status_code=500, detail="Database error")
 
+
+@router.get("/normalize")
+def normalize_term(
+    type: DictType,
+    term: str,
+    repo: SQLiteRepository = Depends(get_repository)
+):
+    """Normalize a term for the given type."""
+    try:
+        normalized = _normalize(term)
+
+        # Check if this normalized term already exists in the dictionary
+        with repo._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT normalized FROM dictionary_terms WHERE type = ? AND normalized = ? LIMIT 1",
+                (type, normalized)
+            )
+            row = cursor.fetchone()
+
+            # Return existing normalized term if found, otherwise return computed normalized term
+            return {"normalized": row[0] if row else normalized}
+
+    except Exception as e:
+        logger.exception("Error normalizing term")
+        raise HTTPException(status_code=500, detail="Database error")
+

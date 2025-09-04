@@ -3,6 +3,7 @@ Tree router for navigation and path operations.
 """
 
 from fastapi import APIRouter, HTTPException, Query, Depends, Response
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import List, Optional
 import sqlite3
@@ -29,6 +30,32 @@ class PathResponse(BaseModel):
     vital_measurement: str
     nodes: List[str]  # Always length 5, padded with ""
     csv_header: List[str]
+
+
+@router.get("/roots")
+def get_roots(conn: sqlite3.Connection = Depends(get_db_connection)):
+    """
+    Get all root nodes (vital measurements).
+
+    Returns a list of unique vital measurement names.
+    """
+    try:
+        cursor = conn.cursor()
+
+        # Get all unique vital measurements from root nodes (depth 0)
+        cursor.execute("""
+            SELECT DISTINCT label
+            FROM nodes
+            WHERE depth = 0
+            ORDER BY label
+        """)
+
+        roots = [row[0] for row in cursor.fetchall()]
+        return roots
+
+    except Exception as e:
+        logger.exception("Error getting roots")
+        raise HTTPException(status_code=500, detail="Database error")
 
 
 @router.get("/next-incomplete-parent", responses={204: {"description": "No incomplete parent"}})
