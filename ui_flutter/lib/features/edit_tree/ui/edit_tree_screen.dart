@@ -27,6 +27,7 @@ class _EditTreeScreenState extends ConsumerState<EditTreeScreen> {
   final Map<int, TextEditingController> _controllers = {};
   final Map<int, FocusNode> _focusNodes = {};
   bool _dirty = false;
+  int _tabIndex = 1; // Default to Editor tab on mobile
 
   Future<void> _loadList() async {
     setState(() => _loadingList = true);
@@ -106,6 +107,139 @@ class _EditTreeScreenState extends ConsumerState<EditTreeScreen> {
     for (final c in _controllers.values) c.dispose();
     for (final f in _focusNodes.values) f.dispose();
     super.dispose();
+  }
+
+  Widget _buildListPane() {
+    return Flexible(
+      flex: 2,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(Icons.search),
+                      labelText: 'Search parents',
+                    ),
+                    onChanged: (_) {
+                      _offset = 0;
+                      _loadList();
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                DropdownButton<int?>(
+                  value: _depth,
+                  hint: const Text('Depth'),
+                  onChanged: (v) {
+                    setState(() => _depth = v);
+                    _offset = 0;
+                    _loadList();
+                  },
+                  items: const [null, 0, 1, 2, 3, 4, 5].map((d) =>
+                      DropdownMenuItem(
+                        value: d,
+                        child: Text(d == null ? 'All' : d.toString()),
+                      ),
+                  ).toList(),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(
+              children: [
+                ElevatedButton.icon(
+                  onPressed: _onNextIncompleteTap,
+                  icon: const Icon(Icons.skip_next),
+                  label: const Text('Next Incomplete'),
+                ),
+                const Spacer(),
+                Text('$_total found'),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: _loadingList
+                ? const Center(child: CircularProgressIndicator())
+                : ListView.separated(
+                    itemCount: _items.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (_, i) {
+                      final it = _items[i];
+                      return ListTile(
+                        title: Text(it.label),
+                        subtitle: Text(
+                          'Depth ${it.depth} • Missing: ${it.missingSlots.isEmpty ? "—" : it.missingSlots}',
+                        ),
+                        onTap: () => _openParent(
+                          it.parentId,
+                          it.label,
+                          it.depth,
+                          it.missingSlots,
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEditorPane(EditTreeState st) {
+    return Flexible(
+      flex: 3,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: st.parentId == null
+            ? const Center(
+                child: Text('Select a parent from the list or click "Next Incomplete".'),
+              )
+            : _EditorPane(
+                state: st,
+                onChange: (slot, txt) =>
+                    ref.read(editTreeControllerProvider.notifier).putSlot(slot, txt),
+                onSave: () =>
+                    ref.read(editTreeControllerProvider.notifier).save(),
+                onReset: () =>
+                    ref.read(editTreeControllerProvider.notifier).reset(),
+                controllers: _controllers,
+                focusNodes: _focusNodes,
+                dirty: _dirty,
+                onDirtyChanged: (dirty) => setState(() => _dirty = dirty),
+              ),
+      ),
+    );
+  }
+
+  Widget _buildMobileLayout(EditTreeState st) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: SegmentedButton<int>(
+            segments: const [
+              ButtonSegment(value: 0, label: Text('List')),
+              ButtonSegment(value: 1, label: Text('Editor')),
+            ],
+            selected: {_tabIndex},
+            onSelectionChanged: (selection) {
+              setState(() => _tabIndex = selection.first);
+            },
+          ),
+        ),
+        Expanded(
+          child: _tabIndex == 0 ? _buildListPane() : _buildEditorPane(st),
+        ),
+      ],
+    );
   }
 
   @override
