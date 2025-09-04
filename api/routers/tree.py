@@ -33,29 +33,35 @@ class PathResponse(BaseModel):
 
 
 @router.get("/roots")
-def get_roots(conn: sqlite3.Connection = Depends(get_db_connection)):
+def get_roots():
     """
     Get all root nodes (vital measurements).
 
     Returns a list of unique vital measurement names.
     """
     try:
-        cursor = conn.cursor()
+        from ..dependencies import get_db_connection
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
 
-        # Get all unique vital measurements from root nodes (depth 0)
-        cursor.execute("""
-            SELECT DISTINCT label
-            FROM nodes
-            WHERE depth = 0
-            ORDER BY label
-        """)
+            # Simple test query first
+            cursor.execute("SELECT COUNT(*) FROM nodes WHERE depth = 0")
+            count = cursor.fetchone()[0]
 
-        roots = [row[0] for row in cursor.fetchall()]
-        return roots
+            # Get all unique vital measurements from root nodes (depth 0)
+            cursor.execute("""
+                SELECT DISTINCT label
+                FROM nodes
+                WHERE depth = 0
+                ORDER BY label
+            """)
+
+            roots = [row[0] for row in cursor.fetchall()]
+            return {"count": count, "roots": roots}
 
     except Exception as e:
         logger.exception("Error getting roots")
-        raise HTTPException(status_code=500, detail="Database error")
+        return {"error": str(e)}
 
 
 @router.get("/next-incomplete-parent", responses={204: {"description": "No incomplete parent"}})

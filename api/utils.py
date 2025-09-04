@@ -10,20 +10,27 @@ from datetime import datetime
 
 def normalize_label(label: str) -> str:
     """
-    Normalize a label by trimming whitespace and ensuring it's not empty.
-    
+    Normalize a label by trimming whitespace, validating characters, and ensuring it's not empty.
+
     Args:
         label: Raw label string
-        
+
     Returns:
         str: Normalized label
-        
+
     Raises:
-        ValueError: If label is empty after normalization
+        ValueError: If label is empty after normalization or contains invalid characters
     """
+    import re
+
     normalized = label.strip()
     if not normalized:
-        raise ValueError("Label cannot be empty")
+        raise ValueError("label cannot be empty")
+
+    # Simple allowlist mirroring Outcomes (letters/digits/space/comma/hyphen)
+    if not re.fullmatch(r"[A-Za-z0-9 ,\-]+", normalized):
+        raise ValueError("label must be alnum/comma/hyphen/space")
+
     return normalized
 
 

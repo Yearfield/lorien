@@ -139,7 +139,7 @@ async def upsert_children(
     
     # Normalize labels
     normalized_children = []
-    for child in request.children:
+    for idx, child in enumerate(request.children):
         try:
             normalized_label = normalize_label(child.label)
             normalized_children.append({
@@ -148,8 +148,12 @@ async def upsert_children(
             })
         except ValueError as e:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid label for slot {child.slot}: {str(e)}"
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=[{
+                    "loc": ["body", "children", idx, "label"],
+                    "msg": str(e),
+                    "type": "value_error"
+                }]
             )
     
     # Use atomic upsert method
