@@ -28,6 +28,35 @@
 
 ---
 
+## 🎯 **Phase-6D Status: COMPLETE** ✅
+
+**Edit Tree Window (Flutter) + Minimal Backend Additions**
+
+### New in Phase-6D
+- **Flutter: Edit Tree window** (fast list of incomplete parents, 5-slot inline editor, atomic bulk upsert)
+- **Backend: Two endpoints** (`GET /tree/parents/incomplete`, `PUT /tree/parents/{id}/children`)
+- **UI: Keyboard shortcuts** (Tab cycling, Ctrl+S save, precise 409/422 error mapping)
+- **Navigation: Workspace panel** with "Edit Tree" button
+
+### Flutter Implementation
+- **EditTreeScreen**: Left pane (searchable list) + right pane (5-slot editor) layout
+- **Repository**: Dio-based API calls with proper error handling (409/422)
+- **State Management**: Riverpod controller with atomic save, conflict resolution
+- **UI Components**: Card-based slot editor, Complete ✓ badge, busy states
+
+### Backend Implementation
+- **Incomplete Parents Router**: Paged list with query/depth filtering using existing nodes schema
+- **Bulk Upsert Router**: Atomic transaction with conflict detection, validation
+- **Dual Mount**: Both routers mounted at `/` and `/api/v1`
+- **Error Handling**: 422 for validation, 409 for conflicts, 204 for empty next-incomplete
+
+### Testing
+- **API Tests**: End-to-end coverage for both new endpoints
+- **Flutter Tests**: Widget tests for list/open, save/conflict, keyboard shortcuts
+- **Deterministic**: Mock adapters, no real HTTP calls
+
+---
+
 ## 🎯 **Phase-6B Status: COMPLETE** ✅
 
 **Target beta start:** 2024-12-20  

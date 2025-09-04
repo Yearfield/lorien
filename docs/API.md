@@ -215,6 +215,56 @@ POST `/api/v1/tree/{parent_id}/child`
 { "slot": 3, "label": "..." }
 ```
 
+### Tree (Editing)
+
+#### GET /api/v1/tree/parents/incomplete
+Paged list of incomplete parents with filtering.
+
+**Query Parameters:**
+- `query` (string): Contains search in parent labels (case-insensitive)
+- `depth` (int, optional): Filter by depth (0-5)
+- `limit` (int): Page size (default 50, max 200)
+- `offset` (int): Page offset (default 0)
+
+**Response:**
+```json
+{
+  "items": [
+    {
+      "parent_id": 123,
+      "label": "Parent Label",
+      "depth": 1,
+      "missing_slots": "2,4"
+    }
+  ],
+  "total": 42,
+  "limit": 50,
+  "offset": 0
+}
+```
+
+#### PUT /api/v1/tree/parents/{parent_id}/children
+Atomic bulk upsert of children slots (1-5).
+
+**Request:**
+```json
+{
+  "slots": [
+    {"slot": 1, "label": "Alpha"},
+    {"slot": 2, "label": "Beta"},
+    {"slot": 5, "label": ""}
+  ],
+  "mode": "upsert"
+}
+```
+
+**Semantics:**
+- Atomic upsert for provided slots only (1..5)
+- `label=""` means ignore (no deletes in Phase-6)
+- **200**: `{ "updated": [{"id": 123, "slot": 1, "label": "..."}], "missing_slots": "3,4" }`
+- **409**: `{ "error": "slot_conflict", "slot": 2, "hint": "Concurrent edit" }`
+- **422**: Pydantic `detail[]` with field-level errors, may include `ctx.slot`
+
 ---
 
 ## Import

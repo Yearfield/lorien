@@ -104,8 +104,12 @@ class _EditTreeScreenState extends ConsumerState<EditTreeScreen> {
 
   @override
   void dispose() {
-    for (final c in _controllers.values) c.dispose();
-    for (final f in _focusNodes.values) f.dispose();
+    for (final c in _controllers.values) {
+      c.dispose();
+    }
+    for (final f in _focusNodes.values) {
+      f.dispose();
+    }
     super.dispose();
   }
 
@@ -259,126 +263,31 @@ class _EditTreeScreenState extends ConsumerState<EditTreeScreen> {
         child: FocusTraversalGroup(
           policy: OrderedTraversalPolicy(),
           child: Scaffold(
-          appBar: AppBar(title: const Text('Edit Tree')),
-          body: Row(
-            children: [
-              // Left Pane
-              Flexible(
-                flex: 2,
-                child: Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _searchController,
-                              decoration: const InputDecoration(
-                                prefixIcon: Icon(Icons.search),
-                                labelText: 'Search parents',
-                              ),
-                              onChanged: (_) {
-                                _offset = 0;
-                                _loadList();
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          DropdownButton<int?>(
-                            value: _depth,
-                            hint: const Text('Depth'),
-                            onChanged: (v) {
-                              setState(() => _depth = v);
-                              _offset = 0;
-                              _loadList();
-                            },
-                            items: const [null, 0, 1, 2, 3, 4, 5].map((d) =>
-                                DropdownMenuItem(
-                                  value: d,
-                                  child: Text(d == null ? 'All' : d.toString()),
-                                ),
-                            ).toList(),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: Row(
-                        children: [
-                          ElevatedButton.icon(
-                            onPressed: _nextIncomplete,
-                            icon: const Icon(Icons.skip_next),
-                            label: const Text('Next Incomplete'),
-                          ),
-                          const Spacer(),
-                          Text('$_total found'),
-                        ],
-                      ),
-                    ),
-                    const Divider(height: 1),
-                    Expanded(
-                      child: _loadingList
-                          ? const Center(child: CircularProgressIndicator())
-                          : ListView.separated(
-                              itemCount: _items.length,
-                              separatorBuilder: (_, __) => const Divider(height: 1),
-                              itemBuilder: (_, i) {
-                                final it = _items[i];
-                                return ListTile(
-                                  title: Text(it.label),
-                                  subtitle: Text(
-                                    'Depth ${it.depth} • Missing: ${it.missingSlots.isEmpty ? "—" : it.missingSlots}',
-                                  ),
-                                  onTap: () => _openParent(
-                                    it.parentId,
-                                    it.label,
-                                    it.depth,
-                                    it.missingSlots,
-                                  ),
-                                );
-                              },
-                            ),
-                    ),
-                  ],
-                ),
-              ),
-              VerticalDivider(width: 1, thickness: 1, color: Theme.of(context).dividerColor),
-              // Right Pane
-              Flexible(
-                flex: 3,
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: st.parentId == null
-                      ? const Center(
-                          child: Text('Select a parent from the list or click "Next Incomplete".'),
-                        )
-                      : _EditorPane(
-                          state: st,
-                          onChange: (slot, txt) =>
-                              ref.read(editTreeControllerProvider.notifier).putSlot(slot, txt),
-                          onSave: () =>
-                              ref.read(editTreeControllerProvider.notifier).save(),
-                          onReset: () =>
-                              ref.read(editTreeControllerProvider.notifier).reset(),
-                          controllers: _controllers,
-                          focusNodes: _focusNodes,
-                          dirty: _dirty,
-                          onDirtyChanged: (dirty) => setState(() => _dirty = dirty),
-                        ),
-                ),
-              ),
-            ],
+            appBar: AppBar(title: const Text('Edit Tree')),
+            body: LayoutBuilder(
+              builder: (context, constraints) {
+                final isWide = constraints.maxWidth >= 1000;
+                if (isWide) {
+                  return Row(
+                    children: [
+                      _buildListPane(),
+                      VerticalDivider(width: 1, thickness: 1, color: Theme.of(context).dividerColor),
+                      _buildEditorPane(st),
+                    ],
+                  );
+                } else {
+                  return _buildMobileLayout(st);
+                }
+              },
+            ),
+            bottomNavigationBar: st.parentId == null
+                ? null
+                : _Footer(
+                    state: st,
+                    onSave: () => ref.read(editTreeControllerProvider.notifier).save(),
+                    onReset: () => ref.read(editTreeControllerProvider.notifier).reset(),
+                  ),
           ),
-          bottomNavigationBar: st.parentId == null
-              ? null
-              : _Footer(
-                  state: st,
-                  onSave: () => ref.read(editTreeControllerProvider.notifier).save(),
-                  onReset: () => ref.read(editTreeControllerProvider.notifier).reset(),
-                ),
-        ),
         ),
       ),
     );
