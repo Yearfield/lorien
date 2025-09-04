@@ -10,31 +10,43 @@ import 'data/api_client.dart';
 import 'core/crash_report_service.dart';
 
 void main() {
-  runZonedGuarded(() async {
+  runZonedGuarded(() {
     WidgetsFlutterBinding.ensureInitialized();
 
-    // Initialize the singleton API client early
+    // Initialize the singleton API client early (no awaits).
     ApiClient.I();
 
-    // Load API base URL override from preferences
-    final prefs = await SharedPreferences.getInstance();
-    final override = prefs.getString('api_base_override');
-    if (override != null && override.trim().isNotEmpty) {
-      ApiClient.setBaseUrl(override);
-    }
-
+    // Never perform async/prefs/network before runApp.
     FlutterError.onError = (details) {
       FlutterError.presentError(details);
-      // Local-only; remote upload optional and guarded
       CrashReportService.recordFlutterError(details);
     };
     // Optionally fail fast only in debug:
     // BindingBase.debugZoneErrorsAreFatal = kDebugMode;
 
     runApp(const ProviderScope(child: LorienApp()));
-  }, (e, st) {
+
+    // Defer all startup work to after first frame.
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _startupAsync();
+    });
+  }, (e, st) => CrashReportService.recordZoneError(e, st));
+}
+
+Future<void> _startupAsync() async {
+  try {
+    // Load API base URL override lazily and reconfigure client.
+    final prefs = await SharedPreferences.getInstance();
+    final override = prefs.getString('api_base_override');
+    if (override != null && override.trim().isNotEmpty) {
+      ApiClient.setBaseUrl(override.trim());
+    }
+
+    // Optionally kick light, non-blocking probes via providers (post-frame).
+    // e.g., context-free singletons, or rely on providers/screens to trigger lazily.
+  } catch (e, st) {
     CrashReportService.recordZoneError(e, st);
-  });
+  }
 }
 
 class LorienApp extends ConsumerStatefulWidget {
@@ -47,7 +59,18 @@ class _S extends ConsumerState<LorienApp> {
   @override
   void initState() {
     super.initState();
-    ref.read(settingsControllerProvider).load();
+    // Defer async initialization to post-frame to avoid blocking first frame.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeAsync();
+    });
+  }
+
+  Future<void> _initializeAsync() async {
+    try {
+      await ref.read(settingsControllerProvider).load();
+    } catch (e, st) {
+      CrashReportService.recordZoneError(e, st);
+    }
   }
 
   @override

@@ -25,7 +25,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/edit-tree',
-        builder: (_, __) => const EditTreeScreen(),
+        builder: (ctx, st) => EditTreeScreen(
+          parentId: st.extra as int?,
+        ),
       ),
       GoRoute(
         path: '/settings',

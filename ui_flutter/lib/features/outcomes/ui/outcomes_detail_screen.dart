@@ -14,8 +14,9 @@ import '../data/llm_api.dart';
 import '../data/outcomes_api.dart';
 
 class OutcomesDetailScreen extends ConsumerStatefulWidget {
-  const OutcomesDetailScreen({super.key, required this.outcomeId});
+  const OutcomesDetailScreen({super.key, required this.outcomeId, this.vm});
   final String outcomeId; // must be leaf id
+  final String? vm; // optional VM label for prefill
   @override
   ConsumerState<OutcomesDetailScreen> createState() => _S();
 }
@@ -62,16 +63,41 @@ class _S extends ConsumerState<OutcomesDetailScreen> {
   Future<void> _loadInitialData() async {
     setState(() => _loading = true);
     await Future.wait([_probeLlm(), _loadBreadcrumb()]);
-    // Load existing data
-    try {
-      final api = ref.read(outcomesApiProvider);
-      final data = await api.getDetail(widget.outcomeId);
-      _triage.text = data['diagnostic_triage'] ?? '';
-      _actions.text = data['actions'] ?? '';
-    } catch (e) {
-      // Data loading will fail gracefully, form will be empty
+
+    if (widget.vm != null && widget.vm!.isNotEmpty) {
+      // Prefill from last outcome under same VM
+      await _copyFromVm(widget.vm!);
+    } else {
+      // Load existing data for this specific outcome
+      try {
+        final api = ref.read(outcomesApiProvider);
+        final data = await api.getDetail(widget.outcomeId);
+        _triage.text = data['diagnostic_triage'] ?? '';
+        _actions.text = data['actions'] ?? '';
+      } catch (e) {
+        // Data loading will fail gracefully, form will be empty
+      }
     }
     setState(() => _loading = false);
+  }
+
+  Future<void> _copyFromVm(String vmLabel) async {
+    try {
+      final api = ref.read(outcomesApiProvider);
+      // Use search endpoint with vm parameter to get the most recent record
+      final results = await api.search(vm: vmLabel, limit: 1);
+      if (results.isNotEmpty) {
+        final latest = results.first;
+        _triage.text = latest['diagnostic_triage'] ?? '';
+        _actions.text = latest['actions'] ?? '';
+        // Mark as dirty since we're pre-filling
+        _dirty = true;
+      }
+    } catch (e) {
+      // If VM copy fails, fall back to empty form
+      _triage.text = '';
+      _actions.text = '';
+    }
   }
 
   Future<void> _llmFill() async {

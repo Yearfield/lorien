@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../widgets/layout/scroll_scaffold.dart';
 import '../../../widgets/app_back_leading.dart';
 import '../data/symptoms_repository.dart';
@@ -106,22 +107,16 @@ class _SymptomsScreenState extends ConsumerState<SymptomsScreen> {
         return;
       }
       final pid = data['parent_id'];
-      // Deep-link to Editor route - for now show a dialog with details
-      if (mounted) {
-        showDialog(
-          context: context,
-          builder: (_) => AlertDialog(
-            title: const Text('Next incomplete parent'),
-            content: Text(
-                'ID: $pid\nLabel: ${data['label']}\nMissing slots: ${data['missing_slots']}\nDepth: ${data['depth']}'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('OK'),
-              ),
-            ],
-          ),
-        );
+      if (pid != null && pid > 0) {
+        // Navigate to editor with parent_id
+        if (mounted) {
+          await context.push('/edit-tree', extra: pid);
+          // Reset selectors and reload roots when returning
+          if (mounted) {
+            _resetFrom(0);  // clears all selections
+            _loadRoots();   // refresh initial list
+          }
+        }
       }
     } catch (e) {
       if (mounted) {

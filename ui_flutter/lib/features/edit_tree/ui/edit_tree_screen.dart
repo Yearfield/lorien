@@ -9,7 +9,9 @@ import '../state/edit_tree_state.dart';
 import '../../dictionary/ui/dictionary_suggestions_overlay.dart';
 
 class EditTreeScreen extends ConsumerStatefulWidget {
-  const EditTreeScreen({super.key});
+  const EditTreeScreen({super.key, this.parentId});
+
+  final int? parentId; // Optional parent ID to focus on
 
   @override
   ConsumerState<EditTreeScreen> createState() => _EditTreeScreenState();
@@ -52,7 +54,7 @@ class _EditTreeScreenState extends ConsumerState<EditTreeScreen> {
       final repo = ref.read(editTreeRepositoryProvider);
       final currentQuery = _searchController.text.trim();
       final page = await repo.listIncomplete(
-        query: currentQuery.isNotEmpty ? currentQuery : null,
+        query: currentQuery.isNotEmpty ? currentQuery : "",
         depth: _depth,
         limit: _limit,
         offset: append ? _offset + _limit : 0,
@@ -205,8 +207,44 @@ class _EditTreeScreenState extends ConsumerState<EditTreeScreen> {
       _controllers[i] = TextEditingController();
       _focusNodes[i] = FocusNode(debugLabel: 'slot_$i');
     }
-    _loadList();
+    _loadList().then((_) {
+      // After loading the list, focus on the specified parent if provided
+      if (widget.parentId != null) {
+        _focusOnParent(widget.parentId!);
+      }
+    });
     _setupScrollListener();
+  }
+
+  Future<void> _focusOnParent(int parentId) async {
+    // Check if the parent is already in the loaded list
+    final parentInList = _items.any((item) => item.parentId == parentId);
+    if (parentInList) {
+      // Find the parent in the list and open it
+      final parent = _items.firstWhere((item) => item.parentId == parentId);
+      await _openParent(parentId, parent.label, parent.depth, parent.missingSlots);
+    } else {
+      // Parent not in current list, try to load it directly
+      try {
+        final repo = ref.read(editTreeRepositoryProvider);
+        final data = await repo.nextIncomplete();
+        if (data != null && data['parent_id'] == parentId) {
+          await _openParent(
+            data['parent_id'],
+            data['label'],
+            data['depth'],
+            data['missing_slots'],
+          );
+        }
+      } catch (e) {
+        // If we can't find the parent, show a message
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not find parent with ID: $parentId')),
+          );
+        }
+      }
+    }
   }
 
   void _setupScrollListener() {
@@ -232,7 +270,7 @@ class _EditTreeScreenState extends ConsumerState<EditTreeScreen> {
       final nextOffset = _offset + _limit;
 
       final page = await repo.listIncomplete(
-        query: currentQuery.isNotEmpty ? currentQuery : null,
+        query: currentQuery.isNotEmpty ? currentQuery : "",
         depth: _depth,
         limit: _limit,
         offset: nextOffset,
