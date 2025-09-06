@@ -15,3 +15,41 @@ class ConnectedBadge extends ConsumerWidget {
     );
   }
 }
+
+class LlmBadge extends ConsumerWidget {
+  const LlmBadge({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final llmHealth = ref.watch(llmHealthProvider);
+
+    if (llmHealth == null) {
+      return Chip(
+        label: const Text('LLM: Unknown'),
+        backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
+      );
+    }
+
+    final ready = llmHealth['ready'] as bool? ?? false;
+    final llmEnabled = llmHealth['llm_enabled'] as bool? ?? false;
+
+    String label;
+    Color backgroundColor;
+
+    if (!llmEnabled) {
+      label = 'LLM: Disabled';
+      backgroundColor = Theme.of(context).colorScheme.surfaceVariant;
+    } else if (ready) {
+      label = 'LLM: Ready';
+      backgroundColor = Theme.of(context).colorScheme.secondaryContainer;
+    } else {
+      label = 'LLM: Unavailable';
+      backgroundColor = Theme.of(context).colorScheme.errorContainer;
+    }
+
+    return Chip(
+      label: Text(label),
+      backgroundColor: backgroundColor,
+    );
+  }
+}

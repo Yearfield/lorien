@@ -80,6 +80,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Future<void> _performSilentHealthCheck() async {
     try {
       final res = await ref.read(healthServiceProvider).test();
+      // Also check LLM health
+      await ref.read(healthServiceProvider).testLlm();
       if (mounted) {
         setState(() {
           if (res.statusCode == 200) {
@@ -105,6 +107,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     try {
       final res = await ref.read(healthServiceProvider).test();
+      // Also test LLM health
+      await ref.read(healthServiceProvider).testLlm();
       stopwatch.stop();
 
       if (mounted) {
@@ -207,6 +211,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         fontWeight: FontWeight.w500,
                       ),
                     ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                const Row(
+                  children: [
+                    LlmBadge(),
                   ],
                 ),
                 if (_lastSuccessfulConnection != null) ...[

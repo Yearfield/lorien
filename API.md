@@ -115,6 +115,93 @@ Update triage information for a node.
 }
 ```
 
+## cURL Smoke Tests
+
+Use these commands to quickly verify API functionality during development:
+
+### Health Check
+```bash
+# Basic health check
+curl -s http://localhost:8000/api/v1/health | jq
+
+# LLM health status
+curl -i http://localhost:8000/api/v1/llm/health
+```
+
+### Tree Operations
+```bash
+# Find next incomplete parent
+curl -i http://localhost:8000/api/v1/tree/next-incomplete-parent
+
+# Get parent children (Edit Tree)
+curl -s http://localhost:8000/api/v1/tree/parent/123/children | jq
+
+# Update parent children (bulk)
+curl -X PUT http://localhost:8000/api/v1/tree/parent/123/children \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "version": 1,
+    "children": [
+      {"slot": 1, "label": "Fever"},
+      {"slot": 2, "label": "Pain"},
+      {"slot": 3, "label": "Cough"},
+      {"slot": 4, "label": "Fatigue"},
+      {"slot": 5, "label": "Headache"}
+    ]
+  }'
+```
+
+### Dictionary Operations
+```bash
+# Search dictionary terms
+curl -s 'http://localhost:8000/api/v1/dictionary?type=node_label&query=fe&limit=10' | jq
+
+# Import dictionary terms (with CSV file)
+curl -X POST http://localhost:8000/api/v1/dictionary/import \
+  -F 'file=@terms.csv'
+```
+
+### Outcomes Operations
+```bash
+# Update outcomes with validation
+curl -X PUT http://localhost:8000/api/v1/outcomes/456 \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "diagnostic_triage": "Acute infection suspected",
+    "actions": "Administer antibiotics immediately"
+  }'
+```
+
+### Flags Operations
+```bash
+# List flags
+curl -s 'http://localhost:8000/api/v1/flags?limit=20' | jq
+
+# Assign flag with cascade
+curl -X POST http://localhost:8000/api/v1/flags/assign \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "node_id": 123,
+    "flag_id": 7,
+    "cascade": true
+  }'
+```
+
+### Export Operations
+```bash
+# CSV export
+curl -s http://localhost:8000/api/v1/calc/export | head -5
+
+# XLSX export (save to file)
+curl -o export.xlsx http://localhost:8000/api/v1/calc/export.xlsx
+```
+
+### Path Operations
+```bash
+# Get node path (breadcrumb)
+curl -s 'http://localhost:8000/api/v1/tree/path?node_id=456' | jq
+```
+
 ## Error Handling
 All endpoints return appropriate HTTP status codes and error messages in JSON format.
 

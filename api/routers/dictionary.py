@@ -526,7 +526,7 @@ def normalize_term(
             # Return existing normalized term if found, otherwise return computed normalized term
             return {"normalized": row[0] if row else normalized}
 
-        except Exception as e:
+    except Exception as e:
         logger.exception("Error normalizing term")
         raise HTTPException(status_code=500, detail="Database error")
 

@@ -75,27 +75,79 @@ if parent_id:
         
         # Children management
         st.subheader("👶 Children")
-        
-        if children:
-            for i, child in enumerate(children):
-                with st.expander(f"Slot {child.get('slot', i+1)}: {child.get('label', 'No label')}"):
-                    col1, col2 = st.columns([3, 1])
-                    with col1:
-                        new_label = st.text_input(
-                            f"Label for Slot {child.get('slot', i+1)}",
-                            value=child.get('label', ''),
-                            key=f"label_{child['id']}"
-                        )
-                    with col2:
-                        if st.button("💾 Save", key=f"save_{child['id']}"):
-                            try:
-                                updated = put_json(f"/tree/{child['id']}", {"label": new_label})
-                                st.success(f"Updated child {child['id']}")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Error updating child: {str(e)[:100]}...")
+
+        # Bulk edit mode toggle
+        bulk_edit = st.checkbox("Enable Bulk Edit Mode", value=False)
+
+        if bulk_edit:
+            # Bulk edit mode - edit all 5 slots at once
+            st.info("⚡ Bulk Edit Mode: Edit all 5 child slots and save at once")
+
+            # Initialize 5 slots
+            slot_labels = ["", "", "", "", ""]
+
+            # Populate existing children
+            for child in children:
+                slot_idx = child.get('slot', 0) - 1  # Convert 1-based to 0-based
+                if 0 <= slot_idx < 5:
+                    slot_labels[slot_idx] = child.get('label', '')
+
+            # Input fields for all 5 slots
+            st.write("**Edit all 5 child slots:**")
+            new_slot_labels = []
+            for i in range(5):
+                label = st.text_input(
+                    f"Slot {i+1}",
+                    value=slot_labels[i],
+                    key=f"bulk_slot_{i}"
+                )
+                new_slot_labels.append(label)
+
+            # Save bulk changes
+            if st.button("💾 Save All Changes", type="primary", use_container_width=True):
+                try:
+                    # Prepare children data for bulk update
+                    children_data = []
+                    for i in range(5):
+                        if new_slot_labels[i].strip():
+                            children_data.append({
+                                "slot": i + 1,
+                                "label": new_slot_labels[i].strip()
+                            })
+
+                    if children_data:
+                        result = put_json(f"/tree/{parent_id}/children", {
+                            "children": children_data
+                        })
+                        st.success("✅ All child slots updated successfully!")
+                        st.rerun()
+                    else:
+                        st.warning("Please fill at least one child slot")
+                except Exception as e:
+                    st.error(f"Error updating children: {str(e)[:100]}...")
+
         else:
-            st.info("No children found for this parent")
+            # Individual edit mode
+            if children:
+                for i, child in enumerate(children):
+                    with st.expander(f"Slot {child.get('slot', i+1)}: {child.get('label', 'No label')}"):
+                        col1, col2 = st.columns([3, 1])
+                        with col1:
+                            new_label = st.text_input(
+                                f"Label for Slot {child.get('slot', i+1)}",
+                                value=child.get('label', ''),
+                                key=f"label_{child['id']}"
+                            )
+                        with col2:
+                            if st.button("💾 Save", key=f"save_{child['id']}"):
+                                try:
+                                    updated = put_json(f"/tree/{child['id']}", {"label": new_label})
+                                    st.success(f"Updated child {child['id']}")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Error updating child: {str(e)[:100]}...")
+            else:
+                st.info("No children found for this parent")
             
         # Add new child
         st.subheader("➕ Add New Child")
