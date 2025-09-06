@@ -1,35 +1,28 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/http/api_client.dart';
+import '../../../api/lorien_api.dart';
+import '../../../providers/lorien_api_provider.dart';
 
-final llmApiProvider = Provider((ref) => LlmApi(ref.read(dioProvider)));
+final llmApiProvider = Provider((ref) => LlmApi(ref.read(lorienApiProvider)));
 
 class LlmApi {
-  LlmApi(this._dio);
-  final Dio _dio;
+  LlmApi(this._api);
+  final LorienApi _api;
 
   Future<({bool ready, String? checkedAt})> health() async {
     try {
-      final r = await _dio.get('/llm/health');
-      if (r.statusCode == 200) {
-        return (
-          ready: (r.data?['ready'] as bool?) ?? true,
-          checkedAt: r.data?['checked_at'] as String?
-        );
-      } else if (r.statusCode == 503) {
-        return (
-          ready: (r.data?['ready'] as bool?) ?? false,
-          checkedAt: r.data?['checked_at'] as String?
-        );
-      }
-      return (ready: false, checkedAt: null);
-    } on DioException catch (e) {
+      final health = await _api.llmHealth();
+      return (
+        ready: (health['ready'] as bool?) ?? false,
+        checkedAt: health['checked_at'] as String?
+      );
+    } catch (e) {
       return (ready: false, checkedAt: null);
     }
   }
 
   Future<Map<String, dynamic>> fill(String id) async {
-    final r = await _dio.post('/llm/fill-triage-actions', data: {'id': id});
-    return Map<String, dynamic>.from(r.data);
+    final r = await _api._client.postJson('llm/fill-triage-actions', body: {'id': id});
+    return r;
   }
 }

@@ -2,7 +2,8 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/http/api_client.dart';
+import '../../../api/lorien_api.dart';
+import '../../../providers/lorien_api_provider.dart';
 
 class DictionaryEntry {
   final int id;
@@ -49,8 +50,8 @@ class DictionaryPage {
 }
 
 final dictionaryRepositoryProvider = Provider<DictionaryRepository>((ref) {
-  final dio = ref.read(dioProvider);
-  return DictionaryRepository(dio);
+  final api = ref.read(lorienApiProvider);
+  return DictionaryRepository(api);
 });
 
 final dictionarySuggestionsProvider = StateNotifierProvider.family<
@@ -98,9 +99,9 @@ class DictionarySuggestionsNotifier extends StateNotifier<AsyncValue<List<String
 }
 
 class DictionaryRepository {
-  final Dio _dio;
+  final LorienApi _api;
 
-  DictionaryRepository(this._dio);
+  DictionaryRepository(this._api);
 
   Future<DictionaryPage> list({
     String? type,
@@ -111,6 +112,9 @@ class DictionaryRepository {
     String? sort,
     String? direction
   }) async {
+    // For now, we'll use the existing ApiClient directly since LorienApi doesn't have a generic list method
+    // This can be updated when LorienApi is expanded
+    final client = _api._client;
     final qp = {
       "query": query,
       "limit": limit,
@@ -120,7 +124,7 @@ class DictionaryRepository {
       if (sort != null) "sort": sort,
       if (direction != null) "direction": direction
     };
-    final r = await _dio.get('/dictionary', queryParameters: qp);
+    final r = await client.getJson('dictionary', query: qp);
     return DictionaryPage.fromJson(r.data);
   }
 
@@ -168,15 +172,13 @@ class DictionaryRepository {
   Future<List<String>> getSuggestions(String type, String query, {int limit = 10}) async {
     if (query.trim().length < 2) return [];
 
-    final r = await _dio.get('/dictionary', queryParameters: {
-      "type": type,
-      "query": query.trim(),
-      "limit": limit,
-      "offset": 0
-    });
-
-    final items = (r.data['items'] as List?) ?? [];
-    return items.map((item) => (item as Map<String, dynamic>)['term'] as String).toList();
+    try {
+      final suggestions = await _api.dictionarySuggest(query, limit: limit);
+      return suggestions.map((item) => item['term'] as String).toList();
+    } catch (e) {
+      // Fallback to empty list on error
+      return [];
+    }
   }
 
   Future<String> exportCsv({
@@ -189,7 +191,12 @@ class DictionaryRepository {
       if (query != null && query.isNotEmpty) "query": query,
       if (onlyRedFlags) "only_red_flags": onlyRedFlags
     };
-    final r = await _dio.get('/dictionary/export/csv', queryParameters: qp);
+    final r = await _api._client.getJson('dictionary/export/csv', query: qp);
     return r.data as String;
+  }
+
+  Future<Map<String, dynamic>> importFile(MultipartFile file) async {
+    final response = await _api.dictionaryImport(file);
+    return response.data;
   }
 }

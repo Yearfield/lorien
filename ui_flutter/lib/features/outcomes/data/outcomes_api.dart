@@ -1,22 +1,23 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/http/api_client.dart';
+import '../../../api/lorien_api.dart';
+import '../../../providers/lorien_api_provider.dart';
 
 final outcomesApiProvider =
-    Provider((ref) => OutcomesApi(ref.read(dioProvider)));
+    Provider((ref) => OutcomesApi(ref.read(lorienApiProvider)));
 
 class OutcomesApi {
-  OutcomesApi(this._dio);
-  final Dio _dio;
+  OutcomesApi(this._api);
+  final LorienApi _api;
 
   Future<Map<String, dynamic>> getDetail(String id) async {
-    final res = await _dio.get('/outcomes/$id');
-    return Map<String, dynamic>.from(res.data);
+    final res = await _api._client.getJson('outcomes/$id');
+    return res;
   }
 
   Future<Map<String, dynamic>> getTreePath(String id) async {
-    final res = await _dio.get('/tree/path/$id');
-    return Map<String, dynamic>.from(res.data);
+    final path = await _api.getPath(int.parse(id));
+    return path;
   }
 
   Future<Map<String, dynamic>> copyFromVm(String vm) async {
@@ -27,15 +28,10 @@ class OutcomesApi {
 
   Future<void> updateDetail(String id,
       {required String triage, required String actions}) async {
-    Future<void> put(String path) => _dio.put(path, data: {
+    await _api.putOutcome(int.parse(id), {
       'diagnostic_triage': triage.trim(),
       'actions': actions.trim(),
     });
-    try { await put('/outcomes/$id'); }
-    on DioException catch (e) {
-      if (e.response?.statusCode == 404) { await put('/triage/$id'); }
-      else { rethrow; }
-    }
   }
 
   Future<Map<String, dynamic>> search(
