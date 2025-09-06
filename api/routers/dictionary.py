@@ -2,13 +2,14 @@
 Dictionary router for medical term administration.
 """
 
-from fastapi import APIRouter, HTTPException, Query, Depends
+from fastapi import APIRouter, HTTPException, Query, Depends, UploadFile, File
 from pydantic import BaseModel, Field, constr
 from typing import List, Optional, Literal
 import sqlite3
 import logging
 import re
 from datetime import datetime, timezone
+import pandas as pd
 
 from ..dependencies import get_repository
 from storage.sqlite import SQLiteRepository
@@ -67,12 +68,12 @@ def list_terms(
             cursor = conn.cursor()
 
             # Build query
-            sql = "SELECT id, type, term, normalized, hints, red_flag, updated_at FROM dictionary_terms"
+            sql = "SELECT id, category as type, label as term, normalized, hints, red_flag, updated_at FROM dictionary_terms"
             params = []
             conditions = []
 
             if type:
-                conditions.append("type = ?")
+                conditions.append("category = ?")
                 params.append(type)
 
             if query:
@@ -80,7 +81,7 @@ def list_terms(
                 if type == "node_label" and len(query.strip()) < 2:
                     return []  # Return empty for short queries
 
-                conditions.append("(term LIKE ? OR normalized LIKE ?)")
+                conditions.append("(label LIKE ? OR normalized LIKE ?)")
                 like_query = f"%{query}%"
                 params.extend([like_query, like_query])
 
@@ -89,11 +90,11 @@ def list_terms(
 
             # Sort options
             if sort == "label":
-                sort_field = "term"
+                sort_field = "label"
             elif sort == "type":
-                sort_field = "type"
+                sort_field = "category"
             else:
-                sort_field = "term"
+                sort_field = "label"
 
             sql += f" ORDER BY {sort_field} {direction} LIMIT ? OFFSET ?"
             params.extend([limit, offset])
@@ -131,9 +132,9 @@ def create_term(body: TermIn, repo: SQLiteRepository = Depends(get_repository)):
             # Normalize term
             normalized = _normalize(body.term)
 
-            # Check for duplicate (type, normalized)
+            # Check for duplicate (category, normalized)
             cursor.execute(
-                "SELECT id FROM dictionary_terms WHERE type = ? AND normalized = ?",
+                "SELECT id FROM dictionary_terms WHERE category = ? AND normalized = ?",
                 (body.type, normalized)
             )
             if cursor.fetchone():
@@ -150,16 +151,16 @@ def create_term(body: TermIn, repo: SQLiteRepository = Depends(get_repository)):
             now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
             cursor.execute("""
-                INSERT INTO dictionary_terms (type, term, normalized, hints, red_flag, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (body.type, body.term, normalized, body.hints, body.red_flag, now))
+                INSERT INTO dictionary_terms (category, label, normalized, hints, red_flag, updated_at, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (body.type, body.term, normalized, body.hints, body.red_flag, now, now))
 
             term_id = cursor.lastrowid
             conn.commit()
 
             # Return created term
             cursor.execute(
-                "SELECT id, type, term, normalized, hints, red_flag, updated_at FROM dictionary_terms WHERE id = ?",
+                "SELECT id, category as type, label as term, normalized, hints, red_flag, updated_at FROM dictionary_terms WHERE id = ?",
                 (term_id,)
             )
             row = cursor.fetchone()
@@ -198,9 +199,9 @@ def update_term(term_id: int, body: TermIn, repo: SQLiteRepository = Depends(get
             # Normalize term
             normalized = _normalize(body.term)
 
-            # Check for duplicate (type, normalized) (excluding current term)
+            # Check for duplicate (category, normalized) (excluding current term)
             cursor.execute(
-                "SELECT id FROM dictionary_terms WHERE type = ? AND normalized = ? AND id != ?",
+                "SELECT id FROM dictionary_terms WHERE category = ? AND normalized = ? AND id != ?",
                 (body.type, normalized, term_id)
             )
             if cursor.fetchone():
@@ -218,7 +219,7 @@ def update_term(term_id: int, body: TermIn, repo: SQLiteRepository = Depends(get
 
             cursor.execute("""
                 UPDATE dictionary_terms
-                SET type = ?, term = ?, normalized = ?, hints = ?, red_flag = ?, updated_at = ?
+                SET category = ?, label = ?, normalized = ?, hints = ?, red_flag = ?, updated_at = ?
                 WHERE id = ?
             """, (body.type, body.term, normalized, body.hints, body.red_flag, now, term_id))
 
@@ -226,7 +227,7 @@ def update_term(term_id: int, body: TermIn, repo: SQLiteRepository = Depends(get
 
             # Return updated term
             cursor.execute(
-                "SELECT id, type, term, normalized, hints, red_flag, updated_at FROM dictionary_terms WHERE id = ?",
+                "SELECT id, category as type, label as term, normalized, hints, red_flag, updated_at FROM dictionary_terms WHERE id = ?",
                 (term_id,)
             )
             row = cursor.fetchone()
@@ -349,6 +350,160 @@ def get_term_usage(
         raise HTTPException(status_code=500, detail="Database error")
 
 
+@router.post("/import")
+def import_dictionary_terms(
+    file: UploadFile = File(...),
+    repo: SQLiteRepository = Depends(get_repository)
+):
+    """
+    Import dictionary terms from CSV or XLSX file.
+
+    Accepts .csv or .xlsx files with headers: type, term, hints, red_flag
+    Returns counts of inserted/updated/skipped terms.
+    """
+    try:
+        # Validate file type
+        if not file.filename:
+            raise HTTPException(status_code=422, detail=[
+                {
+                    "loc": ["body", "file"],
+                    "msg": "No file provided",
+                    "type": "value_error.no_file"
+                }
+            ])
+
+        if not (file.filename.endswith('.csv') or file.filename.endswith('.xlsx')):
+            raise HTTPException(status_code=422, detail=[
+                {
+                    "loc": ["body", "file"],
+                    "msg": "File must be .csv or .xlsx",
+                    "type": "value_error.invalid_file_type"
+                }
+            ])
+
+        # Read file content
+        content = file.file.read()
+
+        # Parse file based on type
+        if file.filename.endswith('.csv'):
+            import io
+            df = pd.read_csv(io.StringIO(content.decode('utf-8')))
+        else:  # .xlsx
+            import io
+            df = pd.read_excel(io.BytesIO(content))
+
+        # Validate headers
+        expected_headers = ['type', 'term']
+        received_headers = [col.lower().strip() for col in df.columns]
+
+        # Check for required headers
+        missing_headers = []
+        for expected in expected_headers:
+            if expected not in received_headers:
+                missing_headers.append(expected)
+
+        if missing_headers:
+            raise HTTPException(status_code=422, detail=[
+                {
+                    "loc": ["body", "file"],
+                    "msg": "CSV schema mismatch",
+                    "type": "value_error.csv_schema",
+                    "ctx": {
+                        "expected": expected_headers,
+                        "received": list(df.columns),
+                        "missing": missing_headers
+                    }
+                }
+            ])
+
+        # Process terms
+        inserted = 0
+        updated = 0
+        skipped = 0
+
+        with repo._get_connection() as conn:
+            cursor = conn.cursor()
+
+            for idx, row in df.iterrows():
+                try:
+                    # Extract and validate data
+                    term_type = str(row.get('type', '')).strip()
+                    term_text = str(row.get('term', '')).strip()
+                    hints = str(row.get('hints', '')) if 'hints' in df.columns else None
+                    red_flag = str(row.get('red_flag', '')).lower() in ['true', '1', 'yes'] if 'red_flag' in df.columns else False
+
+                    # Skip empty terms
+                    if not term_text:
+                        skipped += 1
+                        continue
+
+                    # Validate type
+                    if term_type not in ['vital_measurement', 'node_label', 'outcome_template']:
+                        skipped += 1
+                        continue
+
+                    # Normalize term
+                    normalized = _normalize(term_text)
+
+                    # Check if term already exists
+                    cursor.execute(
+                        "SELECT id FROM dictionary_terms WHERE category = ? AND normalized = ?",
+                        (term_type, normalized)
+                    )
+                    existing = cursor.fetchone()
+
+                    if existing:
+                        # Update existing term
+                        now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+                        cursor.execute("""
+                            UPDATE dictionary_terms
+                            SET label = ?, hints = ?, red_flag = ?, updated_at = ?
+                            WHERE id = ?
+                        """, (
+                            term_text,
+                            hints,
+                            red_flag,
+                            now,
+                            existing[0]
+                        ))
+                        updated += 1
+                    else:
+                        # Insert new term
+                        now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+                        cursor.execute("""
+                            INSERT INTO dictionary_terms (category, label, normalized, hints, red_flag, updated_at, created_at)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)
+                        """, (
+                            term_type,
+                            term_text,
+                            normalized,
+                            hints,
+                            red_flag,
+                            now,
+                            now
+                        ))
+                        inserted += 1
+
+                except Exception as e:
+                    logger.warning(f"Error processing row {idx}: {e}")
+                    skipped += 1
+                    continue
+
+            conn.commit()
+
+        return {
+            "inserted": inserted,
+            "updated": updated,
+            "skipped": skipped
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error importing dictionary terms")
+        raise HTTPException(status_code=500, detail="Import failed")
+
+
 @router.get("/normalize")
 def normalize_term(
     type: DictType,
@@ -363,7 +518,7 @@ def normalize_term(
         with repo._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT normalized FROM dictionary_terms WHERE type = ? AND normalized = ? LIMIT 1",
+                "SELECT normalized FROM dictionary_terms WHERE category = ? AND normalized = ? LIMIT 1",
                 (type, normalized)
             )
             row = cursor.fetchone()
@@ -371,7 +526,7 @@ def normalize_term(
             # Return existing normalized term if found, otherwise return computed normalized term
             return {"normalized": row[0] if row else normalized}
 
-    except Exception as e:
+        except Exception as e:
         logger.exception("Error normalizing term")
         raise HTTPException(status_code=500, detail="Database error")
 

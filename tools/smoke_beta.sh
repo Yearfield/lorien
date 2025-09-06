@@ -110,6 +110,14 @@ test_endpoint POST "/dictionary" 201 "Create dictionary term" '{
     "red_flag": false
 }'
 
+# Test dictionary import
+echo "# Create a simple CSV file for testing"
+echo "type,term,hints,red_flag" > /tmp/test_terms.csv
+echo "node_label,Fever,Symptom,true" >> /tmp/test_terms.csv
+echo "node_label,Cough,Respiratory symptom,false" >> /tmp/test_terms.csv
+
+test_endpoint POST "/dictionary/import" 200 "Dictionary import CSV" ""
+
 # Test conflicts inspector
 echo ""
 echo "5. Conflicts Inspector"
