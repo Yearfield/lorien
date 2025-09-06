@@ -21,6 +21,10 @@ from .routers.tree import router as tree_router
 from .routers.edit_tree import router as edit_tree_router
 from .routers.tree_parents import router as tree_parents_router
 from .routers.tree_children import router as tree_children_router
+from .routers.tree_slots import router as tree_slots_router
+from .routers.tree_materialize import router as tree_materialize_router
+from .routers.tree_conflicts import router as tree_conflicts_router
+from .routers.tree_vm_builder import router as tree_vm_builder_router
 from .additional_routes import router as additional_router
 from .exceptions import (
     DecisionTreeAPIException, handle_value_error, handle_integrity_error,
@@ -93,6 +97,10 @@ app.include_router(tree_router, prefix=API_PREFIX)
 app.include_router(edit_tree_router, prefix=API_PREFIX)
 app.include_router(tree_parents_router, prefix=API_PREFIX)
 app.include_router(tree_children_router, prefix=API_PREFIX)
+app.include_router(tree_slots_router, prefix=API_PREFIX)
+app.include_router(tree_materialize_router, prefix=API_PREFIX)
+app.include_router(tree_conflicts_router, prefix=API_PREFIX)
+app.include_router(tree_vm_builder_router, prefix=API_PREFIX)
 app.include_router(outcomes_router, prefix=API_PREFIX)
 app.include_router(dictionary_router, prefix=API_PREFIX)
 app.include_router(additional_router, prefix=API_PREFIX)
@@ -109,6 +117,10 @@ app.include_router(tree_router)
 app.include_router(edit_tree_router)
 app.include_router(tree_parents_router)
 app.include_router(tree_children_router)
+app.include_router(tree_slots_router)
+app.include_router(tree_materialize_router)
+app.include_router(tree_conflicts_router)
+app.include_router(tree_vm_builder_router)
 app.include_router(outcomes_router)
 app.include_router(dictionary_router)
 app.include_router(additional_router)

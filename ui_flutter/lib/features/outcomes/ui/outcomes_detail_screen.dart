@@ -66,7 +66,20 @@ class _S extends ConsumerState<OutcomesDetailScreen> {
 
     if (widget.vm != null && widget.vm!.isNotEmpty) {
       // Prefill from last outcome under same VM
-      await _copyFromVm(widget.vm!);
+      try {
+        final api = ref.read(outcomesApiProvider);
+        final results = await api.search(vm: widget.vm);
+        if (results['items'] != null && (results['items'] as List).isNotEmpty) {
+          final latest = (results['items'] as List).first as Map<String, dynamic>;
+          _triage.text = latest['diagnostic_triage'] ?? '';
+          _actions.text = latest['actions'] ?? '';
+          _dirty = true;
+        }
+      } catch (e) {
+        // If VM copy fails, fall back to empty form
+        _triage.text = '';
+        _actions.text = '';
+      }
     } else {
       // Load existing data for this specific outcome
       try {
@@ -81,24 +94,6 @@ class _S extends ConsumerState<OutcomesDetailScreen> {
     setState(() => _loading = false);
   }
 
-  Future<void> _copyFromVm(String vmLabel) async {
-    try {
-      final api = ref.read(outcomesApiProvider);
-      // Use search endpoint with vm parameter to get the most recent record
-      final results = await api.search(vm: vmLabel, limit: 1);
-      if (results.isNotEmpty) {
-        final latest = results.first;
-        _triage.text = latest['diagnostic_triage'] ?? '';
-        _actions.text = latest['actions'] ?? '';
-        // Mark as dirty since we're pre-filling
-        _dirty = true;
-      }
-    } catch (e) {
-      // If VM copy fails, fall back to empty form
-      _triage.text = '';
-      _actions.text = '';
-    }
-  }
 
   Future<void> _llmFill() async {
     if (!_llmOn) return;
@@ -128,8 +123,8 @@ class _S extends ConsumerState<OutcomesDetailScreen> {
     if (_vmLabel == null) return;
     try {
       final api = ref.read(outcomesApiProvider);
-      final result = await api.copyFromVm(_vmLabel!);
-      final items = result['items'] as List<dynamic>? ?? [];
+      final results = await api.search(vm: _vmLabel);
+      final items = results['items'] as List<dynamic>? ?? [];
       if (items.isNotEmpty) {
         final item = items.first as Map<String, dynamic>;
         setState(() {

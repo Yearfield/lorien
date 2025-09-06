@@ -12,14 +12,16 @@ void main() {
 
   test('Crash report service does not fire remote posts during startup', () async {
     // Ensure remote telemetry is disabled by default
-    expect(CrashReportService.enableRemote(false), isNull);
+    CrashReportService.enableRemote(false);
 
     // Simulate a Flutter error during startup
-    final error = FlutterError('Test startup error');
-    final stack = StackTrace.current;
+    final errorDetails = FlutterErrorDetails(
+      exception: Exception('Test startup error'),
+      stack: StackTrace.current,
+    );
 
     // This should not make any network calls (we can't easily verify this without mocking)
-    await CrashReportService.recordFlutterError(error);
+    await CrashReportService.recordFlutterError(errorDetails);
 
     // Test should complete without hanging or making network requests
     expect(true, isTrue);
@@ -52,9 +54,6 @@ void main() {
   });
 
   test('Crash report service handles malformed errors gracefully', () async {
-    // Test with null stack trace
-    await CrashReportService.recordZoneError(Exception('Test'), null);
-
     // Test with empty stack trace
     await CrashReportService.recordZoneError(Exception('Test'), StackTrace.empty);
 

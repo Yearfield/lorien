@@ -2,13 +2,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:dio/dio.dart';
 import 'package:mockito/mockito.dart';
 import 'package:mockito/annotations.dart';
+import 'package:lorien/data/api_client.dart';
 import 'package:lorien/data/repos/outcomes_repository.dart';
 
 // Generate mocks
 @GenerateMocks([Dio, ApiClient])
 import 'outcomes_put_fallback_test.mocks.dart';
-
-class MockApiClient extends Mock implements ApiClient {}
 
 void main() {
   late MockApiClient mockApiClient;

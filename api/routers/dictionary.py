@@ -29,6 +29,7 @@ class TermIn(BaseModel):
     type: DictType
     term: constr(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9 ,\-]+$")
     hints: Optional[constr(max_length=256)] = None
+    red_flag: Optional[bool] = False
 
 
 class TermOut(BaseModel):
@@ -37,6 +38,7 @@ class TermOut(BaseModel):
     term: str
     normalized: str
     hints: Optional[str] = None
+    red_flag: Optional[bool] = None
     updated_at: str
 
 
@@ -65,7 +67,7 @@ def list_terms(
             cursor = conn.cursor()
 
             # Build query
-            sql = "SELECT id, type, term, normalized, hints, updated_at FROM dictionary_terms"
+            sql = "SELECT id, type, term, normalized, hints, red_flag, updated_at FROM dictionary_terms"
             params = []
             conditions = []
 
@@ -106,7 +108,8 @@ def list_terms(
                     term=row[2],
                     normalized=row[3],
                     hints=row[4],
-                    updated_at=row[5]
+                    red_flag=bool(row[5]) if row[5] is not None else None,
+                    updated_at=row[6]
                 )
                 for row in rows
             ]
@@ -147,16 +150,16 @@ def create_term(body: TermIn, repo: SQLiteRepository = Depends(get_repository)):
             now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
             cursor.execute("""
-                INSERT INTO dictionary_terms (type, term, normalized, hints, updated_at)
-                VALUES (?, ?, ?, ?, ?)
-            """, (body.type, body.term, normalized, body.hints, now))
+                INSERT INTO dictionary_terms (type, term, normalized, hints, red_flag, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (body.type, body.term, normalized, body.hints, body.red_flag, now))
 
             term_id = cursor.lastrowid
             conn.commit()
 
             # Return created term
             cursor.execute(
-                "SELECT id, type, term, normalized, hints, updated_at FROM dictionary_terms WHERE id = ?",
+                "SELECT id, type, term, normalized, hints, red_flag, updated_at FROM dictionary_terms WHERE id = ?",
                 (term_id,)
             )
             row = cursor.fetchone()
@@ -167,7 +170,8 @@ def create_term(body: TermIn, repo: SQLiteRepository = Depends(get_repository)):
                 term=row[2],
                 normalized=row[3],
                 hints=row[4],
-                updated_at=row[5]
+                red_flag=bool(row[5]) if row[5] is not None else None,
+                updated_at=row[6]
             )
 
     except HTTPException:
@@ -214,15 +218,15 @@ def update_term(term_id: int, body: TermIn, repo: SQLiteRepository = Depends(get
 
             cursor.execute("""
                 UPDATE dictionary_terms
-                SET type = ?, term = ?, normalized = ?, hints = ?, updated_at = ?
+                SET type = ?, term = ?, normalized = ?, hints = ?, red_flag = ?, updated_at = ?
                 WHERE id = ?
-            """, (body.type, body.term, normalized, body.hints, now, term_id))
+            """, (body.type, body.term, normalized, body.hints, body.red_flag, now, term_id))
 
             conn.commit()
 
             # Return updated term
             cursor.execute(
-                "SELECT id, type, term, normalized, hints, updated_at FROM dictionary_terms WHERE id = ?",
+                "SELECT id, type, term, normalized, hints, red_flag, updated_at FROM dictionary_terms WHERE id = ?",
                 (term_id,)
             )
             row = cursor.fetchone()
@@ -233,7 +237,8 @@ def update_term(term_id: int, body: TermIn, repo: SQLiteRepository = Depends(get
                 term=row[2],
                 normalized=row[3],
                 hints=row[4],
-                updated_at=row[5]
+                red_flag=bool(row[5]) if row[5] is not None else None,
+                updated_at=row[6]
             )
 
     except HTTPException:

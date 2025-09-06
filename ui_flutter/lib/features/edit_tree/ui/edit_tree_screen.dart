@@ -7,6 +7,7 @@ import '../data/edit_tree_repository.dart';
 import '../state/edit_tree_controller.dart';
 import '../state/edit_tree_state.dart';
 import '../../dictionary/ui/dictionary_suggestions_overlay.dart';
+import '../../symptoms/data/materialization_service.dart';
 
 class EditTreeScreen extends ConsumerStatefulWidget {
   const EditTreeScreen({super.key, this.parentId});
@@ -38,6 +39,11 @@ class _EditTreeScreenState extends ConsumerState<EditTreeScreen> {
   Timer? _searchDebounceTimer;
   bool _isLoadingMore = false;
   bool _hasMoreData = true;
+
+  // NEW: Batch operations
+  Set<int> _selectedParents = {};
+  bool _batchMode = false;
+  bool _isPerformingBatchOperation = false;
 
   Future<void> _loadList({bool append = false}) async {
     if (append && (_isLoadingMore || !_hasMoreData)) return;
@@ -169,6 +175,184 @@ class _EditTreeScreenState extends ConsumerState<EditTreeScreen> {
       j['depth'],
       j['missing_slots'],
     );
+  }
+
+  // NEW: Batch operations
+  void _toggleBatchMode() {
+    setState(() {
+      _batchMode = !_batchMode;
+      if (!_batchMode) {
+        _selectedParents.clear();
+      }
+    });
+  }
+
+  void _toggleParentSelection(int parentId) {
+    setState(() {
+      if (_selectedParents.contains(parentId)) {
+        _selectedParents.remove(parentId);
+      } else {
+        _selectedParents.add(parentId);
+      }
+    });
+  }
+
+  void _selectAllParents() {
+    setState(() {
+      _selectedParents = Set.from(_items.map((item) => item.parentId));
+    });
+  }
+
+  void _clearSelection() {
+    setState(() => _selectedParents.clear());
+  }
+
+  Future<void> _batchFillWithOther() async {
+    if (_selectedParents.isEmpty) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Batch Fill with "Other"'),
+        content: Text(
+          'This will fill empty slots in ${_selectedParents.length} selected parents with "Other". Continue?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Fill'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() => _isPerformingBatchOperation = true);
+
+    try {
+      final repo = ref.read(editTreeRepositoryProvider);
+      int successCount = 0;
+
+      for (final parentId in _selectedParents) {
+        try {
+          final parentData = await repo.getParentChildren(parentId);
+          final children = <ChildSlot>[];
+
+          for (final child in parentData.children) {
+            if (child.label?.trim().isEmpty ?? true) {
+              children.add(ChildSlot(slot: child.slot, label: 'Other'));
+            } else {
+              children.add(child);
+            }
+          }
+
+          await repo.updateParentChildren(parentId, children);
+          successCount++;
+        } catch (e) {
+          // Continue with other parents
+        }
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Batch operation completed: $successCount/${_selectedParents.length} parents updated')),
+        );
+        _loadList();
+        _clearSelection();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Batch operation failed: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isPerformingBatchOperation = false);
+      }
+    }
+  }
+
+  Future<void> _batchMaterialize() async {
+    if (_selectedParents.isEmpty) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Batch Materialize'),
+        content: Text(
+          'This will materialize ${_selectedParents.length} selected parents. Continue?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Materialize'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() => _isPerformingBatchOperation = true);
+
+    try {
+      // Use the materialization service
+      final service = ref.read(materializationServiceProvider);
+      final parentIds = _selectedParents.toList();
+      final result = await service.materializeMultipleParents(parentIds);
+
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Batch Materialization Complete'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Added: ${result.added}'),
+                Text('Filled: ${result.filled}'),
+                Text('Pruned: ${result.pruned}'),
+                Text('Kept: ${result.kept}'),
+                if (result.log != null) ...[
+                  const SizedBox(height: 8),
+                  const Text('Log:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  Text(result.log!),
+                ],
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+        _loadList();
+        _clearSelection();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Batch materialization failed: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isPerformingBatchOperation = false);
+      }
+    }
   }
 
   Future<void> _openParent(
@@ -350,15 +534,63 @@ class _EditTreeScreenState extends ConsumerState<EditTreeScreen> {
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Row(
+            child: Column(
               children: [
-                ElevatedButton.icon(
-                  onPressed: _onNextIncompleteTap,
-                  icon: const Icon(Icons.skip_next),
-                  label: const Text('Next Incomplete'),
+                Row(
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: _onNextIncompleteTap,
+                      icon: const Icon(Icons.skip_next),
+                      label: const Text('Next Incomplete'),
+                    ),
+                    const SizedBox(width: 8),
+                    if (_batchMode) ...[
+                      ElevatedButton.icon(
+                        onPressed: _selectedParents.isEmpty ? null : _batchFillWithOther,
+                        icon: const Icon(Icons.edit),
+                        label: const Text('Fill with Other'),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton.icon(
+                        onPressed: _selectedParents.isEmpty ? null : _batchMaterialize,
+                        icon: const Icon(Icons.build),
+                        label: const Text('Materialize'),
+                      ),
+                      const SizedBox(width: 8),
+                      OutlinedButton.icon(
+                        onPressed: _clearSelection,
+                        icon: const Icon(Icons.clear),
+                        label: const Text('Clear'),
+                      ),
+                    ] else ...[
+                      ElevatedButton.icon(
+                        onPressed: _toggleBatchMode,
+                        icon: const Icon(Icons.checklist),
+                        label: const Text('Batch Mode'),
+                      ),
+                    ],
+                    const Spacer(),
+                    Text('$_total found'),
+                  ],
                 ),
-                const Spacer(),
-                Text('$_total found'),
+                if (_batchMode) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Text('${_selectedParents.length} selected'),
+                      const SizedBox(width: 16),
+                      OutlinedButton(
+                        onPressed: _selectAllParents,
+                        child: const Text('Select All'),
+                      ),
+                      const SizedBox(width: 8),
+                      OutlinedButton(
+                        onPressed: _clearSelection,
+                        child: const Text('Clear All'),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
@@ -382,17 +614,27 @@ class _EditTreeScreenState extends ConsumerState<EditTreeScreen> {
                           }
 
                           final it = _items[i];
+                          final isSelected = _selectedParents.contains(it.parentId);
                           return ListTile(
+                            leading: _batchMode
+                                ? Checkbox(
+                                    value: isSelected,
+                                    onChanged: (value) => _toggleParentSelection(it.parentId),
+                                  )
+                                : null,
                             title: Text(it.label),
                             subtitle: Text(
                               'Depth ${it.depth} • Missing: ${it.missingSlots.isEmpty ? "—" : it.missingSlots}',
                             ),
-                            onTap: () => _openParent(
-                              it.parentId,
-                              it.label,
-                              it.depth,
-                              it.missingSlots,
-                            ),
+                            tileColor: isSelected ? Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3) : null,
+                            onTap: _batchMode
+                                ? () => _toggleParentSelection(it.parentId)
+                                : () => _openParent(
+                                    it.parentId,
+                                    it.label,
+                                    it.depth,
+                                    it.missingSlots,
+                                  ),
                           );
                         },
                       ),

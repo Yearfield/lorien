@@ -18,6 +18,15 @@ class HealthResult {
   final bool? llmEnabled;
   HealthResult(this.ok, this.statusCode, this.testedUrl, this.bodySnippet,
       {this.version, this.wal, this.foreignKeys, this.llmEnabled});
+
+  Map<String, dynamic> get serverInfo {
+    return {
+      'version': version,
+      'wal_enabled': wal,
+      'foreign_keys_enabled': foreignKeys,
+      'llm_enabled': llmEnabled,
+    };
+  }
 }
 
 final healthServiceProvider = Provider((ref) => HealthService(ref));

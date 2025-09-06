@@ -277,7 +277,8 @@ class _ParentDetailScreenState extends ConsumerState<ParentDetailScreen> {
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 
   void _populateControllers(List<ChildSlotDTO> children) {

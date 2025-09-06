@@ -2,7 +2,7 @@
 Health check router for the decision tree API.
 """
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from typing import Dict, Any
 import os
 
@@ -55,7 +55,6 @@ async def health_metrics():
     """
     analytics_enabled = os.getenv("ANALYTICS_ENABLED", "false").lower() == "true"
     if not analytics_enabled:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Analytics disabled")
 
     metrics_data = await _get_runtime_metrics()

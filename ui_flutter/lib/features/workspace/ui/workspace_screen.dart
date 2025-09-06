@@ -10,6 +10,7 @@ import '../../../widgets/layout/scroll_scaffold.dart';
 import '../../../widgets/app_back_leading.dart';
 import '../../../widgets/calc_export_dialog.dart';
 import '../../../state/health_provider.dart';
+import '../data/workspace_models.dart';
 
 class WorkspaceScreen extends ConsumerStatefulWidget {
   const WorkspaceScreen({super.key});
@@ -24,6 +25,11 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
   bool _csvSupported = true;
   bool _checkedFromFeatures = false;
   bool _apiAvailable = true;
+
+  // Enhanced status tracking
+  ImportJob? _currentImportJob;
+  List<ImportJob> _importHistory = [];
+  BackupRestoreStatus? _backupStatus;
 
   @override
   void initState() {
@@ -86,7 +92,9 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
       });
     } on ApiFailure catch (e) {
       if (e.statusCode == 422) {
-        setState(() => _status = '⚠️ Validation error (422): ${e.message}');
+        // Enhanced 422 error handling with header context
+        final enhancedMessage = _enhance422ErrorMessage(e.message, null);
+        setState(() => _status = '⚠️ Validation error (422): $enhancedMessage');
       } else if (e.statusCode == 400) {
         setState(() => _status = '❌ Invalid file format or data structure');
       } else if (e.statusCode == 500) {
@@ -163,6 +171,183 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
       catch (_) { _csvSupported = false; }
     }
     if (mounted) setState((){});
+  }
+
+  String _enhance422ErrorMessage(String originalMessage, dynamic errorData) {
+    if (errorData == null) return originalMessage;
+
+    try {
+      // Parse header validation errors
+      if (errorData is Map<String, dynamic> && errorData.containsKey('header_errors')) {
+        final headerErrors = errorData['header_errors'] as List<dynamic>;
+        if (headerErrors.isNotEmpty) {
+          final error = headerErrors.first as Map<String, dynamic>;
+          final row = error['row'] ?? '?';
+          final col = error['col_index'] ?? '?';
+          final expected = error['expected'] ?? [];
+          final received = error['received'] ?? '';
+
+          return 'Header mismatch at row $row, column $col. '
+                 'Expected: ${expected.join(', ')}, Received: $received. '
+                 '${originalMessage}';
+        }
+      }
+    } catch (e) {
+      // If parsing fails, return original message
+    }
+
+    return originalMessage;
+  }
+
+  Future<void> _performIntegrityCheck() async {
+    setState(() => _busy = true);
+    setState(() => _status = '🔍 Performing integrity check...');
+
+    try {
+      // Call integrity check endpoint
+      final response = await ApiClient.I().get('/workspace/integrity-check');
+
+      if (response.statusCode == 200) {
+        final data = response.data as Map<String, dynamic>;
+        final passed = data['passed'] as bool;
+        final issues = data['issues'] as List<dynamic>? ?? [];
+
+        if (passed) {
+          setState(() => _status = '✅ Integrity check passed');
+        } else {
+          setState(() => _status = '⚠️ Integrity issues found: ${issues.length} issues');
+          // Show detailed issues dialog
+          _showIntegrityIssuesDialog(issues);
+        }
+      }
+    } catch (e) {
+      setState(() => _status = '❌ Integrity check failed: $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  void _showIntegrityIssuesDialog(List<dynamic> issues) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Integrity Issues Found'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('The following integrity issues were detected:'),
+              const SizedBox(height: 8),
+              ...issues.map((issue) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Text('• ${issue.toString()}'),
+              )),
+              const SizedBox(height: 16),
+              const Text(
+                'Consider creating a backup before proceeding with any repairs.',
+                style: TextStyle(fontStyle: FontStyle.italic),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _createBackup();
+            },
+            child: const Text('Create Backup'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _createBackup() async {
+    setState(() => _busy = true);
+    setState(() => _status = '💾 Creating backup...');
+
+    try {
+      final response = await ApiClient.I().post('/workspace/backup');
+
+      if (response.statusCode == 200) {
+        final data = response.data as Map<String, dynamic>;
+        final backupPath = data['backup_path'] as String;
+        setState(() => _status = '✅ Backup created: $backupPath');
+      }
+    } catch (e) {
+      setState(() => _status = '❌ Backup failed: $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _restoreFromBackup() async {
+    try {
+      final typeGroup = XTypeGroup(
+        label: 'Backup Files',
+        extensions: ['db', 'sqlite', 'bak'],
+      );
+      final XFile? file = await openFile(acceptedTypeGroups: [typeGroup]);
+
+      if (file != null) {
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Restore from Backup'),
+            content: Text(
+              'This will replace the current database with the backup file: ${file.name}. '
+              'This action cannot be undone. Continue?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: TextButton.styleFrom(
+                  foregroundColor: Theme.of(context).colorScheme.error,
+                ),
+                child: const Text('Restore'),
+              ),
+            ],
+          ),
+        );
+
+        if (confirmed == true) {
+          setState(() => _busy = true);
+          setState(() => _status = '🔄 Restoring from backup...');
+
+          try {
+            final fileBytes = await file.readAsBytes();
+
+            final formData = FormData.fromMap({
+              'backup_file': MultipartFile.fromBytes(
+                fileBytes,
+                filename: file.name,
+              ),
+            });
+
+            final response = await ApiClient.I().postMultipart('/workspace/restore', formData: formData);
+
+            // postMultipart returns data, success indicated by no exception
+            setState(() => _status = '✅ Database restored successfully');
+          } catch (e) {
+            setState(() => _status = '❌ Restore failed: $e');
+          } finally {
+            if (mounted) setState(() => _busy = false);
+          }
+        }
+      }
+    } catch (e) {
+      setState(() => _status = '❌ File selection failed: $e');
+    }
   }
 
   Future<void> _exportCsv() async {
@@ -250,6 +435,12 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
         ),
         const SizedBox(height: 24),
         _EditTreePanel(),
+        const SizedBox(height: 24),
+        _MaintenancePanel(
+          onIntegrityCheck: _performIntegrityCheck,
+          onCreateBackup: _createBackup,
+          onRestoreBackup: _restoreFromBackup,
+        ),
         const SizedBox(height: 24),
         _ExportPanel(onExportCsv: _exportCsv, onExportXlsx: _exportXlsx, csvSupported: _csvSupported),
       ],
@@ -455,6 +646,102 @@ class _EditTreePanel extends StatelessWidget {
               onPressed: () => context.go('/edit-tree'),
               icon: const Icon(Icons.edit),
               label: const Text('Open Edit Tree'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MaintenancePanel extends StatelessWidget {
+  const _MaintenancePanel({
+    required this.onIntegrityCheck,
+    required this.onCreateBackup,
+    required this.onRestoreBackup,
+  });
+
+  final VoidCallback onIntegrityCheck;
+  final VoidCallback onCreateBackup;
+  final VoidCallback onRestoreBackup;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Database Maintenance',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Perform integrity checks and manage database backups.',
+              style: TextStyle(color: Colors.grey),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: onIntegrityCheck,
+                    icon: const Icon(Icons.check_circle_outline),
+                    label: const Text('Integrity Check'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: onCreateBackup,
+                    icon: const Icon(Icons.backup),
+                    label: const Text('Create Backup'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: onRestoreBackup,
+                    icon: const Icon(Icons.restore),
+                    label: const Text('Restore Backup'),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Colors.orange),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      // Show database stats
+                      showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Database Statistics'),
+                          content: const Text('Database statistics will be shown here.'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              child: const Text('Close'),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.analytics),
+                    label: const Text('View Stats'),
+                  ),
+                ),
+              ],
             ),
           ],
         ),

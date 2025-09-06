@@ -20,6 +20,17 @@ Flutter UI: see ui_flutter/README or ui_flutter/docs/Flutter_UI_Spec.md
 Streamlit (dev): API_BASE_URL=http://localhost:8000/api/v1 bash tools/scripts/run_streamlit.sh
 ```
 
+## Backend Development
+
+### Common import error: FastAPI Depends not defined
+If you see `NameError: name 'Depends' is not defined` on startup, ensure the router file includes:
+```python
+from fastapi import APIRouter, Depends
+```
+and any other FastAPI primitives used in that file (HTTPException, Query, Path, Body, status).
+
+Run `ruff check .` and `pytest -q` to catch this before startup.
+
 ## Docs
 - [Project Overview](docs/ProjectOverview.md)
 - [Design Decisions](docs/DesignDecisions.md)

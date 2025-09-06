@@ -11,11 +11,12 @@ class DictionaryEntry {
   final String normalized;
   final String? hints;
   final String updatedAt;
+  final bool? isRedFlag;
 
-  DictionaryEntry(this.id, this.type, this.term, this.normalized, this.hints, this.updatedAt);
+  DictionaryEntry(this.id, this.type, this.term, this.normalized, this.hints, this.updatedAt, this.isRedFlag);
 
   factory DictionaryEntry.fromJson(Map<String, dynamic> j) => DictionaryEntry(
-    j['id'], j['type'], j['term'], j['normalized'], j['hints'], j['updated_at']
+    j['id'], j['type'], j['term'], j['normalized'], j['hints'], j['updated_at'], j['is_red_flag']
   );
 }
 
@@ -31,6 +32,20 @@ class DictionaryPage {
     (j['items'] as List).map((e) => DictionaryEntry.fromJson(e)).toList(),
     j['total'], j['limit'], j['offset']
   );
+
+  DictionaryPage copyWith({
+    List<DictionaryEntry>? items,
+    int? total,
+    int? limit,
+    int? offset,
+  }) {
+    return DictionaryPage(
+      items ?? this.items,
+      total ?? this.total,
+      limit ?? this.limit,
+      offset ?? this.offset,
+    );
+  }
 }
 
 final dictionaryRepositoryProvider = Provider<DictionaryRepository>((ref) {
@@ -91,9 +106,20 @@ class DictionaryRepository {
     String? type,
     String query = "",
     int limit = 50,
-    int offset = 0
+    int offset = 0,
+    bool onlyRedFlags = false,
+    String? sort,
+    String? direction
   }) async {
-    final qp = {"query": query, "limit": limit, "offset": offset, if (type != null) "type": type};
+    final qp = {
+      "query": query,
+      "limit": limit,
+      "offset": offset,
+      if (type != null) "type": type,
+      if (onlyRedFlags) "only_red_flags": onlyRedFlags,
+      if (sort != null) "sort": sort,
+      if (direction != null) "direction": direction
+    };
     final r = await _dio.get('/dictionary', queryParameters: qp);
     return DictionaryPage.fromJson(r.data);
   }
@@ -102,12 +128,14 @@ class DictionaryRepository {
     required String type,
     required String term,
     String? normalized,
-    String? hints
+    String? hints,
+    bool? isRedFlag
   }) async {
     final r = await _dio.post('/dictionary', data: {
       "type": type, "term": term,
       if (normalized != null) "normalized": normalized,
-      if (hints != null) "hints": hints
+      if (hints != null) "hints": hints,
+      if (isRedFlag != null) "is_red_flag": isRedFlag
     });
     return DictionaryEntry.fromJson(r.data);
   }
@@ -115,12 +143,14 @@ class DictionaryRepository {
   Future<DictionaryEntry> update(int id, {
     String? term,
     String? normalized,
-    String? hints
+    String? hints,
+    bool? isRedFlag
   }) async {
     final r = await _dio.put('/dictionary/$id', data: {
       if (term != null) "term": term,
       if (normalized != null) "normalized": normalized,
-      if (hints != null) "hints": hints
+      if (hints != null) "hints": hints,
+      if (isRedFlag != null) "is_red_flag": isRedFlag
     });
     return DictionaryEntry.fromJson(r.data);
   }
@@ -147,5 +177,19 @@ class DictionaryRepository {
 
     final items = (r.data['items'] as List?) ?? [];
     return items.map((item) => (item as Map<String, dynamic>)['term'] as String).toList();
+  }
+
+  Future<String> exportCsv({
+    String? type,
+    String? query,
+    bool onlyRedFlags = false
+  }) async {
+    final qp = {
+      if (type != null) "type": type,
+      if (query != null && query.isNotEmpty) "query": query,
+      if (onlyRedFlags) "only_red_flags": onlyRedFlags
+    };
+    final r = await _dio.get('/dictionary/export/csv', queryParameters: qp);
+    return r.data as String;
   }
 }

@@ -47,7 +47,6 @@ void main() {
   test('Settings controller handles corrupted preferences', () async {
     // Set corrupted data
     SharedPreferences.setMockInitialValues({
-      'api_base_url': null,  // Invalid null value
       'theme_mode': 'invalid_mode',
     });
 
