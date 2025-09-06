@@ -22,7 +22,7 @@ class LlmApi {
   }
 
   Future<Map<String, dynamic>> fill(String id) async {
-    final r = await _api._client.postJson('llm/fill-triage-actions', body: {'id': id});
+    final r = await _api.llmFill({'id': int.parse(id)});
     return r;
   }
 }

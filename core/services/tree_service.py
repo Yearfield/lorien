@@ -105,14 +105,29 @@ def children_snapshot(repo: SQLiteRepository, parent_id: int) -> Dict[str, Any] 
         }
 
 
-def validate_five_slots(children: List[Dict[str, Any]]) -> None:
+def validate_five_slots(children: List) -> None:
     """Validate exactly 5 children with slots 1-5."""
     if len(children) != 5:
+        # Handle both dict and Pydantic model cases
+        if hasattr(children[0], 'slot'):
+            # Pydantic model case
+            slots_present = [c.slot for c in children]
+        else:
+            # Dict case
+            slots_present = [c["slot"] for c in children]
+
         raise ValueError({
-            "missing_slots": [s for s in [1,2,3,4,5] if s not in [c["slot"] for c in children]]
+            "missing_slots": [s for s in [1,2,3,4,5] if s not in slots_present]
         })
 
-    slots = sorted(c["slot"] for c in children)
+    # Handle both dict and Pydantic model cases
+    if hasattr(children[0], 'slot'):
+        # Pydantic model case
+        slots = sorted(c.slot for c in children)
+    else:
+        # Dict case
+        slots = sorted(c["slot"] for c in children)
+
     expected = [1, 2, 3, 4, 5]
     if slots != expected:
         missing = [s for s in expected if s not in slots]
@@ -120,30 +135,48 @@ def validate_five_slots(children: List[Dict[str, Any]]) -> None:
             raise ValueError({"missing_slots": missing})
 
 
-def validate_duplicate_labels(repo: SQLiteRepository, parent_id: int, children: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def validate_duplicate_labels(repo: SQLiteRepository, parent_id: int, children: List) -> List[Dict[str, Any]]:
     """Validate no duplicate labels under same parent (case-insensitive)."""
     errors = []
 
     # Check within submitted children
     labels_seen = {}
     for child in children:
-        label = child["label"].strip().lower()
+        # Handle both dict and Pydantic model cases
+        if hasattr(child, 'label'):
+            # Pydantic model case
+            label = child.label.strip().lower()
+            slot = child.slot
+        else:
+            # Dict case
+            label = child["label"].strip().lower()
+            slot = child["slot"]
+
         if label and label in labels_seen:
             errors.append({
-                "loc": ["body", "children", child["slot"] - 1, "label"],
+                "loc": ["body", "children", slot - 1, "label"],
                 "msg": "Duplicate label under same parent",
                 "type": "value_error.duplicate_child_label",
-                "ctx": {"slot": child["slot"]}
+                "ctx": {"slot": slot}
             })
         elif label:
-            labels_seen[label] = child["slot"]
+            labels_seen[label] = slot
 
     # Check against existing siblings in database
     with repo._get_connection() as conn:
         cursor = conn.cursor()
 
         for child in children:
-            label = child["label"].strip()
+            # Handle both dict and Pydantic model cases
+            if hasattr(child, 'label'):
+                # Pydantic model case
+                label = child.label.strip()
+                slot = child.slot
+            else:
+                # Dict case
+                label = child["label"].strip()
+                slot = child["slot"]
+
             if not label:
                 continue
 
@@ -151,15 +184,15 @@ def validate_duplicate_labels(repo: SQLiteRepository, parent_id: int, children: 
             cursor.execute("""
                 SELECT slot FROM nodes
                 WHERE parent_id = ? AND lower(label) = ? AND slot != ? AND label != ''
-            """, (parent_id, label.lower(), child["slot"]))
+            """, (parent_id, label.lower(), slot))
 
             conflict = cursor.fetchone()
             if conflict:
                 errors.append({
-                    "loc": ["body", "children", child["slot"] - 1, "label"],
+                    "loc": ["body", "children", slot - 1, "label"],
                     "msg": "Label conflicts with existing child",
                     "type": "value_error.duplicate_child_label",
-                    "ctx": {"slot": child["slot"], "conflicting_slot": conflict[0]}
+                    "ctx": {"slot": slot, "conflicting_slot": conflict[0]}
                 })
 
     return errors

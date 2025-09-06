@@ -62,6 +62,129 @@ class PathResponse(BaseModel):
     csv_header: List[str]
 
 
+@router.get("/path", response_model=PathResponse)
+def get_node_path(
+    node_id: int = Query(..., ge=1, description="Node ID to get path for"),
+    conn: sqlite3.Connection = Depends(get_db_connection)
+):
+    """
+    Get the complete path from root to the specified node.
+
+    Performance target: <50 ms.
+
+    Args:
+        node_id: The node ID to get the path for
+        conn: Database connection
+
+    Returns:
+        PathResponse with breadcrumbs and CSV header
+    """
+    start_time = time.time()
+
+    try:
+        with conn as db_conn:
+            cursor = db_conn.cursor()
+
+            # Validate node exists
+            cursor.execute("SELECT id FROM nodes WHERE id = ?", (node_id,))
+            if not cursor.fetchone():
+                raise HTTPException(status_code=404, detail=f"Node {node_id} not found")
+
+            # Get node info
+            cursor.execute("""
+                SELECT n.id, n.is_leaf, n.depth, n.label, n.slot, n.parent_id
+                FROM nodes n
+                WHERE n.id = ?
+            """, (node_id,))
+
+            node_row = cursor.fetchone()
+            if not node_row:
+                raise HTTPException(status_code=404, detail=f"Node {node_id} not found")
+
+            node_id, is_leaf, depth, label, slot, parent_id = node_row
+
+            # Build path by walking up the tree
+            path_nodes = []
+            current_id = node_id
+            current_parent_id = parent_id
+
+            # Collect all nodes in the path
+            while current_id is not None:
+                # Get all children of the current parent to build the full 5-slot row
+                if current_parent_id is not None:
+                    cursor.execute("""
+                        SELECT label, slot
+                        FROM nodes
+                        WHERE parent_id = ?
+                        ORDER BY slot
+                    """, (current_parent_id,))
+                    siblings = cursor.fetchall()
+
+                    # Build 5-slot array
+                    row = [""] * 5
+                    for sibling_label, sibling_slot in siblings:
+                        if 1 <= sibling_slot <= 5:
+                            row[sibling_slot - 1] = sibling_label or ""
+                    path_nodes.insert(0, row)
+                else:
+                    # Root node - get its children
+                    cursor.execute("""
+                        SELECT label, slot
+                        FROM nodes
+                        WHERE parent_id = ?
+                        ORDER BY slot
+                    """, (current_id,))
+                    children = cursor.fetchall()
+
+                    # Build 5-slot array for root
+                    row = [""] * 5
+                    for child_label, child_slot in children:
+                        if 1 <= child_slot <= 5:
+                            row[child_slot - 1] = child_label or ""
+                    path_nodes.insert(0, row)
+
+                # Move up to parent
+                if current_parent_id is not None:
+                    cursor.execute("SELECT parent_id FROM nodes WHERE id = ?", (current_parent_id,))
+                    parent_row = cursor.fetchone()
+                    current_id = current_parent_id
+                    current_parent_id = parent_row[0] if parent_row else None
+                else:
+                    break
+
+            # Get vital measurement (root label)
+            cursor.execute("SELECT label FROM nodes WHERE parent_id IS NULL LIMIT 1")
+            root_row = cursor.fetchone()
+            vital_measurement = root_row[0] if root_row else "Unknown"
+
+            # CSV header
+            csv_header = [
+                "Vital Measurement",
+                "Node 1", "Node 2", "Node 3", "Node 4", "Node 5",
+                "Diagnostic Triage",
+                "Actions"
+            ]
+
+            # Performance check
+            end_time = time.time()
+            duration_ms = (end_time - start_time) * 1000
+            if duration_ms > 50:
+                logger.warning(f"Path query took {duration_ms:.1f}ms (target: <50ms)")
+
+            return PathResponse(
+                node_id=node_id,
+                is_leaf=bool(is_leaf),
+                depth=depth,
+                vital_measurement=vital_measurement,
+                nodes=path_nodes[0] if path_nodes else ["", "", "", "", ""],
+                csv_header=csv_header
+            )
+
+    except Exception as e:
+        logger.exception("Error getting node path")
+        raise HTTPException(status_code=500, detail="Database error")
+
+
 @router.get("/{parent_id}", response_model=ParentInfo)
 def get_parent_info(
     parent_id: int = Path(..., ge=1),
@@ -418,106 +541,3 @@ def get_next_incomplete_parent(conn: sqlite3.Connection = Depends(get_db_connect
         raise HTTPException(status_code=500, detail="Database error")
 
 
-@router.get("/path", response_model=PathResponse)
-def get_node_path(
-    node_id: int = Query(..., ge=1, description="Node ID to get path for"),
-    conn: sqlite3.Connection = Depends(get_db_connection)
-):
-    """
-    Get the complete path from root to the specified node.
-
-    Performance target: <50 ms.
-
-    Args:
-        node_id: The node ID to get the path for
-        conn: Database connection
-
-    Returns:
-        PathResponse with breadcrumbs and CSV header
-    """
-    start_time = time.time()
-
-    try:
-        cursor = conn.cursor()
-
-        # Validate node exists
-        cursor.execute("SELECT id FROM nodes WHERE id = ?", (node_id,))
-        if not cursor.fetchone():
-            raise HTTPException(status_code=404, detail=f"Node {node_id} not found")
-
-        # Get node info
-        cursor.execute("""
-            SELECT n.id, n.is_leaf, n.depth, n.label, n.slot, n.parent_id
-            FROM nodes n
-            WHERE n.id = ?
-        """, (node_id,))
-
-        node_row = cursor.fetchone()
-        if not node_row:
-            raise HTTPException(status_code=404, detail=f"Node {node_id} not found")
-
-        node_id, is_leaf, depth, label, slot, parent_id = node_row
-
-        # Build path by walking up the tree
-        path_nodes = []
-        current_id = node_id
-        current_parent_id = parent_id
-
-        # Collect all nodes in the path
-        while current_id is not None:
-            cursor.execute("""
-                SELECT n.id, n.label, n.slot, n.parent_id
-                FROM nodes n
-                WHERE n.id = ?
-            """, (current_id,))
-
-            row = cursor.fetchone()
-            if row:
-                nid, nlabel, nslot, nparent_id = row
-                path_nodes.append({
-                    'id': nid,
-                    'label': nlabel,
-                    'slot': nslot
-                })
-                current_id = nparent_id
-            else:
-                break
-
-        # Reverse to get root-first order
-        path_nodes.reverse()
-
-        # Extract vital measurement (root node label)
-        vital_measurement = path_nodes[0]['label'] if path_nodes else ""
-
-        # Build nodes array (slots 1-5, padded with empty strings)
-        nodes = [""] * 5
-        for node_info in path_nodes[1:]:  # Skip root
-            if node_info['slot'] and 1 <= node_info['slot'] <= 5:
-                nodes[node_info['slot'] - 1] = node_info['label']
-
-        # CSV header (exact order/case)
-        csv_header = [
-            "Vital Measurement",
-            "Node 1", "Node 2", "Node 3", "Node 4", "Node 5",
-            "Diagnostic Triage", "Actions"
-        ]
-
-        # Performance check
-        elapsed = time.time() - start_time
-        if elapsed > 0.05:  # 50ms
-            logger.warning(".2f")
-
-        return PathResponse(
-            node_id=node_id,
-            is_leaf=bool(is_leaf),
-            depth=depth,
-            vital_measurement=vital_measurement,
-            nodes=nodes,
-            csv_header=csv_header
-        )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception("Error getting node path")
-        raise HTTPException(status_code=500, detail="Database error")

@@ -68,12 +68,12 @@ def list_terms(
             cursor = conn.cursor()
 
             # Build query
-            sql = "SELECT id, category as type, label as term, normalized, hints, red_flag, updated_at FROM dictionary_terms"
+            sql = "SELECT id, type, label as term, normalized, hints, red_flag, updated_at FROM dictionary_terms"
             params = []
             conditions = []
 
             if type:
-                conditions.append("category = ?")
+                conditions.append("type = ?")
                 params.append(type)
 
             if query:
@@ -92,7 +92,7 @@ def list_terms(
             if sort == "label":
                 sort_field = "label"
             elif sort == "type":
-                sort_field = "category"
+                sort_field = "type"
             else:
                 sort_field = "label"
 
@@ -132,9 +132,9 @@ def create_term(body: TermIn, repo: SQLiteRepository = Depends(get_repository)):
             # Normalize term
             normalized = _normalize(body.term)
 
-            # Check for duplicate (category, normalized)
+            # Check for duplicate (type, normalized)
             cursor.execute(
-                "SELECT id FROM dictionary_terms WHERE category = ? AND normalized = ?",
+                "SELECT id FROM dictionary_terms WHERE type = ? AND normalized = ?",
                 (body.type, normalized)
             )
             if cursor.fetchone():
@@ -151,7 +151,7 @@ def create_term(body: TermIn, repo: SQLiteRepository = Depends(get_repository)):
             now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
             cursor.execute("""
-                INSERT INTO dictionary_terms (category, label, normalized, hints, red_flag, updated_at, created_at)
+                INSERT INTO dictionary_terms (type, label, normalized, hints, red_flag, updated_at, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             """, (body.type, body.term, normalized, body.hints, body.red_flag, now, now))
 
@@ -160,7 +160,7 @@ def create_term(body: TermIn, repo: SQLiteRepository = Depends(get_repository)):
 
             # Return created term
             cursor.execute(
-                "SELECT id, category as type, label as term, normalized, hints, red_flag, updated_at FROM dictionary_terms WHERE id = ?",
+                "SELECT id, type as type, label as term, normalized, hints, red_flag, updated_at FROM dictionary_terms WHERE id = ?",
                 (term_id,)
             )
             row = cursor.fetchone()
@@ -199,9 +199,9 @@ def update_term(term_id: int, body: TermIn, repo: SQLiteRepository = Depends(get
             # Normalize term
             normalized = _normalize(body.term)
 
-            # Check for duplicate (category, normalized) (excluding current term)
+            # Check for duplicate (type, normalized) (excluding current term)
             cursor.execute(
-                "SELECT id FROM dictionary_terms WHERE category = ? AND normalized = ? AND id != ?",
+                "SELECT id FROM dictionary_terms WHERE type = ? AND normalized = ? AND id != ?",
                 (body.type, normalized, term_id)
             )
             if cursor.fetchone():
@@ -219,7 +219,7 @@ def update_term(term_id: int, body: TermIn, repo: SQLiteRepository = Depends(get
 
             cursor.execute("""
                 UPDATE dictionary_terms
-                SET category = ?, label = ?, normalized = ?, hints = ?, red_flag = ?, updated_at = ?
+                SET type = ?, label = ?, normalized = ?, hints = ?, red_flag = ?, updated_at = ?
                 WHERE id = ?
             """, (body.type, body.term, normalized, body.hints, body.red_flag, now, term_id))
 
@@ -227,7 +227,7 @@ def update_term(term_id: int, body: TermIn, repo: SQLiteRepository = Depends(get
 
             # Return updated term
             cursor.execute(
-                "SELECT id, category as type, label as term, normalized, hints, red_flag, updated_at FROM dictionary_terms WHERE id = ?",
+                "SELECT id, type as type, label as term, normalized, hints, red_flag, updated_at FROM dictionary_terms WHERE id = ?",
                 (term_id,)
             )
             row = cursor.fetchone()
@@ -447,7 +447,7 @@ def import_dictionary_terms(
 
                     # Check if term already exists
                     cursor.execute(
-                        "SELECT id FROM dictionary_terms WHERE category = ? AND normalized = ?",
+                        "SELECT id FROM dictionary_terms WHERE type = ? AND normalized = ?",
                         (term_type, normalized)
                     )
                     existing = cursor.fetchone()
@@ -471,7 +471,7 @@ def import_dictionary_terms(
                         # Insert new term
                         now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
                         cursor.execute("""
-                            INSERT INTO dictionary_terms (category, label, normalized, hints, red_flag, updated_at, created_at)
+                            INSERT INTO dictionary_terms (type, label, normalized, hints, red_flag, updated_at, created_at)
                             VALUES (?, ?, ?, ?, ?, ?, ?)
                         """, (
                             term_type,
@@ -518,7 +518,7 @@ def normalize_term(
         with repo._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT normalized FROM dictionary_terms WHERE category = ? AND normalized = ? LIMIT 1",
+                "SELECT normalized FROM dictionary_terms WHERE type = ? AND normalized = ? LIMIT 1",
                 (type, normalized)
             )
             row = cursor.fetchone()

@@ -39,7 +39,7 @@ class _CalculatorScreenState extends ConsumerState<CalculatorScreen> {
 
     try {
       // Load VM data from roots endpoint
-      final rootsResponse = await _api._client.getJson('tree/roots');
+      final rootsResponse = await _api.getRoots();
       final roots = rootsResponse['roots'] as List<dynamic>? ?? [];
       _vitalMeasurements = roots.map((r) => r as String).toList();
 
@@ -147,7 +147,7 @@ class _CalculatorScreenState extends ConsumerState<CalculatorScreen> {
 
   Future<void> _exportCSV() async {
     try {
-      final response = await _api._client.postBytes('calc/export');
+      final response = await _api.exportCalcCsv();
       // TODO: Handle file download/save
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -163,7 +163,7 @@ class _CalculatorScreenState extends ConsumerState<CalculatorScreen> {
 
   Future<void> _exportXLSX() async {
     try {
-      final response = await _api._client.postBytes('calc/export.xlsx');
+      final response = await _api.exportCalcXlsx();
       // TODO: Handle file download/save
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

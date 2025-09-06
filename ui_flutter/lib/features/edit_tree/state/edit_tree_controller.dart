@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
+import '../../../api/lorien_api.dart';
+import '../../../data/dto/child_slot_dto.dart';
 import '../data/edit_tree_repository.dart';
 import '../data/edit_tree_provider.dart';
 import 'edit_tree_state.dart';
@@ -102,12 +104,10 @@ class EditTreeController extends StateNotifier<EditTreeState> {
 
     state = state.copyWith(saving: true);
 
-    final body = {
-      'children': state.slots.map((s) => {'slot': s.slot, 'label': s.text}).toList(),
-    };
+    final slots = state.slots.map((s) => ChildSlotDTO(slot: s.slot, label: s.text)).toList();
 
     try {
-      final res = await repo.updateParentChildren(state.parentId!, body);
+      final res = await repo.updateParentChildren(state.parentId!, slots);
 
       // Update state with response
       final missingSlots = List<int>.from(res['missing_slots'] as List? ?? []);

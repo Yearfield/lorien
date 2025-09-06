@@ -8,6 +8,7 @@ import '../state/edit_tree_controller.dart';
 import '../state/edit_tree_state.dart';
 import '../../dictionary/ui/dictionary_suggestions_overlay.dart';
 import '../../symptoms/data/materialization_service.dart';
+import '../../../data/dto/child_slot_dto.dart';
 
 class EditTreeScreen extends ConsumerStatefulWidget {
   const EditTreeScreen({super.key, this.parentId});
@@ -241,14 +242,11 @@ class _EditTreeScreenState extends ConsumerState<EditTreeScreen> {
       for (final parentId in _selectedParents) {
         try {
           final parentData = await repo.getParentChildren(parentId);
-          final children = <ChildSlot>[];
+          final children = <ChildSlotDTO>[];
 
           for (final child in parentData.children) {
-            if (child.label?.trim().isEmpty ?? true) {
-              children.add(ChildSlot(slot: child.slot, label: 'Other'));
-            } else {
-              children.add(child);
-            }
+            final label = child.label?.trim().isEmpty ?? true ? 'Other' : child.label!;
+            children.add(ChildSlotDTO(slot: child.slot, label: label));
           }
 
           await repo.updateParentChildren(parentId, children);

@@ -11,7 +11,7 @@ class OutcomesApi {
   final LorienApi _api;
 
   Future<Map<String, dynamic>> getDetail(String id) async {
-    final res = await _api._client.getJson('outcomes/$id');
+    final res = await _api.getOutcome(int.parse(id));
     return res;
   }
 
@@ -21,9 +21,9 @@ class OutcomesApi {
   }
 
   Future<Map<String, dynamic>> copyFromVm(String vm) async {
-    final res = await _dio.get('/triage/search',
-        queryParameters: {'vm': vm, 'leaf_only': true, 'sort': 'updated_at:desc', 'limit': 1});
-    return Map<String, dynamic>.from(res.data);
+    final res = await _api.client.getJson('triage/search',
+        query: {'vm': vm, 'leaf_only': true, 'sort': 'updated_at:desc', 'limit': 1});
+    return res;
   }
 
   Future<void> updateDetail(String id,
@@ -36,20 +36,18 @@ class OutcomesApi {
 
   Future<Map<String, dynamic>> search(
       {String? vm, String? q, int page = 1}) async {
-    Future<Response> get(String path) => _dio.get(path, queryParameters: {
+    final query = {
       if (vm?.isNotEmpty == true) 'vm': vm,
       if (q?.isNotEmpty == true) 'q': q,
       'page': page,
-    });
+    };
     try {
-      final r = await get('/outcomes/search');
-      return Map<String, dynamic>.from(r.data);
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 404) {
-        final r = await get('/triage/search');
-        return Map<String, dynamic>.from(r.data);
-      }
-      rethrow;
+      final r = await _api.client.getJson('outcomes/search', query: query);
+      return r;
+    } catch (e) {
+      // Fallback to triage search
+      final r = await _api.client.getJson('triage/search', query: query);
+      return r;
     }
   }
 }

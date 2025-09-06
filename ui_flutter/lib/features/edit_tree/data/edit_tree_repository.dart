@@ -1,4 +1,6 @@
 import 'package:dio/dio.dart';
+import '../../../data/dto/child_slot_dto.dart';
+import '../../../api/lorien_api.dart';
 
 class IncompleteParent {
   final int parentId;
@@ -116,10 +118,9 @@ class BulkUpsertResult {
 }
 
 class EditTreeRepository {
-  final Dio dio;
-  final String baseUrl;
+  final LorienApi _api;
 
-  EditTreeRepository(this.dio, this.baseUrl);
+  EditTreeRepository(this._api);
 
   Future<IncompleteParentsPage> listIncomplete({
     String query = "",
@@ -134,16 +135,13 @@ class EditTreeRepository {
     };
     if (depth != null) params["depth"] = depth;
 
-    final response = await dio.get(
-      '$baseUrl/tree/missing-slots',
-      queryParameters: params,
-    );
-    return IncompleteParentsPage.fromJson(response.data);
+    final response = await _api.client.getJson('tree/missing-slots', query: params);
+    return IncompleteParentsPage.fromJson(response);
   }
 
   Future<Map<String, dynamic>?> nextIncomplete() async {
-    final response = await dio.get(
-      '$baseUrl/tree/next-incomplete-parent',
+    final response = await _api.client.dio.get(
+      '${_api.baseUrl}/tree/next-incomplete-parent',
       options: Options(validateStatus: (_) => true),
     );
     if (response.statusCode == 204) return null;
@@ -151,25 +149,21 @@ class EditTreeRepository {
   }
 
   Future<ParentChildrenData> getParentChildren(int parentId) async {
-    final response = await dio.get('$baseUrl/tree/parent/$parentId/children');
-    return ParentChildrenData.fromJson(response.data);
+    final response = await _api.readParentChildren(parentId);
+    return ParentChildrenData.fromJson(response);
   }
 
   Future<Map<String, dynamic>> updateParentChildren(
     int parentId,
-    Map<String, dynamic> body, {
+    List<ChildSlotDTO> slots, {
+    int? version,
     String? etag
   }) async {
-    final options = etag != null
-        ? Options(headers: {'If-Match': etag})
-        : null;
+    final body = {
+      if (version != null) 'version': version,
+      'children': slots.map((e) => e.toJson()).toList(),
+    };
 
-    final response = await dio.put(
-      '$baseUrl/tree/parent/$parentId/children',
-      data: body,
-      options: options,
-    );
-
-    return response.data;
+    return _api.updateParentChildren(parentId, body, etag: etag);
   }
 }

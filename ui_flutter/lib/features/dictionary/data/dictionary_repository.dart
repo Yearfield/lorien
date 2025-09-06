@@ -112,20 +112,16 @@ class DictionaryRepository {
     String? sort,
     String? direction
   }) async {
-    // For now, we'll use the existing ApiClient directly since LorienApi doesn't have a generic list method
-    // This can be updated when LorienApi is expanded
-    final client = _api._client;
-    final qp = {
-      "query": query,
-      "limit": limit,
-      "offset": offset,
-      if (type != null) "type": type,
-      if (onlyRedFlags) "only_red_flags": onlyRedFlags,
-      if (sort != null) "sort": sort,
-      if (direction != null) "direction": direction
-    };
-    final r = await client.getJson('dictionary', query: qp);
-    return DictionaryPage.fromJson(r.data);
+    final r = await _api.dictionaryList(
+      type: type,
+      query: query,
+      limit: limit,
+      offset: offset,
+      onlyRedFlags: onlyRedFlags,
+      sort: sort,
+      direction: direction
+    );
+    return DictionaryPage.fromJson(r);
   }
 
   Future<DictionaryEntry> create({
@@ -135,13 +131,14 @@ class DictionaryRepository {
     String? hints,
     bool? isRedFlag
   }) async {
-    final r = await _dio.post('/dictionary', data: {
+    final data = {
       "type": type, "term": term,
       if (normalized != null) "normalized": normalized,
       if (hints != null) "hints": hints,
       if (isRedFlag != null) "is_red_flag": isRedFlag
-    });
-    return DictionaryEntry.fromJson(r.data);
+    };
+    final r = await _api.dictionaryCreate(data);
+    return DictionaryEntry.fromJson(r);
   }
 
   Future<DictionaryEntry> update(int id, {
@@ -150,30 +147,30 @@ class DictionaryRepository {
     String? hints,
     bool? isRedFlag
   }) async {
-    final r = await _dio.put('/dictionary/$id', data: {
+    final data = {
       if (term != null) "term": term,
       if (normalized != null) "normalized": normalized,
       if (hints != null) "hints": hints,
       if (isRedFlag != null) "is_red_flag": isRedFlag
-    });
-    return DictionaryEntry.fromJson(r.data);
+    };
+    final r = await _api.dictionaryUpdate(id, data);
+    return DictionaryEntry.fromJson(r);
   }
 
   Future<void> delete(int id) async {
-    await _dio.delete('/dictionary/$id');
+    await _api.dictionaryDelete(id);
   }
 
   Future<String> normalize(String type, String term) async {
-    final r = await _dio.get('/dictionary/normalize',
-      queryParameters: {"type": type, "term": term});
-    return r.data['normalized'] as String;
+    final r = await _api.dictionaryNormalize(type, term);
+    return r;
   }
 
   Future<List<String>> getSuggestions(String type, String query, {int limit = 10}) async {
     if (query.trim().length < 2) return [];
 
     try {
-      final suggestions = await _api.dictionarySuggest(query, limit: limit);
+      final suggestions = await _api.dictionarySuggest(type: 'node_label', query: query, limit: limit);
       return suggestions.map((item) => item['term'] as String).toList();
     } catch (e) {
       // Fallback to empty list on error
@@ -191,12 +188,12 @@ class DictionaryRepository {
       if (query != null && query.isNotEmpty) "query": query,
       if (onlyRedFlags) "only_red_flags": onlyRedFlags
     };
-    final r = await _api._client.getJson('dictionary/export/csv', query: qp);
-    return r.data as String;
+    final r = await _api.client.getJson('dictionary/export/csv', query: qp);
+    return r as String;
   }
 
-  Future<Map<String, dynamic>> importFile(MultipartFile file) async {
-    final response = await _api.dictionaryImport(file);
-    return response.data;
+  Future<Map<String, dynamic>> importFile(String filePath) async {
+    final response = await _api.dictionaryImportFromPath(filePath);
+    return response.data as Map<String, dynamic>;
   }
 }
