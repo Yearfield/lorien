@@ -23,30 +23,41 @@ class EditTreeController extends StateNotifier<EditTreeState> {
     int? depth,
     String? missing,
   }) async {
-    final rows = await repo.getChildren(parentId);
-    final slots = List.generate(5, (i) {
-      final s = i + 1;
-      final row = rows.firstWhere(
-        (r) => r['slot'] == s,
-        orElse: () => {},
+    try {
+      final data = await repo.getParentChildren(parentId);
+
+      // Convert children to slot states
+      final slots = List.generate(5, (i) {
+        final slot = i + 1;
+        final child = data.children.firstWhere(
+          (c) => c.slot == slot,
+          orElse: () => ChildInfo(0, '', slot, data.children.first.depth, false),
+        );
+        final text = child.label;
+        final existing = child.id != 0;
+        return SlotState(slot, text: text, existing: existing);
+      });
+
+      state = state.copyWith(
+        parentId: parentId,
+        parentLabel: label ?? data.path['vital_measurement'] ?? '',
+        depth: depth ?? data.children.first.depth - 1,
+        missingSlots: data.missingSlots.join(','),
+        slots: slots,
+        dirty: false,
       );
-      final text = (row is Map && row['label'] != null)
-          ? (row['label'] as String)
-          : "";
-      final existing = (row is Map && row['id'] != null);
-      return SlotState(s, text: text, existing: existing);
-    });
 
-    state = state.copyWith(
-      parentId: parentId,
-      parentLabel: label ?? state.parentLabel,
-      depth: depth ?? state.depth,
-      missingSlots: missing ?? state.missingSlots,
-      slots: slots,
-      dirty: false,
-    );
-
-    _computeDuplicateWarnings();
+      _computeDuplicateWarnings();
+    } catch (e) {
+      // Handle error - could be network or API error
+      state = state.copyWith(
+        banner: EditBanner(
+          message: 'Failed to load parent data: $e',
+          actionLabel: 'Retry',
+          action: () => loadParent(parentId, label: label, depth: depth, missing: missing),
+        ),
+      );
+    }
   }
 
   void putSlot(int slot, String text) {
@@ -90,62 +101,74 @@ class EditTreeController extends StateNotifier<EditTreeState> {
     if (state.parentId == null) return;
 
     state = state.copyWith(saving: true);
-    final patches = state.slots
-        .map((s) => SlotPatch(s.slot, s.text))
-        .toList();
+
+    final body = {
+      'children': state.slots.map((s) => {'slot': s.slot, 'label': s.text}).toList(),
+    };
 
     try {
-      final res = await repo.upsertChildren(state.parentId!, patches);
+      final res = await repo.updateParentChildren(state.parentId!, body);
 
-      // Update existing flags & missing
+      // Update state with response
+      final missingSlots = List<int>.from(res['missing_slots'] as List? ?? []);
       final updatedSlots = state.slots.map((s) {
-        final hit = res.updated.firstWhere(
-          (u) => u['slot'] == s.slot,
-          orElse: () => {},
-        );
-        if (hit is Map && hit.isNotEmpty) {
-          return s.copyWith(existing: true, warning: null); // Clear warnings on success
-        }
-        return s.copyWith(warning: null); // Clear warnings on success
+        return s.copyWith(error: null, warning: null); // Clear errors on success
       }).toList();
 
       state = state.copyWith(
-        missingSlots: res.missingSlots,
+        missingSlots: missingSlots.join(','),
         slots: updatedSlots,
         dirty: false,
         saving: false,
+        banner: null, // Clear any previous banner
       );
     } on DioException catch (e) {
+      state = state.copyWith(saving: false);
+
       if (e.response?.statusCode == 409) {
-        // Show banner for concurrent changes, preserve user input
-        final slot = (e.response?.data is Map)
-            ? (e.response?.data['slot'] as int?)
-            : null;
-        final banner = EditBanner.conflict(slot: slot, action: () => reloadLatest());
-        state = state.copyWith(saving: false, banner: banner);
+        // Handle optimistic concurrency conflicts
+        final details = LorienApi.extractDetailErrors(e);
+        final banner = EditBanner.conflict(action: () => reloadLatest());
+        state = state.copyWith(banner: banner);
       } else if (e.response?.statusCode == 422) {
-        // Map 422 errors to specific slots and show banner
-        final details = (e.response?.data?['detail'] as List?) ?? [];
+        // Handle validation errors
+        final details = LorienApi.extractDetailErrors(e);
         var slots = state.slots;
-        for (final d in details) {
-          final ctx = (d is Map) ? d['ctx'] as Map<String, dynamic>? : null;
-          final msg = (d is Map) ? (d['msg'] as String? ?? "Invalid") : "Invalid";
+
+        for (final detail in details) {
+          final ctx = detail['ctx'] as Map<String, dynamic>?;
+          final msg = detail['msg'] as String? ?? 'Invalid';
           final slot = ctx?['slot'] as int?;
+
           if (slot != null) {
             slots = slots.map((s) =>
                 s.slot == slot ? s.copyWith(error: msg) : s).toList();
           }
         }
+
         final banner = EditBanner(
           message: 'Validation errors found. Please fix the highlighted fields.',
           actionLabel: 'Dismiss',
           action: () => state = state.copyWith(banner: null),
         );
-        state = state.copyWith(slots: slots, saving: false, banner: banner);
+        state = state.copyWith(slots: slots, banner: banner);
       } else {
-        state = state.copyWith(saving: false);
-        rethrow;
+        // Handle other errors
+        final banner = EditBanner(
+          message: 'Save failed: ${e.message}',
+          actionLabel: 'Retry',
+          action: () => save(),
+        );
+        state = state.copyWith(banner: banner);
       }
+    } catch (e) {
+      state = state.copyWith(saving: false);
+      final banner = EditBanner(
+        message: 'Unexpected error: $e',
+        actionLabel: 'Retry',
+        action: () => save(),
+      );
+      state = state.copyWith(banner: banner);
     }
   }
 

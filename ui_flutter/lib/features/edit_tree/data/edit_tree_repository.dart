@@ -39,6 +39,59 @@ class IncompleteParentsPage {
   }
 }
 
+class ChildInfo {
+  final int id;
+  final String label;
+  final int slot;
+  final int depth;
+  final bool isLeaf;
+
+  ChildInfo(this.id, this.label, this.slot, this.depth, this.isLeaf);
+
+  factory ChildInfo.fromJson(Map<String, dynamic> json) {
+    return ChildInfo(
+      json['id'],
+      json['label'],
+      json['slot'],
+      json['depth'],
+      json['is_leaf'] == 1,
+    );
+  }
+}
+
+class ParentChildrenData {
+  final int parentId;
+  final int version;
+  final List<int> missingSlots;
+  final List<ChildInfo> children;
+  final Map<String, dynamic> path;
+  final String etag;
+
+  ParentChildrenData(
+    this.parentId,
+    this.version,
+    this.missingSlots,
+    this.children,
+    this.path,
+    this.etag,
+  );
+
+  factory ParentChildrenData.fromJson(Map<String, dynamic> json) {
+    final children = (json['children'] as List)
+        .map((e) => ChildInfo.fromJson(e))
+        .toList();
+
+    return ParentChildrenData(
+      json['parent_id'],
+      json['version'],
+      List<int>.from((json['missing_slots'] as String).split(',').where((s) => s.isNotEmpty).map(int.parse)),
+      children,
+      json['path'],
+      json['etag'],
+    );
+  }
+}
+
 class SlotPatch {
   final int slot;
   String label;
@@ -75,14 +128,14 @@ class EditTreeRepository {
     int offset = 0,
   }) async {
     final params = <String, dynamic>{
-      "query": query,
+      "q": query,
       "limit": limit,
       "offset": offset,
     };
     if (depth != null) params["depth"] = depth;
 
     final response = await dio.get(
-      '$baseUrl/tree/parents/incomplete',
+      '$baseUrl/tree/missing-slots',
       queryParameters: params,
     );
     return IncompleteParentsPage.fromJson(response.data);
@@ -97,42 +150,26 @@ class EditTreeRepository {
     return response.data as Map<String, dynamic>;
   }
 
-  Future<List<Map<String, dynamic>>> getChildren(int parentId) async {
-    final response = await dio.get('$baseUrl/tree/$parentId/children');
-    return List<Map<String, dynamic>>.from(response.data as List);
+  Future<ParentChildrenData> getParentChildren(int parentId) async {
+    final response = await dio.get('$baseUrl/tree/parent/$parentId/children');
+    return ParentChildrenData.fromJson(response.data);
   }
 
-  Future<BulkUpsertResult> upsertChildren(
+  Future<Map<String, dynamic>> updateParentChildren(
     int parentId,
-    List<SlotPatch> patches,
-  ) async {
+    Map<String, dynamic> body, {
+    String? etag
+  }) async {
+    final options = etag != null
+        ? Options(headers: {'If-Match': etag})
+        : null;
+
     final response = await dio.put(
-      '$baseUrl/tree/parents/$parentId/children',
-      data: {"slots": patches.map((e) => e.toJson()).toList(), "mode": "upsert"},
-      options: Options(validateStatus: (_) => true),
+      '$baseUrl/tree/parent/$parentId/children',
+      data: body,
+      options: options,
     );
 
-    if (response.statusCode == 200) {
-      return BulkUpsertResult.fromJson(response.data);
-    }
-    if (response.statusCode == 409) {
-      throw DioException(
-        requestOptions: response.requestOptions,
-        response: response,
-        error: "slot_conflict",
-      );
-    }
-    if (response.statusCode == 422) {
-      throw DioException(
-        requestOptions: response.requestOptions,
-        response: response,
-        error: "validation",
-      );
-    }
-    throw DioException(
-      requestOptions: response.requestOptions,
-      response: response,
-      error: "unexpected",
-    );
+    return response.data;
   }
 }
