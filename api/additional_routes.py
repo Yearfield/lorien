@@ -5,6 +5,7 @@ Additional route handlers for Phase 6B features.
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 import io
 from datetime import datetime
 import os
@@ -13,6 +14,9 @@ from storage.sqlite import SQLiteRepository
 from .dependencies import get_repository
 
 router = APIRouter()
+
+
+# CreateRootRequest moved to api/routers/tree_vm_builder.py
 
 
 @router.get("/tree/export.xlsx")
@@ -74,71 +78,11 @@ async def export_tree_xlsx(
         )
 
 
-@router.get("/tree/stats")
-async def get_tree_stats(
-    repo: SQLiteRepository = Depends(get_repository)
-):
-    """Get tree completeness statistics."""
-    try:
-        stats = repo.get_tree_stats()
-        return stats
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get tree stats: {str(e)}"
-        )
+# Moved to tree router to avoid route precedence issues
 
 
-@router.post("/tree/roots")
-async def create_root_with_children(
-    request: dict,
-    repo: SQLiteRepository = Depends(get_repository)
-):
-    """Create a new root (vital measurement) with 5 preseeded child slots."""
-    try:
-        label = request.get("label", "").strip()
-        if not label:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Root label cannot be empty"
-            )
-        
-        # Optional initial children (up to 5)
-        initial_children = request.get("children", [])
-        if len(initial_children) > 5:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Cannot have more than 5 initial children"
-            )
-        
-        # Create root node (depth=0, no parent, slot=0)
-        root_id = repo.create_root_node(label)
-        
-        # Create 5 child slots
-        children_created = []
-        for slot in range(1, 6):
-            child_label = initial_children[slot - 1] if slot <= len(initial_children) else ""
-            child_id = repo.create_child_node(root_id, slot, child_label, depth=1)
-            
-            children_created.append({
-                "id": child_id,
-                "slot": slot,
-                "label": child_label
-            })
-        
-        return {
-            "root_id": root_id,
-            "children": children_created,
-            "message": f"Created root '{label}' with 5 child slots"
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create root: {str(e)}"
-        )
+# LEGACY — do not define /tree/roots here
+# Route moved to api/routers/tree_vm_builder.py to avoid conflicts
 
 
 # REMOVED: LLM fill-triage-actions endpoint moved to api/routers/llm.py

@@ -178,7 +178,7 @@ async def get_import_jobs(
         )
 
 
-@router.get("/jobs/{job_id}", response_model=ImportJobResponse)
+@router.get("/jobs/{job_id:int}", response_model=ImportJobResponse)
 async def get_import_job(
     job_id: int,
     repo: SQLiteRepository = Depends(get_repository)

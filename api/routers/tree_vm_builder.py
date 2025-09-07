@@ -104,12 +104,9 @@ def create_vital_measurement(
 
     Returns the root ID and confirmation of children creation.
     """
-    cursor = conn.cursor()
+    with conn:  # begin/commit/rollback on success/failure
+        cursor = conn.cursor()
 
-    # Start transaction
-    conn.execute("BEGIN IMMEDIATE TRANSACTION")
-
-    try:
         # Check for duplicate VM labels
         cursor.execute("""
             SELECT id FROM nodes
@@ -143,21 +140,11 @@ def create_vital_measurement(
             """, (root_id, slot, placeholder_label))
             children_created += 1
 
-        conn.commit()
-
         return CreateVMResponse(
             root_id=root_id,
             label=request.label,
             children_created=children_created
         )
-
-    except HTTPException:
-        conn.rollback()
-        raise
-    except Exception as e:
-        conn.rollback()
-        logger.exception("Error creating VM")
-        raise HTTPException(status_code=500, detail="Database error")
 
 
 @router.post("/wizard/sheet", response_model=SheetWizardResponse)

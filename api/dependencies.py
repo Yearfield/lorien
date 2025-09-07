@@ -3,7 +3,8 @@ Dependency injection for FastAPI application.
 """
 
 import sqlite3
-from typing import Generator
+import os
+from typing import Generator, Iterator
 from fastapi import Depends, HTTPException, status
 from contextlib import contextmanager
 
@@ -25,29 +26,38 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-@contextmanager
-def get_db_connection() -> Generator[sqlite3.Connection, None, None]:
+# Get database path from environment or default location
+DB_PATH = os.getenv("LORIEN_DB_PATH", os.path.expanduser("~/.local/share/lorien/app.db"))
+
+def _open_conn() -> sqlite3.Connection:
+    """Open a new database connection with proper configuration."""
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False, isolation_level=None)
+    conn.row_factory = sqlite3.Row
+    # Pragmas (idempotent)
+    conn.execute("PRAGMA foreign_keys=ON;")
+    conn.execute("PRAGMA journal_mode=WAL;")
+    conn.execute("PRAGMA synchronous=NORMAL;")
+    return conn
+
+# ✅ FastAPI yield dependency (NOT @contextmanager)
+def get_db_connection() -> Iterator[sqlite3.Connection]:
     """
-    Get database connection with proper configuration.
+    FastAPI dependency that yields a live sqlite3.Connection.
     
     Yields:
         sqlite3.Connection: Configured database connection
         
     Note:
-        Connection is automatically closed when context exits.
+        Connection is automatically closed when request completes.
     """
-    repo = get_repository()
-    conn = repo._get_connection()
+    conn = _open_conn()
     try:
-        # Initialize connection with required pragmas on every request
-        logger.debug("Enabling WAL mode...")
-        conn.execute("PRAGMA foreign_keys=ON")
-        conn.execute("PRAGMA journal_mode=WAL")
-        conn.execute("PRAGMA synchronous=NORMAL")
-        logger.debug("WAL mode enabled.")
         yield conn
     finally:
-        conn.close()
+        try:
+            conn.close()
+        except Exception:
+            pass
 
 
 def validate_node_exists(node_id: int, repo: SQLiteRepository = Depends(get_repository)) -> Node:

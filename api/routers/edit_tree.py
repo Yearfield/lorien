@@ -61,7 +61,7 @@ class ChildrenUpdateOut(BaseModel):
     updated: List[int]
 
 
-@router.get("/parent/{parent_id}/children", response_model=ChildrenReadOut)
+@router.get("/parent/{parent_id:int}/children", response_model=ChildrenReadOut)
 def read_parent_children(parent_id: int, repo: SQLiteRepository = Depends(get_repository)):
     """
     Read all 5 children of a parent node with optimistic concurrency metadata.
@@ -86,7 +86,7 @@ def read_parent_children(parent_id: int, repo: SQLiteRepository = Depends(get_re
     return result
 
 
-@router.put("/parent/{parent_id}/children", response_model=ChildrenUpdateOut)
+@router.put("/parent/{parent_id:int}/children", response_model=ChildrenUpdateOut)
 def update_parent_children(
     parent_id: int,
     body: ChildrenUpdateIn,

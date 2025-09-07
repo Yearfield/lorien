@@ -1,7 +1,7 @@
 """Tests for PUT /api/v1/tree/parents/{parent_id}/children endpoint."""
 
 from fastapi.testclient import TestClient
-from api.main import app
+from api.app import app
 
 client = TestClient(app)
 

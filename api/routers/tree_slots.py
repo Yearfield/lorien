@@ -40,7 +40,7 @@ class SlotDeleteResponse(BaseModel):
     ok: bool = True
 
 
-@router.put("/{parent_id}/slot/{slot}", response_model=SlotResponse)
+@router.put("/{parent_id:int}/slot/{slot:int}", response_model=SlotResponse)
 def upsert_slot(
     parent_id: int = Path(..., ge=1, description="Parent node ID"),
     slot: int = Path(..., ge=1, le=5, description="Slot number (1-5)"),
@@ -147,7 +147,7 @@ def upsert_slot(
         raise HTTPException(status_code=500, detail="Database error")
 
 
-@router.delete("/{parent_id}/slot/{slot}", response_model=SlotDeleteResponse)
+@router.delete("/{parent_id:int}/slot/{slot:int}", response_model=SlotDeleteResponse)
 def delete_slot(
     parent_id: int = Path(..., ge=1, description="Parent node ID"),
     slot: int = Path(..., ge=1, le=5, description="Slot number (1-5)"),

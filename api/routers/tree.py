@@ -10,7 +10,8 @@ import sqlite3
 import logging
 import time
 
-from ..dependencies import get_db_connection
+from ..dependencies import get_db_connection, get_repository
+from storage.sqlite import SQLiteRepository
 
 router = APIRouter(prefix="/tree", tags=["tree"])
 logger = logging.getLogger(__name__)
@@ -185,7 +186,20 @@ def get_node_path(
         raise HTTPException(status_code=500, detail="Database error")
 
 
-@router.get("/{parent_id}", response_model=ParentInfo)
+@router.get("/stats")
+async def get_tree_stats(
+    repo: SQLiteRepository = Depends(get_repository)
+):
+    """Get tree completeness statistics."""
+    try:
+        stats = repo.get_tree_stats()
+        return stats
+    except Exception as e:
+        logger.exception("Error getting tree stats")
+        raise HTTPException(status_code=500, detail=f"Failed to get tree stats: {str(e)}")
+
+
+@router.get("/{parent_id:int}", response_model=ParentInfo)
 def get_parent_info(
     parent_id: int = Path(..., ge=1),
     conn: sqlite3.Connection = Depends(get_db_connection)
@@ -215,7 +229,7 @@ def get_parent_info(
     )
 
 
-@router.get("/{parent_id}/children", response_model=List[ChildInfo])
+@router.get("/{parent_id:int}/children", response_model=List[ChildInfo])
 def get_parent_children(
     parent_id: int = Path(..., ge=1),
     conn: sqlite3.Connection = Depends(get_db_connection)

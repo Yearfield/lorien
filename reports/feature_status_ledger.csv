@@ -1,0 +1,18 @@
+Feature,Status,What it delivers now,Evidence,Gap,Owner,Repro
+API Route Precedence,Broken,/tree/stats returns 422 instead of stats,tests/api/test_tree_stats_route.py,Route precedence with /tree/{parent_id},API,GET /api/v1/tree/stats returns 422
+Import Persistence,Placeholder,Accepts files but doesn't save to DB,tests/api/test_import_excel_persists.py,No database write logic,API,Import API returns success but no data persists
+Dictionary List,Broken,Returns 500 internal server error,tests/api/test_dictionary_list.py,Missing database table or query,API,GET /api/v1/dictionary returns 500
+VM Root Creation,Broken,Returns 500 internal server error,tests/api/test_vm_root_create.py,Missing POST handler,API,POST /api/v1/tree/roots returns 500
+Next Incomplete Contract,Working,Returns proper 200/204 responses,tests/api/test_next_incomplete_contract.py,None (already working),API,GET /api/v1/tree/next-incomplete-parent works
+Outcomes Validation,Working,Server rejects >7 words and dosing tokens,tests/api/test_outcomes_validation.py,None (already working),API,PUT /outcomes with >7 words returns 422
+Edit Tree Next Incomplete,Broken,Button exists but handler not wired,ui_flutter/test/features/edit_tree/next_incomplete_wiring_test.dart,Missing button tap handler,Flutter,Tap "Next Incomplete" doesn't navigate
+Dictionary Edit Flow,Broken,Edit redirects to Home on null args,ui_flutter/test/features/dictionary/edit_flow_test.dart,Navigation logic redirects incorrectly,Flutter,Edit dictionary item goes to Home
+Workspace Import UI,Partial,UI exists but error handling incomplete,ui_flutter/test/features/workspace/import_ui_contract_test.dart,422 details not surfaced properly,Flutter,Import errors don't show validation details
+Outcomes LLM Gating,Broken,LLM button visibility not health-gated,ui_flutter/test/features/outcomes/validation_and_llm_gating_test.dart,Missing health check wiring,Flutter,LLM button shows regardless of /llm/health
+Outcomes Client Validation,Broken,No client-side 7-word or dosing checks,ui_flutter/test/features/outcomes/validation_and_llm_gating_test.dart,Missing form validation,Flutter,Can submit >7 words or dosing tokens
+Flutter Startup Blocking,Fixed,No window display issue resolved,N/A,None (fixed),Flutter,App starts and shows window
+FastAPI Import Errors,Fixed,NameError: Depends not defined resolved,N/A,None (fixed),API,API starts without import errors
+Tree Children Bulk Update,Working,Creates/updates children with validation,N/A,None (already working),API,POST /tree/{id}/children works
+Health Endpoint,Working,Returns comprehensive health data,N/A,None (already working),API,GET /health returns system status
+LLM Health Check,Working,Returns availability status,N/A,None (already working),API,GET /llm/health works
+Smoke Tests,Working,Comprehensive endpoint validation,N/A,None (already working),Testing,bash tools/smoke_beta.sh passes

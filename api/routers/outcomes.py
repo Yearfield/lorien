@@ -27,7 +27,7 @@ class OutcomesResponse(BaseModel):
     applied: bool = True
 
 
-@router.put("/{node_id}", response_model=OutcomesResponse)
+@router.put("/{node_id:int}", response_model=OutcomesResponse)
 def update_outcomes(
     node_id: int,
     request: OutcomesRequest,
@@ -144,7 +144,7 @@ def update_outcomes(
 
 
 # Legacy fallback endpoint
-@router.put("/triage/{node_id}")
+@router.put("/triage/{node_id:int}")
 def update_triage_legacy(
     node_id: int,
     request: OutcomesRequest,

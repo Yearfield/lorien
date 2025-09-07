@@ -30,7 +30,6 @@ class TermIn(BaseModel):
     type: DictType
     term: constr(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9 ,\-]+$")
     hints: Optional[constr(max_length=256)] = None
-    red_flag: Optional[bool] = False
 
 
 class TermOut(BaseModel):
@@ -39,15 +38,21 @@ class TermOut(BaseModel):
     term: str
     normalized: str
     hints: Optional[str] = None
-    red_flag: Optional[bool] = None
     updated_at: str
+
+
+class DictionaryListResponse(BaseModel):
+    items: List[TermOut]
+    total: int
+    limit: int
+    offset: int
 
 
 class UsageResponse(BaseModel):
     node_id: int
     path: str
     depth: int
-@router.get("", response_model=List[TermOut])
+@router.get("", response_model=DictionaryListResponse)
 def list_terms(
     type: Optional[DictType] = Query(None, description="Filter by type"),
     query: str = Query("", description="Search query for terms"),
@@ -68,7 +73,7 @@ def list_terms(
             cursor = conn.cursor()
 
             # Build query
-            sql = "SELECT id, type, label as term, normalized, hints, red_flag, updated_at FROM dictionary_terms"
+            sql = "SELECT id, type, term, normalized, hints, updated_at FROM dictionary_terms"
             params = []
             conditions = []
 
@@ -81,7 +86,7 @@ def list_terms(
                 if type == "node_label" and len(query.strip()) < 2:
                     return []  # Return empty for short queries
 
-                conditions.append("(label LIKE ? OR normalized LIKE ?)")
+                conditions.append("(term LIKE ? OR normalized LIKE ?)")
                 like_query = f"%{query}%"
                 params.extend([like_query, like_query])
 
@@ -90,11 +95,11 @@ def list_terms(
 
             # Sort options
             if sort == "label":
-                sort_field = "label"
+                sort_field = "term"
             elif sort == "type":
                 sort_field = "type"
             else:
-                sort_field = "label"
+                sort_field = "term"
 
             sql += f" ORDER BY {sort_field} {direction} LIMIT ? OFFSET ?"
             params.extend([limit, offset])
@@ -102,18 +107,47 @@ def list_terms(
             cursor.execute(sql, params)
             rows = cursor.fetchall()
 
-            return [
+            # Get total count for pagination
+            count_sql = "SELECT COUNT(*) FROM dictionary_terms"
+            count_params = []
+            count_conditions = []
+            
+            if type:
+                count_conditions.append("type = ?")
+                count_params.append(type)
+            
+            if query:
+                if type == "node_label" and len(query.strip()) < 2:
+                    total = 0
+                else:
+                    count_conditions.append("(term LIKE ? OR normalized LIKE ?)")
+                    like_query = f"%{query}%"
+                    count_params.extend([like_query, like_query])
+            
+            if count_conditions:
+                count_sql += " WHERE " + " AND ".join(count_conditions)
+            
+            cursor.execute(count_sql, count_params)
+            total = cursor.fetchone()[0]
+
+            items = [
                 TermOut(
                     id=row[0],
                     type=row[1],
                     term=row[2],
                     normalized=row[3],
                     hints=row[4],
-                    red_flag=bool(row[5]) if row[5] is not None else None,
-                    updated_at=row[6]
+                    updated_at=row[5]
                 )
                 for row in rows
             ]
+
+            return DictionaryListResponse(
+                items=items,
+                total=total,
+                limit=limit,
+                offset=offset
+            )
 
     except Exception as e:
         logger.exception("Error listing dictionary terms")
@@ -182,7 +216,7 @@ def create_term(body: TermIn, repo: SQLiteRepository = Depends(get_repository)):
         raise HTTPException(status_code=500, detail="Database error")
 
 
-@router.put("/{term_id}", response_model=TermOut)
+@router.put("/{term_id:int}", response_model=TermOut)
 def update_term(term_id: int, body: TermIn, repo: SQLiteRepository = Depends(get_repository)):
     """
     Update an existing dictionary term.
@@ -249,7 +283,7 @@ def update_term(term_id: int, body: TermIn, repo: SQLiteRepository = Depends(get
         raise HTTPException(status_code=500, detail="Database error")
 
 
-@router.delete("/{term_id}")
+@router.delete("/{term_id:int}")
 def delete_term(term_id: int, repo: SQLiteRepository = Depends(get_repository)):
     """
     Delete a dictionary term.
@@ -284,7 +318,7 @@ def delete_term(term_id: int, repo: SQLiteRepository = Depends(get_repository)):
         raise HTTPException(status_code=500, detail="Database error")
 
 
-@router.get("/{term_id}/usage", response_model=List[UsageResponse])
+@router.get("/{term_id:int}/usage", response_model=List[UsageResponse])
 def get_term_usage(
     term_id: int,
     limit: int = Query(100, ge=1, le=1000),

@@ -1,7 +1,7 @@
 """Tests for child label validation returning 422 with field context."""
 
 from fastapi.testclient import TestClient
-from api.main import app
+from api.app import app
 
 client = TestClient(app)
 

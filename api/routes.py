@@ -98,7 +98,7 @@ async def get_next_incomplete_parent(repo: SQLiteRepository = Depends(get_reposi
         )
 
 
-@router.get("/tree/{parent_id}/children")
+@router.get("/tree/{parent_id:int}/children")
 async def get_children(
     parent_id: int,
     parent: Node = Depends(validate_parent_exists),
@@ -122,7 +122,7 @@ async def get_children(
     }
 
 
-@router.post("/tree/{parent_id}/children")
+@router.post("/tree/{parent_id:int}/children")
 async def upsert_children(
     parent_id: int,
     request: ChildrenUpsert,
@@ -201,7 +201,7 @@ async def upsert_children(
         )
 
 
-@router.post("/tree/{parent_id}/child")
+@router.post("/tree/{parent_id:int}/child")
 async def insert_child(
     parent_id: int,
     child: ChildSlot,
@@ -290,7 +290,7 @@ async def search_triage(
     }
 
 
-@router.get("/triage/{node_id}")
+@router.get("/triage/{node_id:int}")
 async def get_triage(
     node_id: int,
     triage: Triaging = Depends(validate_triage_exists)
@@ -323,7 +323,7 @@ class TriageUpdate(BaseModel):
     actions: str
 
 
-@router.put("/triage/{node_id}")
+@router.put("/triage/{node_id:int}")
 async def update_triage(
     node_id: int,
     update: TriageUpdate,

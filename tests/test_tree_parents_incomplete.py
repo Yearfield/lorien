@@ -1,7 +1,7 @@
 """Tests for GET /api/v1/tree/parents/incomplete endpoint."""
 
 from fastapi.testclient import TestClient
-from api.main import app
+from api.app import app
 
 client = TestClient(app)
 

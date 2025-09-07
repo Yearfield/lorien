@@ -51,7 +51,7 @@ class BulkChildrenResponse(BaseModel):
     missing_slots: str  # e.g., "2,4"
 
 
-@router.post("/{parent_id}/children", response_model=BulkChildrenResponse)
+@router.post("/{parent_id:int}/children", response_model=BulkChildrenResponse)
 def bulk_update_children(
     parent_id: int = Path(..., ge=1),
     request: BulkChildrenRequest = ...,
