@@ -8,7 +8,11 @@ import '../../features/flags/ui/flags_screen.dart';
 import '../../features/settings/ui/settings_screen.dart';
 import '../../features/settings/ui/about_status_page.dart';
 import '../../features/workspace/ui/workspace_screen.dart';
-import '../../features/edit_tree/ui/edit_tree_screen.dart';
+import '../../features/workspace/edit_tree_screen.dart';
+import '../../features/workspace/conflicts_screen.dart';
+import '../../features/workspace/calculator_screen.dart';
+import '../../features/workspace/stats_details_screen.dart';
+import '../../features/workspace/vm_builder_screen.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/',
@@ -32,12 +36,39 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/edit-tree',
       builder: (ctx, st) {
-        final parentId = int.tryParse(st.uri.queryParameters['parent_id'] ?? '');
-        if (parentId == null) {
-          // Handle invalid parent_id gracefully
-          return const HomeScreen(); // or show an error screen
-        }
-        return EditTreeScreen(parentId: parentId);
+        return const EditTreeScreen();
+      },
+    ),
+    GoRoute(
+      path: '/conflicts',
+      builder: (ctx, st) {
+        return const ConflictsScreen();
+      },
+    ),
+    GoRoute(
+      path: '/tree-navigator',
+      builder: (ctx, st) {
+        return const TreeNavigatorScreen();
+      },
+    ),
+    GoRoute(
+      path: '/workspace-calculator',
+      builder: (ctx, st) {
+        return const TreeNavigatorScreen();
+      },
+    ),
+    GoRoute(
+      path: '/stats-details',
+      builder: (ctx, st) {
+        final args = st.extra as Map<String, dynamic>?;
+        final type = args?['type'] ?? 'unknown';
+        return StatsDetailsScreen(kind: type);
+      },
+    ),
+    GoRoute(
+      path: '/vm-builder',
+      builder: (ctx, st) {
+        return const VMBuilderScreen();
       },
     ),
   ],

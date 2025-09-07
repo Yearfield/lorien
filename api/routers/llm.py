@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 class FillRequest(BaseModel):
     root: str = Field(..., min_length=1)
-    nodes: List[str] = Field(default_factory=list, max_items=5)  # Node 1..5 in order; missing allowed
+    nodes: List[str] = Field(default_factory=list, max_length=5)  # Node 1..5 in order; missing allowed
     triage_style: Literal["diagnosis-only","short-explanation","none"] = "diagnosis-only"
     actions_style: Literal["referral-only","steps","none"] = "referral-only"
     apply: bool = False      # write to DB if true

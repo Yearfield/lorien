@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../widgets/layout/scroll_scaffold.dart';
 import '../../../widgets/app_back_leading.dart';
 import '../data/dictionary_repository.dart';
+import '../../../providers/lorien_api_provider.dart';
 
 class DictionaryScreen extends ConsumerStatefulWidget {
   const DictionaryScreen({super.key});
@@ -255,6 +256,28 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
           icon: const Icon(Icons.download),
           onPressed: _exportCsv,
           tooltip: 'Export CSV',
+        ),
+        IconButton(
+          icon: const Icon(Icons.sync),
+          onPressed: () async {
+            try {
+              final api = ref.read(lorienApiProvider);
+              await api.client.postJson('admin/sync-dictionary-from-tree');
+              await _load();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Dictionary refreshed from tree')),
+                );
+              }
+            } catch (e) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Sync failed: $e')),
+                );
+              }
+            }
+          },
+          tooltip: 'Refresh from Tree',
         ),
       ],
       children: [

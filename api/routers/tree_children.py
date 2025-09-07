@@ -43,7 +43,7 @@ class ChildUpdate(BaseModel):
 
 
 class BulkChildrenRequest(BaseModel):
-    children: List[ChildUpdate] = Field(..., max_items=5)
+    children: List[ChildUpdate] = Field(..., max_length=5)
 
 
 class BulkChildrenResponse(BaseModel):

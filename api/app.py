@@ -13,7 +13,12 @@ from .routers.health import router as health_router
 from .routers.flags_audit import router as flags_audit_router
 from .routers.red_flags import router as red_flags_router
 from .routers.import_jobs import router as import_jobs_router
-from .routers.importer import router as importer_router
+from .routers.import_router import router as import_router
+from .routers.tree_stats_router import router as tree_stats_router
+from .routers.tree_export_router import router as tree_export_router
+from .routers.admin_router import router as admin_router
+from .routers.tree_edit_router import router as tree_edit_router
+from .routers.tree_list_router import router as tree_list_router
 from .routers.flags import router as flags_router
 from .routers.outcomes import router as outcomes_router
 from .routers.dictionary import router as dictionary_router
@@ -25,6 +30,13 @@ from .routers.tree_slots import router as tree_slots_router
 from .routers.tree_materialize import router as tree_materialize_router
 from .routers.tree_conflicts import router as tree_conflicts_router
 from .routers.tree_vm_builder import router as tree_vm_builder_router
+from .routers.tree_navigate_router import router as tree_navigate_router
+from .routers.tree_admin_router import router as tree_admin_router
+from .routers.tree_stats_lists_router import router as tree_stats_lists_router
+from .routers.tree_label_router import router as tree_label_router
+from .routers.admin_sanitize_router import router as admin_sanitize_router
+from .routers.tree_builder_router import router as tree_builder_router
+from .routers.admin_root_audit_router import router as admin_root_audit_router
 from .additional_routes import router as additional_router
 from .exceptions import (
     DecisionTreeAPIException, handle_value_error, handle_integrity_error,
@@ -91,7 +103,12 @@ app.include_router(health_router, prefix=API_PREFIX)
 app.include_router(flags_audit_router, prefix=API_PREFIX)
 app.include_router(red_flags_router, prefix=API_PREFIX)
 app.include_router(import_jobs_router, prefix=API_PREFIX)
-app.include_router(importer_router, prefix=API_PREFIX)
+app.include_router(import_router, prefix=API_PREFIX)
+app.include_router(tree_stats_router, prefix=API_PREFIX)
+app.include_router(tree_export_router, prefix=API_PREFIX)
+app.include_router(admin_router, prefix=API_PREFIX)
+app.include_router(tree_edit_router, prefix=API_PREFIX)
+app.include_router(tree_list_router, prefix=API_PREFIX)
 app.include_router(flags_router, prefix=API_PREFIX)
 app.include_router(tree_router, prefix=API_PREFIX)
 app.include_router(edit_tree_router, prefix=API_PREFIX)
@@ -101,6 +118,13 @@ app.include_router(tree_slots_router, prefix=API_PREFIX)
 app.include_router(tree_materialize_router, prefix=API_PREFIX)
 app.include_router(tree_conflicts_router, prefix=API_PREFIX)
 app.include_router(tree_vm_builder_router, prefix=API_PREFIX)
+app.include_router(tree_navigate_router, prefix=API_PREFIX)
+app.include_router(tree_admin_router, prefix=API_PREFIX)
+app.include_router(tree_stats_lists_router, prefix=API_PREFIX)
+app.include_router(tree_label_router, prefix=API_PREFIX)
+app.include_router(admin_sanitize_router, prefix=API_PREFIX)
+app.include_router(tree_builder_router, prefix=API_PREFIX)
+app.include_router(admin_root_audit_router, prefix=API_PREFIX)
 app.include_router(outcomes_router, prefix=API_PREFIX)
 app.include_router(dictionary_router, prefix=API_PREFIX)
 app.include_router(additional_router, prefix=API_PREFIX)
@@ -111,7 +135,12 @@ app.include_router(health_router)
 app.include_router(flags_audit_router)
 app.include_router(red_flags_router)
 app.include_router(import_jobs_router)
-app.include_router(importer_router)
+app.include_router(import_router)
+app.include_router(tree_stats_router)
+app.include_router(tree_export_router)
+app.include_router(admin_router)
+app.include_router(tree_edit_router)
+app.include_router(tree_list_router)
 app.include_router(flags_router)
 app.include_router(tree_router)
 app.include_router(edit_tree_router)
@@ -121,6 +150,13 @@ app.include_router(tree_slots_router)
 app.include_router(tree_materialize_router)
 app.include_router(tree_conflicts_router)
 app.include_router(tree_vm_builder_router)
+app.include_router(tree_navigate_router)
+app.include_router(tree_admin_router)
+app.include_router(tree_stats_lists_router)
+app.include_router(tree_label_router)
+app.include_router(admin_sanitize_router)
+app.include_router(tree_builder_router)
+app.include_router(admin_root_audit_router)
 app.include_router(outcomes_router)
 app.include_router(dictionary_router)
 app.include_router(additional_router)

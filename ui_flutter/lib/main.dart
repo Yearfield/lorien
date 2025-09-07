@@ -8,6 +8,7 @@ import 'features/settings/logic/settings_controller.dart';
 import 'shared/widgets/nav_shortcuts.dart';
 import 'data/api_client.dart';
 import 'core/crash_report_service.dart';
+import 'core/app_scroll_behavior.dart';
 
 void main() {
   runZonedGuarded(() {
@@ -78,10 +79,24 @@ class _S extends ConsumerState<LorienApp> {
     return NavShortcuts(
       child: MaterialApp.router(
         title: 'Lorien',
-        theme: AppTheme.lightTheme,
-        darkTheme: AppTheme.darkTheme,
+        theme: AppTheme.lightTheme.copyWith(
+          splashFactory: NoSplash.splashFactory,
+          highlightColor: Colors.transparent,
+          hoverColor: Colors.transparent,
+          visualDensity: VisualDensity.standard,
+        ),
+        darkTheme: AppTheme.darkTheme.copyWith(
+          splashFactory: NoSplash.splashFactory,
+          highlightColor: Colors.transparent,
+          hoverColor: Colors.transparent,
+          visualDensity: VisualDensity.standard,
+        ),
         routerConfig: appRouter,
         debugShowCheckedModeBanner: false,
+        builder: (context, child) => ScrollConfiguration(
+          behavior: const AppScrollBehavior(),
+          child: child ?? const SizedBox.shrink(),
+        ),
       ),
     );
   }

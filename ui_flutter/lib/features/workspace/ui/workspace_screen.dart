@@ -11,6 +11,7 @@ import '../../../widgets/app_back_leading.dart';
 import '../../../widgets/calc_export_dialog.dart';
 import '../../../state/health_provider.dart';
 import '../data/workspace_models.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class WorkspaceScreen extends ConsumerStatefulWidget {
   const WorkspaceScreen({super.key});
@@ -25,6 +26,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
   bool _csvSupported = true;
   bool _checkedFromFeatures = false;
   bool _apiAvailable = true;
+  String? _lastUploadedFileName;
 
   // Enhanced status tracking
   ImportJob? _currentImportJob;
@@ -38,6 +40,19 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
     if (!const bool.fromEnvironment('FLUTTER_TEST')) {
       _detectCsvSupported();
     }
+    // Load persisted last uploaded file name
+    _loadLastUploaded();
+  }
+
+  Future<void> _loadLastUploaded() async {
+    try {
+      final sp = await SharedPreferences.getInstance();
+      if (mounted) {
+        setState(() {
+          _lastUploadedFileName = sp.getString('workspace_last_uploaded_file');
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _importFile(String path, {required bool isExcel}) async {
@@ -84,6 +99,14 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
 
       final summary = data['summary'] ?? 'Successfully imported';
       setState(() => _status = '✅ Import complete: $summary');
+
+      // Persist and reflect last uploaded file name
+      try {
+        final sp = await SharedPreferences.getInstance();
+        final fileName = path.split('/').last;
+        await sp.setString('workspace_last_uploaded_file', fileName);
+        if (mounted) setState(() { _lastUploadedFileName = fileName; });
+      } catch (_) {}
 
     } on ApiUnavailable catch (e) {
       setState(() {
@@ -287,6 +310,47 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
     }
   }
 
+  Future<void> _viewStats() async {
+    try {
+      final res = await ApiClient.I().getJson('tree/stats');
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: const Text('Database Statistics'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Wrap(spacing: 8, runSpacing: 8, children: [
+                  Chip(label: Text('Nodes: ${res['nodes']}')),
+                  Chip(label: Text('Roots: ${res['roots']}')),
+                  Chip(label: Text('Leaves: ${res['leaves']}')),
+                  Chip(label: Text('Complete paths: ${res['complete_paths']}')),
+                  Chip(label: Text('Incomplete parents: ${res['incomplete_parents']}')),
+                ]),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close')),
+            ],
+          );
+        },
+      );
+    } catch (e) {
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Database Statistics'),
+          content: Text('Failed to load stats: $e'),
+          actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close'))],
+        ),
+      );
+    }
+  }
+
   Future<void> _restoreFromBackup() async {
     try {
       final typeGroup = XTypeGroup(
@@ -432,14 +496,18 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
               _status = null;
             });
           },
+          lastUploadedFileName: _lastUploadedFileName,
         ),
         const SizedBox(height: 24),
         _EditTreePanel(),
+        const SizedBox(height: 24),
+        _VMBuilderPanel(),
         const SizedBox(height: 24),
         _MaintenancePanel(
           onIntegrityCheck: _performIntegrityCheck,
           onCreateBackup: _createBackup,
           onRestoreBackup: _restoreFromBackup,
+          onViewStats: _viewStats,
         ),
         const SizedBox(height: 24),
         _ExportPanel(onExportCsv: _exportCsv, onExportXlsx: _exportXlsx, csvSupported: _csvSupported),
@@ -457,6 +525,7 @@ class _ImportPanel extends StatelessWidget {
     required this.onPickCsv,
     required this.status,
     required this.onRetry,
+    this.lastUploadedFileName,
   });
   final bool busy;
   final bool apiAvailable;
@@ -464,6 +533,7 @@ class _ImportPanel extends StatelessWidget {
   final VoidCallback onPickCsv;
   final String? status;
   final VoidCallback onRetry;
+  final String? lastUploadedFileName;
 
   @override
   Widget build(BuildContext context) {
@@ -490,6 +560,10 @@ class _ImportPanel extends StatelessWidget {
               ),
             ),
           ]),
+          if (lastUploadedFileName != null) ...[
+            const SizedBox(height: 12),
+            Text('Last uploaded: $lastUploadedFileName', style: const TextStyle(color: Colors.grey)),
+          ],
           if (!apiAvailable) ...[
             const SizedBox(height: 12),
             Container(
@@ -642,10 +716,60 @@ class _EditTreePanel extends StatelessWidget {
               style: TextStyle(color: Colors.grey),
             ),
             const SizedBox(height: 12),
-            ElevatedButton.icon(
-              onPressed: () => context.go('/edit-tree'),
-              icon: const Icon(Icons.edit),
-              label: const Text('Open Edit Tree'),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () => context.go('/edit-tree'),
+                    icon: const Icon(Icons.edit),
+                    label: const Text('Fix Incomplete Parents'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () => context.go('/conflicts'),
+                    icon: const Icon(Icons.warning),
+                    label: const Text('Fix Same parent BUT different children'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _VMBuilderPanel extends StatelessWidget {
+  const _VMBuilderPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'VM Builder (Vital Measurement Builder)',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Create a new Vital Measurement and build its decision tree using existing labels.',
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                ElevatedButton.icon(
+                  onPressed: () => context.go('/vm-builder'),
+                  icon: const Icon(Icons.account_tree_outlined),
+                  label: const Text('Open VM Builder'),
+                ),
+              ],
             ),
           ],
         ),
@@ -659,11 +783,13 @@ class _MaintenancePanel extends StatelessWidget {
     required this.onIntegrityCheck,
     required this.onCreateBackup,
     required this.onRestoreBackup,
+    required this.onViewStats,
   });
 
   final VoidCallback onIntegrityCheck;
   final VoidCallback onCreateBackup;
   final VoidCallback onRestoreBackup;
+  final VoidCallback onViewStats;
 
   @override
   Widget build(BuildContext context) {
@@ -721,22 +847,7 @@ class _MaintenancePanel extends StatelessWidget {
                 const SizedBox(width: 16),
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () {
-                      // Show database stats
-                      showDialog(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text('Database Statistics'),
-                          content: const Text('Database statistics will be shown here.'),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.of(context).pop(),
-                              child: const Text('Close'),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
+                    onPressed: onViewStats,
                     icon: const Icon(Icons.analytics),
                     label: const Text('View Stats'),
                   ),

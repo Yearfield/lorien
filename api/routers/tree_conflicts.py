@@ -2,13 +2,16 @@
 Tree conflicts router for detecting various data integrity issues.
 """
 
-from fastapi import APIRouter, Query, Depends
-from pydantic import BaseModel
+from fastapi import APIRouter, Query, Depends, Path, Body, HTTPException
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, conlist, constr
 from typing import List, Optional
 import sqlite3
 import logging
 
 from ..dependencies import get_db_connection
+from api.db import get_conn, ensure_schema
+from api.repositories.tree_repo import detect_conflicts, normalize_parent, merge_duplicate_parents, get_conflict_group, resolve_conflict_group
 
 router = APIRouter(prefix="/tree/conflicts", tags=["tree-conflicts"])
 logger = logging.getLogger(__name__)
@@ -266,5 +269,106 @@ def get_depth_anomalies(
         limit=limit,
         offset=offset
     )
+
+
+@router.get("/conflicts")
+def get_conflicts(limit: int = Query(50, ge=1, le=500), offset: int = Query(0, ge=0), q: Optional[str] = Query(None)):
+    conn = get_conn()
+    ensure_schema(conn)
+    return JSONResponse(detect_conflicts(conn, limit, offset, q))
+
+
+@router.post("/parent/{parent_id}/normalize")
+def post_normalize(parent_id: int = Path(..., ge=1)):
+    conn = get_conn()
+    ensure_schema(conn)
+    return JSONResponse(normalize_parent(conn, parent_id))
+
+
+class MergeReq(BaseModel):
+    label: str
+    keep_id: int
+
+
+@router.post("/parent/{parent_id}/merge-duplicates")
+def post_merge_dupes(parent_id: int, req: MergeReq):
+    conn = get_conn()
+    ensure_schema(conn)
+    try:
+        res = merge_duplicate_parents(conn, parent_id, req.label, req.keep_id)
+        return JSONResponse(res)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+class ResolveReq(BaseModel):
+    keep_id: int
+    chosen: conlist(constr(strip_whitespace=True, min_length=1), min_length=5, max_length=5)
+
+
+@router.get("/group")
+def conflicts_group(
+    node_id: Optional[int] = Query(None, ge=1),
+    parent_id: Optional[int] = Query(None, ge=1),
+    label: Optional[str] = Query(None),
+):
+    """
+    Prefer node_id; fall back to (parent_id,label).
+    node_id route ensures left list can pass what it has (the parent node's id).
+    """
+    conn = get_conn()
+    ensure_schema(conn)
+    
+    # Resolve keys
+    if node_id is not None:
+        row = conn.execute("SELECT parent_id, label FROM nodes WHERE id=?", (node_id,)).fetchone()
+        if not row:
+            raise HTTPException(status_code=422, detail=[{"loc":["query","node_id"],"msg":"Node not found","type":"value_error.node"}])
+        parent_id = int(row["parent_id"]) if row["parent_id"] is not None else None
+        label = str(row["label"])
+        # If this is a root (parent_id is NULL), treat all roots with this label as a group (usually one)
+        if parent_id is None:
+            parent_id = -1  # sentinel; will not match; handle roots specially below
+    if parent_id is None or label is None:
+        raise HTTPException(status_code=422, detail=[{"loc":["query"],"msg":"Provide node_id or (parent_id & label)","type":"value_error.keys"}])
+
+    # Standard duplicate-group case (same parent_id, label)
+    try:
+        out = get_conflict_group(conn, int(parent_id), str(label))
+        # If group empty (shouldn't happen), return children of node_id itself as a fallback
+        if not out["group"] and node_id is not None:
+            from api.repositories.tree_repo import list_children
+            lc = list_children(conn, node_id)
+            kids = [{"child_id": c["id"], "from_id": node_id, "slot": c["slot"], "label": c["label"]} for c in lc["children"]]
+            out = {"group":[{"id": node_id}], "children": kids, "summary":{"unique_children": len({k["label"] for k in kids}), "total_children": len(kids)}}
+        return JSONResponse(out)
+    except sqlite3.DatabaseError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/group/resolve")
+def conflicts_group_resolve(req: ResolveReq):
+    conn = get_conn()
+    ensure_schema(conn)
+    try:
+        # Get parent_id and label from keep_id
+        parent_row = conn.execute("SELECT parent_id FROM nodes WHERE id=?", (req.keep_id,)).fetchone()
+        label_row = conn.execute("SELECT label FROM nodes WHERE id=?", (req.keep_id,)).fetchone()
+        if not parent_row or not label_row:
+            raise HTTPException(status_code=422, detail=[{"loc":["body","keep_id"], "msg":"Keeper not found", "type":"value_error.keep_id"}])
+        
+        out = resolve_conflict_group(conn, parent_id=int(parent_row[0]), label=str(label_row[0]), keep_id=req.keep_id, chosen=req.chosen)
+        return JSONResponse(out)
+    except LookupError:
+        raise HTTPException(status_code=422, detail=[{"loc":["body","keep_id"], "msg":"Keeper not part of duplicate group", "type":"value_error.keep_id"}])
+    except ValueError as e:
+        t = "value_error"
+        if str(e) == "must_choose_five":
+            t = "value_error.must_choose_five"
+        if str(e) == "duplicate_labels":
+            t = "value_error.duplicate_labels"
+        raise HTTPException(status_code=422, detail=[{"loc":["body","chosen"], "msg":str(e), "type":t}])
+    except Exception as e:
+        raise HTTPException(status_code=409, detail=[{"loc":["body"], "msg":f"Conflict: {e}", "type":"conflict"}])
 
 

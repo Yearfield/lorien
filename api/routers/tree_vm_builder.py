@@ -37,7 +37,7 @@ class CreateVMResponse(BaseModel):
 
 class NodeDefinition(BaseModel):
     label: str = Field(..., min_length=1, max_length=100)
-    children: Optional[List[str]] = Field(default_factory=list, max_items=5)
+    children: Optional[List[str]] = Field(default_factory=list, max_length=5)
 
     @field_validator("label")
     @classmethod
@@ -51,10 +51,10 @@ class NodeDefinition(BaseModel):
 
 class VMDefinition(BaseModel):
     label: str = Field(..., min_length=1, max_length=100)
-    node1: Optional[List[str]] = Field(default_factory=list, max_items=5)
-    node2: Optional[List[str]] = Field(default_factory=list, max_items=5)
-    node3: Optional[List[str]] = Field(default_factory=list, max_items=5)
-    node4: Optional[List[str]] = Field(default_factory=list, max_items=5)
+    node1: Optional[List[str]] = Field(default_factory=list, max_length=5)
+    node2: Optional[List[str]] = Field(default_factory=list, max_length=5)
+    node3: Optional[List[str]] = Field(default_factory=list, max_length=5)
+    node4: Optional[List[str]] = Field(default_factory=list, max_length=5)
 
     @field_validator("label")
     @classmethod
@@ -68,7 +68,7 @@ class VMDefinition(BaseModel):
 
 class SheetWizardRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
-    vms: List[VMDefinition] = Field(..., min_items=1, max_items=100)
+    vms: List[VMDefinition] = Field(..., min_length=1, max_length=100)
 
 
 class SheetWizardResponse(BaseModel):
