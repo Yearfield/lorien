@@ -37,6 +37,7 @@ from .routers.tree_label_router import router as tree_label_router
 from .routers.admin_sanitize_router import router as admin_sanitize_router
 from .routers.tree_builder_router import router as tree_builder_router
 from .routers.admin_root_audit_router import router as admin_root_audit_router
+from .routers.conflicts_root_router import router as conflicts_root_router
 from .additional_routes import router as additional_router
 from .exceptions import (
     DecisionTreeAPIException, handle_value_error, handle_integrity_error,
@@ -170,16 +171,30 @@ except ImportError:
     # LLM dependencies not available, skip silently
     pass
 
-# Root endpoint
-@app.get("/")
+# Root router for dual-mount support
+from fastapi import APIRouter
+
+root_router = APIRouter()
+
+@root_router.get("/", name="root")
 async def root():
     """Root endpoint with pointers to docs and versioned health."""
     return {
-        "message": "Lorien API",
+        "ok": True,
+        "service": "lorien",
         "version": __version__,
+        "env": os.getenv("APP_ENV", "local"),
         "docs": "/docs",
         "health": f"{API_PREFIX}/health"
     }
+
+# Mount root at both bare and versioned paths
+app.include_router(root_router, prefix="")
+app.include_router(root_router, prefix=API_PREFIX)
+
+# Mount conflicts root at both bare and versioned paths
+app.include_router(conflicts_root_router, prefix="")
+app.include_router(conflicts_root_router, prefix=API_PREFIX)
 
 # Startup logging
 logger = logging.getLogger(__name__)

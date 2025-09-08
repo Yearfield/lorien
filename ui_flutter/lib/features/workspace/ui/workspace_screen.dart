@@ -501,6 +501,8 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
         const SizedBox(height: 24),
         _EditTreePanel(),
         const SizedBox(height: 24),
+        _CalculatorPanel(),
+        const SizedBox(height: 24),
         _VMBuilderPanel(),
         const SizedBox(height: 24),
         _MaintenancePanel(
@@ -517,7 +519,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
 
 }
 
-class _ImportPanel extends StatelessWidget {
+class _ImportPanel extends StatefulWidget {
   const _ImportPanel({
     required this.busy,
     required this.apiAvailable,
@@ -536,6 +538,13 @@ class _ImportPanel extends StatelessWidget {
   final String? lastUploadedFileName;
 
   @override
+  State<_ImportPanel> createState() => _ImportPanelState();
+}
+
+class _ImportPanelState extends State<_ImportPanel> {
+  bool _replace = false;
+
+  @override
   Widget build(BuildContext context) {
     return Card(
       child: Padding(
@@ -543,28 +552,35 @@ class _ImportPanel extends StatelessWidget {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Text('Import Data', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
           const SizedBox(height: 12),
+          SwitchListTile(
+            title: const Text('Replace existing data (atomic)'),
+            subtitle: const Text('Clears current nodes & outcomes before importing'),
+            value: _replace,
+            onChanged: (v) => setState(() => _replace = v),
+          ),
+          const SizedBox(height: 12),
           Row(children: [
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: (busy || !apiAvailable) ? null : onPickExcelCsv,
-                icon: busy ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.upload),
-                label: Text(busy ? 'Importing...' : 'Select Excel/CSV')
+                onPressed: (widget.busy || !widget.apiAvailable) ? null : widget.onPickExcelCsv,
+                icon: widget.busy ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.upload),
+                label: Text(widget.busy ? 'Importing...' : 'Select Excel/CSV')
               ),
             ),
             const SizedBox(width: 16),
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: (busy || !apiAvailable) ? null : onPickCsv,
-                icon: busy ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.upload),
-                label: Text(busy ? 'Importing...' : 'Select CSV')
+                onPressed: (widget.busy || !widget.apiAvailable) ? null : widget.onPickCsv,
+                icon: widget.busy ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.upload),
+                label: Text(widget.busy ? 'Importing...' : 'Select CSV')
               ),
             ),
           ]),
-          if (lastUploadedFileName != null) ...[
+          if (widget.lastUploadedFileName != null) ...[
             const SizedBox(height: 12),
-            Text('Last uploaded: $lastUploadedFileName', style: const TextStyle(color: Colors.grey)),
+            Text('Last uploaded: ${widget.lastUploadedFileName}', style: const TextStyle(color: Colors.grey)),
           ],
-          if (!apiAvailable) ...[
+          if (!widget.apiAvailable) ...[
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(12),
@@ -598,7 +614,7 @@ class _ImportPanel extends StatelessWidget {
                     ),
                   ),
                   TextButton.icon(
-                    onPressed: onRetry,
+                    onPressed: widget.onRetry,
                     icon: const Icon(Icons.refresh),
                     label: const Text('Retry'),
                     style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -606,21 +622,21 @@ class _ImportPanel extends StatelessWidget {
                 ],
               ),
             ),
-          ] else if (status != null) ...[
+          ] else if (widget.status != null) ...[
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: status!.startsWith('✅')
+                color: widget.status!.startsWith('✅')
                   ? Colors.green[50]
-                  : status!.startsWith('❌') || status!.startsWith('⚠️')
+                  : widget.status!.startsWith('❌') || widget.status!.startsWith('⚠️')
                     ? Colors.red[50]
                     : Colors.blue[50],
                 borderRadius: BorderRadius.circular(4),
                 border: Border.all(
-                  color: status!.startsWith('✅')
+                  color: widget.status!.startsWith('✅')
                     ? Colors.green[200]!
-                    : status!.startsWith('❌') || status!.startsWith('⚠️')
+                    : widget.status!.startsWith('❌') || widget.status!.startsWith('⚠️')
                       ? Colors.red[200]!
                       : Colors.blue[200]!,
                 ),
@@ -628,26 +644,26 @@ class _ImportPanel extends StatelessWidget {
               child: Row(
                 children: [
                   Icon(
-                    status!.startsWith('✅')
+                    widget.status!.startsWith('✅')
                       ? Icons.check_circle
-                      : status!.startsWith('❌') || status!.startsWith('⚠️')
+                      : widget.status!.startsWith('❌') || widget.status!.startsWith('⚠️')
                         ? Icons.error
                         : Icons.info,
                     size: 16,
-                    color: status!.startsWith('✅')
+                    color: widget.status!.startsWith('✅')
                       ? Colors.green[700]
-                      : status!.startsWith('❌') || status!.startsWith('⚠️')
+                      : widget.status!.startsWith('❌') || widget.status!.startsWith('⚠️')
                         ? Colors.red[700]
                         : Colors.blue[700],
                   ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      status!,
+                      widget.status!,
                       style: TextStyle(
-                        color: status!.startsWith('✅')
+                        color: widget.status!.startsWith('✅')
                           ? Colors.green[700]
-                          : status!.startsWith('❌') || status!.startsWith('⚠️')
+                          : widget.status!.startsWith('❌') || widget.status!.startsWith('⚠️')
                             ? Colors.red[700]
                             : Colors.blue[700],
                       ),
@@ -851,6 +867,91 @@ class _MaintenancePanel extends StatelessWidget {
                     icon: const Icon(Icons.analytics),
                     label: const Text('View Stats'),
                   ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      final confirmed = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('Clear Workspace'),
+                          content: const Text('This will remove all nodes and outcomes but keep the dictionary intact. Continue?'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(ctx).pop(false),
+                              child: const Text('Cancel'),
+                            ),
+                            ElevatedButton(
+                              onPressed: () => Navigator.of(ctx).pop(true),
+                              child: const Text('Clear'),
+                            ),
+                          ],
+                        ),
+                      );
+                      
+                      if (confirmed == true) {
+                        try {
+                          final response = await ApiClient.I().post('/admin/clear-nodes');
+                          if (response.statusCode == 200) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Workspace cleared (nodes/outcomes only)')),
+                            );
+                          }
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Clear failed: $e')),
+                          );
+                        }
+                      }
+                    },
+                    icon: const Icon(Icons.cleaning_services),
+                    label: const Text('Clear workspace (keep dictionary)'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CalculatorPanel extends StatelessWidget {
+  const _CalculatorPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Calculator',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Navigate through decision trees and find diagnostic outcomes.',
+              style: TextStyle(color: Colors.grey),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                ElevatedButton.icon(
+                  onPressed: () => context.go('/calculator'),
+                  icon: const Icon(Icons.calculate_outlined),
+                  label: const Text('Open Calculator'),
                 ),
               ],
             ),

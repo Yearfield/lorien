@@ -4,11 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
+import '../../../core/api_config.dart';
 
 class CalculatorScreen extends StatefulWidget {
   final String baseUrl;
   final http.Client? client;
-  const CalculatorScreen({super.key, this.baseUrl = 'http://127.0.0.1:8000', this.client});
+  const CalculatorScreen({super.key, this.baseUrl = ApiConfig.baseUrl, this.client});
   @override State<CalculatorScreen> createState() => _CalculatorScreenState();
 }
 
@@ -149,7 +150,13 @@ class _CalculatorScreenState extends State<CalculatorScreen> with AutomaticKeepA
         title: const Text('Calculator'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/workspace'),
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            } else {
+              context.go('/workspace');
+            }
+          },
         ),
         actions: [
           IconButton(icon: const Icon(Icons.refresh), tooltip: 'Reload roots', onPressed: ()=> _loadRoots()),

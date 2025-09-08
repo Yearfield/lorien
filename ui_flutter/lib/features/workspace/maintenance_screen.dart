@@ -22,7 +22,7 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
   String? _message;
   String? _error;
 
-  Map<String, int> _stats = {"nodes":0,"roots":0,"leaves":0,"complete_paths":0,"incomplete_parents":0};
+  Map<String, int> _stats = {"nodes":0,"roots":0,"leaves":0,"complete_paths":0,"incomplete_parents":0,"root_nodes":0,"root_labels":0};
 
   http.Client get _http => widget.client ?? http.Client();
 
@@ -38,6 +38,8 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
             "leaves": (m["leaves"] as num).toInt(),
             "complete_paths": (m["complete_paths"] as num).toInt(),
             "incomplete_parents": (m["incomplete_parents"] as num).toInt(),
+            "root_nodes": (m["root_nodes"] as num?)?.toInt() ?? (m["roots"] as num).toInt(),
+            "root_labels": (m["root_labels"] as num?)?.toInt() ?? (m["roots"] as num).toInt(),
           };
         });
       } else {
@@ -65,6 +67,43 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
       setState(() { _loading = false; });
     }
     await _loadStats();
+  }
+
+  Future<void> _confirmClearNodes() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Clear Workspace'),
+        content: const Text('This will remove all nodes and outcomes but keep the dictionary intact. Continue?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Clear'),
+          ),
+        ],
+      ),
+    );
+    
+    if (confirmed == true) {
+      setState(() { _loading = true; _error = null; _message = null; });
+      try {
+        final resp = await _http.post(Uri.parse('${widget.baseUrl}/api/v1/admin/clear-nodes'));
+        if (resp.statusCode == 200) {
+          setState(() { _message = 'Workspace cleared (nodes/outcomes only)'; });
+        } else {
+          setState(() { _error = 'Clear nodes HTTP ${resp.statusCode}'; });
+        }
+      } catch (e) {
+        setState(() { _error = 'Clear nodes failed: $e'; });
+      } finally {
+        setState(() { _loading = false; });
+      }
+      await _loadStats();
+    }
   }
 
   @override
@@ -95,7 +134,8 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
               spacing: 12, runSpacing: 8,
               children: [
                 Chip(label: Text('Nodes: ${_stats["nodes"]}')),
-                Chip(label: Text('Roots: ${_stats["roots"]}')),
+                Chip(label: Text('Root nodes: ${_stats["root_nodes"]}')),
+                Chip(label: Text('Root labels: ${_stats["root_labels"]}')),
                 Chip(label: Text('Leaves: ${_stats["leaves"]}')),
                 Chip(label: Text('Complete (depth=5): ${_stats["complete_paths"]}')),
                 Chip(label: Text('Incomplete parents: ${_stats["incomplete_parents"]}')),
@@ -119,6 +159,12 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
                 ),
                 const Text('Also clear dictionary'),
               ],
+            ),
+            const SizedBox(height: 8),
+            ElevatedButton.icon(
+              onPressed: _confirmClearNodes,
+              icon: const Icon(Icons.cleaning_services),
+              label: const Text('Clear workspace (keep dictionary)'),
             ),
             const SizedBox(height: 8),
             ElevatedButton.icon(

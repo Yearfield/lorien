@@ -10,7 +10,6 @@ import '../../features/settings/ui/about_status_page.dart';
 import '../../features/workspace/ui/workspace_screen.dart';
 import '../../features/workspace/edit_tree_screen.dart';
 import '../../features/workspace/conflicts_screen.dart';
-import '../../features/workspace/calculator_screen.dart';
 import '../../features/workspace/stats_details_screen.dart';
 import '../../features/workspace/vm_builder_screen.dart';
 
@@ -48,13 +47,13 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/tree-navigator',
       builder: (ctx, st) {
-        return const TreeNavigatorScreen();
+        return const WorkspaceScreen();
       },
     ),
     GoRoute(
       path: '/workspace-calculator',
       builder: (ctx, st) {
-        return const TreeNavigatorScreen();
+        return const CalculatorScreen();
       },
     ),
     GoRoute(

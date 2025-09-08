@@ -77,7 +77,7 @@ class ConflictsService {
     return ConflictItem.fromJson(response.data as Map<String, dynamic>);
   }
 
-  Future<void> jumpToConflictLocation(int conflictId) async {
+  Future<Map<String, dynamic>> jumpToConflictLocation(int conflictId) async {
     final response = await _dio.get('/tree/conflicts/$conflictId/location');
     final data = response.data as Map<String, dynamic>;
 

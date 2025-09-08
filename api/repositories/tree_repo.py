@@ -95,7 +95,13 @@ def upsert_outcome(conn: sqlite3.Connection, node_id: int, triage: str, actions:
 
 def stats(conn: sqlite3.Connection) -> Dict[str, int]:
     nodes = conn.execute("SELECT COUNT(*) AS c FROM nodes").fetchone()["c"]
-    roots = conn.execute("SELECT COUNT(*) AS c FROM nodes WHERE depth=0").fetchone()["c"]
+    root_nodes = conn.execute("SELECT COUNT(*) AS c FROM nodes WHERE parent_id IS NULL").fetchone()["c"]
+    root_labels = conn.execute("""
+        SELECT COUNT(*) AS c FROM (
+            SELECT DISTINCT label FROM nodes 
+            WHERE parent_id IS NULL AND label IS NOT NULL AND TRIM(label)<>'' AND LOWER(label)<>'nan'
+        )
+    """).fetchone()["c"]
     leaves = conn.execute("""
         SELECT COUNT(*) AS c
         FROM nodes n
@@ -116,7 +122,9 @@ def stats(conn: sqlite3.Connection) -> Dict[str, int]:
 
     return {
         "nodes": int(nodes),
-        "roots": int(roots),
+        "roots": int(root_nodes),  # Keep backward compatibility
+        "root_nodes": int(root_nodes),
+        "root_labels": int(root_labels),
         "leaves": int(leaves),
         "complete_paths": int(complete_paths),
         "incomplete_parents": int(incomplete_parents)

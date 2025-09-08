@@ -15,7 +15,7 @@ void main() {
       return http.Response('Not found', 404);
     });
 
-    await tester.pumpWidget(MaterialApp(home: TreeNavigatorScreen(client: client)));
+    await tester.pumpWidget(MaterialApp(home: CalculatorScreen(client: client)));
     await tester.pump();
 
     // Verify the screen loads

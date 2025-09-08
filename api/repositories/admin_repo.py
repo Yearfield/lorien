@@ -66,3 +66,12 @@ def clear_workspace(conn: sqlite3.Connection, include_dictionary: bool = False) 
             summary[tbl] = _count_table(conn, tbl)
 
     return {"ok": True, "dictionary_cleared": dict_cleared, "summary": summary}
+
+def clear_nodes_only(conn: sqlite3.Connection) -> None:
+    """
+    Clear nodes and outcomes only (keeps dictionary tables intact).
+    Used for replace mode imports.
+    """
+    ensure_schema(conn)
+    conn.execute("DELETE FROM outcomes")
+    conn.execute("DELETE FROM nodes")

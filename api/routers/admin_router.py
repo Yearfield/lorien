@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Query, HTTPException
 from fastapi.responses import JSONResponse
 
-from api.db import get_conn, ensure_schema
-from api.repositories.admin_repo import clear_workspace
+from api.db import get_conn, ensure_schema, tx
+from api.repositories.admin_repo import clear_workspace, clear_nodes_only
 from datetime import datetime, timezone
 import re
 
@@ -21,6 +21,16 @@ def admin_clear(include_dictionary: bool = Query(False)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Clear failed: {e}")
 
+@router.post("/admin/clear-nodes")
+def clear_nodes_endpoint():
+    """Clear nodes and outcomes only (keeps dictionary tables intact)."""
+    conn = get_conn()
+    ensure_schema(conn)
+    try:
+        clear_nodes_only(conn)
+        return JSONResponse({"ok": True})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Clear nodes failed: {e}")
 
 def _normalize(s: str) -> str:
     return re.sub(r"\s+", " ", (s or "").strip()).lower()
