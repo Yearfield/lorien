@@ -75,3 +75,36 @@ def clear_nodes_only(conn: sqlite3.Connection) -> None:
     ensure_schema(conn)
     conn.execute("DELETE FROM outcomes")
     conn.execute("DELETE FROM nodes")
+
+
+def hard_reset_nodes(conn: sqlite3.Connection) -> None:
+    """
+    Hard reset: drop and recreate nodes/outcomes tables to guarantee zero remnants.
+    Used for hard_replace mode imports.
+    """
+    ensure_schema(conn)
+    conn.execute("PRAGMA foreign_keys=OFF")
+    try:
+        conn.execute("DROP TABLE IF EXISTS outcomes")
+        conn.execute("DROP TABLE IF EXISTS nodes")
+        # Recreate minimal schema exactly as bootstrap does
+        conn.execute("""
+        CREATE TABLE nodes (
+            id INTEGER PRIMARY KEY,
+            parent_id INTEGER REFERENCES nodes(id) ON DELETE CASCADE,
+            label TEXT,
+            depth INTEGER NOT NULL,
+            slot INTEGER,
+            is_leaf INTEGER DEFAULT 0,
+            UNIQUE(parent_id, slot)
+        )""")
+        conn.execute("""
+        CREATE TABLE outcomes (
+            node_id INTEGER PRIMARY KEY REFERENCES nodes(id) ON DELETE CASCADE,
+            diagnostic_triage TEXT,
+            actions TEXT
+        )""")
+        conn.execute("PRAGMA wal_checkpoint(FULL)")
+        conn.execute("VACUUM")
+    finally:
+        conn.execute("PRAGMA foreign_keys=ON")

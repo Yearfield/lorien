@@ -6,7 +6,7 @@ import numpy as np
 
 from api.db import get_conn, ensure_schema, tx
 from api.repositories.tree_repo import import_dataframe, CANON_HEADERS, sanitize_label
-from api.repositories.admin_repo import clear_nodes_only
+from api.repositories.admin_repo import clear_nodes_only, hard_reset_nodes
 
 router = APIRouter()
 
@@ -70,7 +70,7 @@ async def import_preview(file: UploadFile = File(...)):
     return JSONResponse({"ok": True, "rows": int(df.shape[0]), "roots_detected": uniq, "roots_count": len(uniq)})
 
 @router.post("/import")
-async def import_file(file: UploadFile = File(...), mode: str = Query("append", pattern="^(append|replace)$")):
+async def import_file(file: UploadFile = File(...), mode: str = Query("append", pattern="^(append|replace|hard_replace)$")):
     # Parse file into DataFrame
     try:
         df = _read_table_like(file.file, file.filename)
@@ -104,7 +104,9 @@ async def import_file(file: UploadFile = File(...), mode: str = Query("append", 
     # Normalize column order (in case DataFrame has extra hidden metadata)
     df = df[CANON_HEADERS].copy()
     
-    if mode == "replace":
+    if mode == "hard_replace":
+        hard_reset_nodes(conn)  # drop and recreate tables
+    elif mode == "replace":
         clear_nodes_only(conn)  # keep dictionary & schema intact
     result = import_dataframe(conn, df)
 

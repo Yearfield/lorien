@@ -2,7 +2,6 @@ import 'package:go_router/go_router.dart';
 import '../../features/home/ui/home_screen.dart';
 import '../../features/outcomes/ui/outcomes_list_screen.dart';
 import '../../features/outcomes/ui/outcomes_detail_screen.dart';
-import '../../features/calculator/ui/calculator_screen.dart';
 import '../../features/dictionary/ui/dictionary_screen.dart';
 import '../../features/flags/ui/flags_screen.dart';
 import '../../features/settings/ui/settings_screen.dart';
@@ -26,7 +25,6 @@ final appRouter = GoRouter(
             vm: st.uri.queryParameters['vm'],
           ),
     ),
-    GoRoute(path: '/calculator', builder: (_, __) => const CalculatorScreen()),
     GoRoute(path: '/dictionary', builder: (_, __) => const DictionaryScreen()),
     GoRoute(path: '/flags', builder: (_, __) => const FlagsScreen()),
     GoRoute(path: '/settings', builder: (_, __) => const SettingsScreen()),
@@ -51,17 +49,11 @@ final appRouter = GoRouter(
       },
     ),
     GoRoute(
-      path: '/workspace-calculator',
-      builder: (ctx, st) {
-        return const CalculatorScreen();
-      },
-    ),
-    GoRoute(
       path: '/stats-details',
       builder: (ctx, st) {
         final args = st.extra as Map<String, dynamic>?;
         final type = args?['type'] ?? 'unknown';
-        return StatsDetailsScreen(kind: type);
+        return StatsDetailsScreen(baseUrl: 'http://127.0.0.1:8000', kind: type);
       },
     ),
     GoRoute(

@@ -128,6 +128,45 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
     });
   }
 
+  Future<void> _deleteSelectedParent() async {
+    final pid = _selected!['parent_id'];
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Delete parent?'),
+        content: const Text('This will remove the parent and its subtree. Continue?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    ) ?? false;
+    
+    if (!ok) return;
+    
+    final url = '${widget.baseUrl}/api/v1/tree/$pid';
+    final r = await _http.delete(Uri.parse(url));
+    if (r.statusCode == 200) {
+      // remove from local list and refresh right panel
+      setState(() {
+        _items.removeWhere((p) => p['parent_id'] == pid);
+        _selected = null;
+        _groupChildren = []; // clear shown children
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Parent deleted')));
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Delete failed (${r.statusCode})')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // BACK FIX: guard back to workspace if cannot pop
@@ -156,6 +195,13 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
               }
             },
           ),
+          actions: [
+            IconButton(
+              tooltip: 'Delete selected parent',
+              icon: const Icon(Icons.delete_outline),
+              onPressed: _selected == null ? null : _deleteSelectedParent,
+            ),
+          ],
         ),
         body: Row(
           children: [

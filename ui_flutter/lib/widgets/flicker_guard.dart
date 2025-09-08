@@ -9,17 +9,12 @@ class FlickerGuard extends StatelessWidget {
     required this.child,
     this.repaintKey,
   });
-  
+
   @override
   Widget build(BuildContext context) {
     return RepaintBoundary(
       key: repaintKey,
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 120),
-        switchInCurve: Curves.easeOut,
-        switchOutCurve: Curves.easeIn,
-        child: child,
-      ),
+      child: child,
     );
   }
 }

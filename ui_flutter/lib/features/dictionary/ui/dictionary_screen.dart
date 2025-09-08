@@ -1,6 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
+import 'package:file_selector/file_selector.dart';
+import 'package:cross_file/cross_file.dart';
 import '../../../widgets/layout/scroll_scaffold.dart';
 import '../../../widgets/app_back_leading.dart';
 import '../data/dictionary_repository.dart';
@@ -142,23 +146,61 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
     }
   }
 
-  Future<void> _exportCsv() async {
+  bool _exportBusy = false;
+
+  Future<void> _export(String fmt) async {
+    if (_exportBusy) return;
+    setState(() => _exportBusy = true);
     try {
-      final repo = ref.read(dictionaryRepositoryProvider);
-      await repo.exportCsv(
-        type: _type,
-        query: _query,
-        onlyRedFlags: _onlyRedFlags,
+      final isCsv = fmt == 'csv';
+      final api = ref.read(lorienApiProvider);
+      final baseUrl = api.baseUrl;
+      final url = isCsv
+          ? '$baseUrl/api/v1/dictionary/export'
+          : '$baseUrl/api/v1/dictionary/export.xlsx';
+      
+      final r = await http.get(Uri.parse(url));
+      if (r.statusCode != 200) {
+        final why = r.statusCode == 404 
+            ? 'Endpoint not found: /api/v1/dictionary/export(.xlsx)' 
+            : 'HTTP ${r.statusCode}';
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Export failed ($why)')));
+        return;
+      }
+      
+      final suggested = isCsv ? 'dictionary_export.csv' : 'dictionary_export.xlsx';
+      final loc = await getSaveLocation(
+        suggestedName: suggested,
+        acceptedTypeGroups: [
+          XTypeGroup(
+            label: isCsv ? 'CSV' : 'Excel',
+            extensions: isCsv ? ['csv'] : ['xlsx'],
+          ),
+        ],
       );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('CSV exported successfully')));
-      }
+      if (loc == null) return;
+      
+      final xf = XFile.fromData(
+        r.bodyBytes,
+        name: suggested,
+        mimeType: isCsv 
+            ? 'text/csv' 
+            : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      final file = File(loc.path);
+      await file.writeAsBytes(await xf.readAsBytes());
+      
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Dictionary exported')));
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Export failed: $e')));
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Export error: $e')));
+    } finally {
+      if (mounted) setState(() => _exportBusy = false);
     }
   }
 
@@ -253,9 +295,16 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
       leading: const AppBackLeading(),
       actions: [
         IconButton(
+          key: const Key('btn_dict_export_csv'),
           icon: const Icon(Icons.download),
-          onPressed: _exportCsv,
+          onPressed: _exportBusy ? null : () => _export('csv'),
           tooltip: 'Export CSV',
+        ),
+        IconButton(
+          key: const Key('btn_dict_export_xlsx'),
+          icon: const Icon(Icons.grid_on),
+          onPressed: _exportBusy ? null : () => _export('xlsx'),
+          tooltip: 'Export XLSX',
         ),
         IconButton(
           icon: const Icon(Icons.sync),

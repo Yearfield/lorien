@@ -16,6 +16,7 @@ from .routers.import_jobs import router as import_jobs_router
 from .routers.import_router import router as import_router
 from .routers.tree_stats_router import router as tree_stats_router
 from .routers.tree_export_router import router as tree_export_router
+from .routers.dictionary_export_router import router as dictionary_export_router
 from .routers.admin_router import router as admin_router
 from .routers.tree_edit_router import router as tree_edit_router
 from .routers.tree_list_router import router as tree_list_router
@@ -107,6 +108,7 @@ app.include_router(import_jobs_router, prefix=API_PREFIX)
 app.include_router(import_router, prefix=API_PREFIX)
 app.include_router(tree_stats_router, prefix=API_PREFIX)
 app.include_router(tree_export_router, prefix=API_PREFIX)
+app.include_router(dictionary_export_router, prefix=API_PREFIX)
 app.include_router(admin_router, prefix=API_PREFIX)
 app.include_router(tree_edit_router, prefix=API_PREFIX)
 app.include_router(tree_list_router, prefix=API_PREFIX)
@@ -139,6 +141,7 @@ app.include_router(import_jobs_router)
 app.include_router(import_router)
 app.include_router(tree_stats_router)
 app.include_router(tree_export_router)
+app.include_router(dictionary_export_router)
 app.include_router(admin_router)
 app.include_router(tree_edit_router)
 app.include_router(tree_list_router)

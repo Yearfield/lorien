@@ -2,7 +2,7 @@ from fastapi import APIRouter, Query, HTTPException
 from fastapi.responses import JSONResponse
 
 from api.db import get_conn, ensure_schema, tx
-from api.repositories.admin_repo import clear_workspace, clear_nodes_only
+from api.repositories.admin_repo import clear_workspace, clear_nodes_only, hard_reset_nodes
 from datetime import datetime, timezone
 import re
 
@@ -31,6 +31,36 @@ def clear_nodes_endpoint():
         return JSONResponse({"ok": True})
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Clear nodes failed: {e}")
+
+
+@router.post("/admin/hard-reset-nodes")
+def hard_reset_nodes_endpoint():
+    """Hard reset: drop and recreate nodes/outcomes tables to guarantee zero remnants."""
+    conn = get_conn()
+    ensure_schema(conn)
+    try:
+        hard_reset_nodes(conn)
+        return JSONResponse({"ok": True, "reset": "nodes/outcomes dropped+recreated"})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Hard reset failed: {e}")
+
+
+@router.get("/admin/search-test-labels")
+def search_test_labels(q: str | None = None, limit: int = 50, offset: int = 0):
+    """Search for suspect/test labels in the database."""
+    conn = get_conn()
+    ensure_schema(conn)
+    patterns = ["test%", "%vm%", "bp", "pulse", "high", "low", "a"]  # broaden as needed
+    rows = []
+    if q:
+        cur = conn.execute("SELECT id,label,depth FROM nodes WHERE LOWER(label) LIKE ? ORDER BY depth, label LIMIT ? OFFSET ?",
+                           (f"%{q.lower()}%", limit, offset))
+        rows = [dict(id=r[0], label=r[1], depth=r[2]) for r in cur.fetchall()]
+    else:
+        for pat in patterns:
+            cur = conn.execute("SELECT id,label,depth FROM nodes WHERE LOWER(label) LIKE ? LIMIT 200", (pat.lower(),))
+            rows += [dict(id=r[0], label=r[1], depth=r[2]) for r in cur.fetchall()]
+    return JSONResponse({"items": rows[:limit], "total": len(rows), "limit": limit, "offset": offset})
 
 def _normalize(s: str) -> str:
     return re.sub(r"\s+", " ", (s or "").strip()).lower()

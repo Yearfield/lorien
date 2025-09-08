@@ -124,25 +124,25 @@ class _CompletenessScreenState extends State<CompletenessScreen> with AutomaticK
               children: [
                 InkWell(
                   onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => const StatsDetailsScreen(kind: 'roots'),
+                    builder: (_) => StatsDetailsScreen(baseUrl: widget.baseUrl, kind: 'roots'),
                   )),
                   child: Chip(label: Text('Roots: ${_stats["roots"]}')),
                 ),
                 InkWell(
                   onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => const StatsDetailsScreen(kind: 'leaves'),
+                    builder: (_) => StatsDetailsScreen(baseUrl: widget.baseUrl, kind: 'leaves'),
                   )),
                   child: Chip(label: Text('Leaves: ${_stats["leaves"]}')),
                 ),
                 InkWell(
                   onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => const StatsDetailsScreen(kind: 'leaves'),
+                    builder: (_) => StatsDetailsScreen(baseUrl: widget.baseUrl, kind: 'leaves'),
                   )),
                   child: Chip(label: Text('Complete paths (depth=5): ${_stats["complete_paths"]}')),
                 ),
                 InkWell(
                   onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => const StatsDetailsScreen(kind: 'incomplete'),
+                    builder: (_) => StatsDetailsScreen(baseUrl: widget.baseUrl, kind: 'incomplete'),
                   )),
                   child: Chip(label: Text('Incomplete parents: ${_stats["incomplete_parents"]}')),
                 ),

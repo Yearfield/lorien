@@ -11,6 +11,8 @@ import '../../../widgets/app_back_leading.dart';
 import '../../../widgets/calc_export_dialog.dart';
 import '../../../state/health_provider.dart';
 import '../data/workspace_models.dart';
+import '../export_panel.dart';
+import '../stats_details_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class WorkspaceScreen extends ConsumerStatefulWidget {
@@ -313,24 +315,31 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
   Future<void> _viewStats() async {
     try {
       final res = await ApiClient.I().getJson('tree/stats');
+      final progress = await ApiClient.I().getJson('tree/progress');
       if (!mounted) return;
       showDialog(
         context: context,
         builder: (context) {
           return AlertDialog(
             title: const Text('Database Statistics'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Wrap(spacing: 8, runSpacing: 8, children: [
-                  Chip(label: Text('Nodes: ${res['nodes']}')),
-                  Chip(label: Text('Roots: ${res['roots']}')),
-                  Chip(label: Text('Leaves: ${res['leaves']}')),
-                  Chip(label: Text('Complete paths: ${res['complete_paths']}')),
-                  Chip(label: Text('Incomplete parents: ${res['incomplete_parents']}')),
-                ]),
-              ],
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(spacing: 8, runSpacing: 8, children: [
+                    _buildClickableChip('Nodes: ${res['nodes']}', () => _openDetails('nodes')),
+                    _buildClickableChip('Roots: ${res['roots']}', () => _openDetails('roots')),
+                    _buildClickableChip('Leaves: ${res['leaves']}', () => _openDetails('leaves')),
+                    _buildClickableChip('Complete paths: ${res['complete_paths']}', () => _openDetails('complete_paths')),
+                    _buildClickableChip('Complete parents: ${progress['complete_parents'] ?? 0}', () => _openDetails('complete5')),
+                    _buildClickableChip('Incomplete parents (<4): ${progress['incomplete_lt4'] ?? 0}', () => _openDetails('incomplete_lt4')),
+                    _buildClickableChip('Saturated: ${progress['saturated_parents'] ?? 0}', () => _openDetails('saturated')),
+                  ]),
+                  const SizedBox(height: 16),
+                  _buildProgressBars(progress),
+                ],
+              ),
             ),
             actions: [
               TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close')),
@@ -349,6 +358,70 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
         ),
       );
     }
+  }
+
+  Widget _buildClickableChip(String label, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      child: Chip(
+        label: Text(label),
+        backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+      ),
+    );
+  }
+
+  Widget _buildProgressBars(Map<String, dynamic> progress) {
+    final totalParents = (progress['parents_total'] ?? 0) as int;
+    int v(String k) => (progress[k] ?? 0) as int;
+    
+    List<Widget> bars = [
+      _buildProgressBar('Complete parents (same)', v('complete_parents_same'), totalParents, color: Colors.green),
+      _buildProgressBar('Complete parents (different)', v('complete_parents_diff'), totalParents, color: Colors.teal),
+      _buildProgressBar('Incomplete parents (<4)', v('incomplete_lt4'), totalParents, color: Colors.orange),
+      _buildProgressBar('Saturated parents (>5)', v('saturated_parents'), totalParents, color: Colors.red),
+      _buildProgressBar('Complete branches', v('complete_branches'), v('leaves'), color: Colors.blue),
+      _buildProgressBar('Triage filled', v('triage_filled'), v('complete_branches'), color: Colors.indigo),
+      _buildProgressBar('Actions filled', v('actions_filled'), v('complete_branches'), color: Colors.purple),
+    ];
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Progress Analytics', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 8),
+        ...bars,
+      ],
+    );
+  }
+
+  Widget _buildProgressBar(String label, int n, int d, {Color? color}) {
+    final pct = d > 0 ? n / d : 0.0;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('$label: $n / $d'),
+          LinearProgressIndicator(
+            value: pct.clamp(0, 1),
+            minHeight: 8,
+            backgroundColor: Colors.grey[300],
+            valueColor: AlwaysStoppedAnimation<Color>(color ?? Colors.blue),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openDetails(String kind) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => StatsDetailsScreen(
+          baseUrl: ApiClient.I().baseUrl,
+          kind: kind,
+        ),
+      ),
+    );
   }
 
   Future<void> _restoreFromBackup() async {
@@ -501,8 +574,6 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
         const SizedBox(height: 24),
         _EditTreePanel(),
         const SizedBox(height: 24),
-        _CalculatorPanel(),
-        const SizedBox(height: 24),
         _VMBuilderPanel(),
         const SizedBox(height: 24),
         _MaintenancePanel(
@@ -512,7 +583,22 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
           onViewStats: _viewStats,
         ),
         const SizedBox(height: 24),
-        _ExportPanel(onExportCsv: _exportCsv, onExportXlsx: _exportXlsx, csvSupported: _csvSupported),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Export Data',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 12),
+                ExportPanel(baseUrl: ApiClient.I().baseUrl),
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -679,37 +765,6 @@ class _ImportPanelState extends State<_ImportPanel> {
   }
 }
 
-class _ExportPanel extends StatelessWidget {
-  const _ExportPanel({super.key, required this.onExportCsv, required this.onExportXlsx, required this.csvSupported});
-  final VoidCallback onExportCsv;
-  final VoidCallback onExportXlsx;
-  final bool csvSupported;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Export Data', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 12),
-          Row(children: [
-            Expanded(child: Tooltip(
-              message: csvSupported ? 'Export to CSV' : 'CSV not supported by server',
-              child: ElevatedButton.icon(
-                onPressed: (csvSupported) ? onExportCsv : null,
-                icon: const Icon(Icons.download),
-                label: const Text('Export CSV'),
-              ),
-            )),
-            const SizedBox(width: 16),
-            Expanded(child: ElevatedButton.icon(onPressed: onExportXlsx, icon: const Icon(Icons.download), label: const Text('Export XLSX'))),
-          ]),
-        ]),
-      ),
-    );
-  }
-}
 
 class _EditTreePanel extends StatelessWidget {
   const _EditTreePanel();
@@ -736,6 +791,7 @@ class _EditTreePanel extends StatelessWidget {
               children: [
                 Expanded(
                   child: ElevatedButton.icon(
+                    key: const Key('btn_fix_incomplete'),
                     onPressed: () => context.go('/edit-tree'),
                     icon: const Icon(Icons.edit),
                     label: const Text('Fix Incomplete Parents'),
@@ -744,6 +800,7 @@ class _EditTreePanel extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: ElevatedButton.icon(
+                    key: const Key('btn_conflicts'),
                     onPressed: () => context.go('/conflicts'),
                     icon: const Icon(Icons.warning),
                     label: const Text('Fix Same parent BUT different children'),
@@ -781,6 +838,7 @@ class _VMBuilderPanel extends StatelessWidget {
             Row(
               children: [
                 ElevatedButton.icon(
+                  key: const Key('btn_open_vm_builder'),
                   onPressed: () => context.go('/vm-builder'),
                   icon: const Icon(Icons.account_tree_outlined),
                   label: const Text('Open VM Builder'),
@@ -829,6 +887,7 @@ class _MaintenancePanel extends StatelessWidget {
               children: [
                 Expanded(
                   child: ElevatedButton.icon(
+                    key: const Key('btn_integrity_check'),
                     onPressed: onIntegrityCheck,
                     icon: const Icon(Icons.check_circle_outline),
                     label: const Text('Integrity Check'),
@@ -840,6 +899,7 @@ class _MaintenancePanel extends StatelessWidget {
                 const SizedBox(width: 16),
                 Expanded(
                   child: ElevatedButton.icon(
+                    key: const Key('btn_create_backup'),
                     onPressed: onCreateBackup,
                     icon: const Icon(Icons.backup),
                     label: const Text('Create Backup'),
@@ -852,6 +912,7 @@ class _MaintenancePanel extends StatelessWidget {
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
+                    key: const Key('btn_restore_backup'),
                     onPressed: onRestoreBackup,
                     icon: const Icon(Icons.restore),
                     label: const Text('Restore Backup'),
@@ -863,6 +924,7 @@ class _MaintenancePanel extends StatelessWidget {
                 const SizedBox(width: 16),
                 Expanded(
                   child: OutlinedButton.icon(
+                    key: const Key('btn_view_stats'),
                     onPressed: onViewStats,
                     icon: const Icon(Icons.analytics),
                     label: const Text('View Stats'),
@@ -875,6 +937,7 @@ class _MaintenancePanel extends StatelessWidget {
               children: [
                 Expanded(
                   child: ElevatedButton.icon(
+                    key: const Key('btn_clear_workspace'),
                     onPressed: () async {
                       final confirmed = await showDialog<bool>(
                         context: context,
@@ -925,39 +988,3 @@ class _MaintenancePanel extends StatelessWidget {
   }
 }
 
-class _CalculatorPanel extends StatelessWidget {
-  const _CalculatorPanel();
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Calculator',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Navigate through decision trees and find diagnostic outcomes.',
-              style: TextStyle(color: Colors.grey),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                ElevatedButton.icon(
-                  onPressed: () => context.go('/calculator'),
-                  icon: const Icon(Icons.calculate_outlined),
-                  label: const Text('Open Calculator'),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

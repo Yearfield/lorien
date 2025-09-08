@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../features/tree/data/tree_api.dart';
+import '../../../core/api_config.dart';
+import '../../../features/workspace/calculator_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -42,7 +44,11 @@ class HomeScreen extends ConsumerWidget {
             _NavigationTile(
               title: 'Calculator',
               icon: Icons.calculate,
-              onTap: () => context.go('/calculator'),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => CalculatorScreen(baseUrl: ApiConfig.baseUrl),
+                ),
+              ),
             ),
             _NavigationTile(
               title: 'Outcomes',

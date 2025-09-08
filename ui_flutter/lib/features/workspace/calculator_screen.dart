@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
-import '../../../core/api_config.dart';
+import '../../core/api_config.dart';
 
 class CalculatorScreen extends StatefulWidget {
   final String baseUrl;
@@ -154,7 +154,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> with AutomaticKeepA
             if (Navigator.of(context).canPop()) {
               Navigator.of(context).pop();
             } else {
-              context.go('/workspace');
+              Navigator.of(context).pushNamedAndRemoveUntil('/home', (_) => false);
             }
           },
         ),

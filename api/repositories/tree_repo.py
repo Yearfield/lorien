@@ -1,9 +1,16 @@
 from typing import Optional, Tuple, Dict, Any, List
 import sqlite3
 import math
+import csv
+import io
 from api.db import get_conn, ensure_schema, tx
 from collections import defaultdict
 from api.repositories.validators import ensure_unique_5
+
+try:
+    import openpyxl  # ensure dependency exists
+except Exception:
+    openpyxl = None
 
 CANON_HEADERS = [
     "Vital Measurement","Node 1","Node 2","Node 3","Node 4","Node 5",
@@ -843,3 +850,187 @@ def apply_default_children_for_label(conn: sqlite3.Connection, label: str, chose
                         created += 1
             updated += 1
     return {"ok": True, "label": label, "parents_updated": updated, "children_created": created, "children_deleted": deleted, "children_moved": moved}
+
+
+def _clean_label(s):
+    if s is None: return None
+    t = str(s).strip()
+    if t == "" or t.lower() == "nan": return None
+    return t
+
+
+def progress_stats(conn) -> Dict[str, int]:
+    """Counts per parent with detailed progress analytics."""
+    q = """
+    WITH ch AS (
+      SELECT parent_id AS pid, COUNT(*) AS c
+      FROM nodes WHERE parent_id IS NOT NULL
+      GROUP BY parent_id
+    ),
+    parents AS (
+      SELECT n.id, n.label, COALESCE(ch.c,0) AS child_count
+      FROM nodes n LEFT JOIN ch ON ch.pid = n.id
+    ),
+    complete5 AS (
+      SELECT p.id, p.label
+      FROM parents p WHERE p.child_count = 5
+    ),
+    sig AS (
+      -- signature of 5 children as ordered label tuple (slot 1..5)
+      SELECT c.parent_id AS pid,
+             GROUP_CONCAT(COALESCE(nc.label,''), '||') FILTER (WHERE 1) AS sig
+      FROM nodes c
+      JOIN nodes nc ON nc.id = c.id
+      WHERE c.parent_id IN (SELECT id FROM complete5)
+      GROUP BY c.parent_id
+    ),
+    sig_by_label AS (
+      SELECT n.label AS plabel, s.sig, COUNT(*) AS cnt
+      FROM sig s JOIN nodes n ON n.id = s.pid
+      GROUP BY n.label, s.sig
+    ),
+    labels_distinct_sig AS (
+      SELECT plabel, COUNT(DISTINCT sig) AS sigs, SUM(cnt) AS parents_in_label
+      FROM sig_by_label
+      GROUP BY plabel
+    )
+    SELECT
+      (SELECT COUNT(*) FROM nodes WHERE parent_id IS NULL AND label IS NOT NULL)                                       AS roots,
+      (SELECT COUNT(*) FROM nodes)                                                                                    AS nodes,
+      (SELECT COUNT(*) FROM nodes n LEFT JOIN nodes c ON c.parent_id = n.id WHERE c.id IS NULL)                       AS leaves,
+      (SELECT COUNT(*) FROM nodes n WHERE EXISTS(SELECT 1 FROM nodes c WHERE c.parent_id = n.id))                     AS parents_total,
+      (SELECT COUNT(*) FROM parents WHERE child_count > 5)                                                            AS saturated_parents,
+      (SELECT COUNT(*) FROM parents WHERE child_count < 4)                                                            AS incomplete_lt4,
+      (SELECT COUNT(*) FROM parents WHERE child_count = 5)                                                            AS complete_parents,
+      (SELECT SUM(CASE WHEN sigs=1 THEN parents_in_label ELSE 0 END) FROM labels_distinct_sig)                        AS complete_parents_same,
+      (SELECT SUM(CASE WHEN sigs>1 THEN parents_in_label ELSE 0 END) FROM labels_distinct_sig)                        AS complete_parents_diff,
+      (SELECT COUNT(*) FROM nodes n WHERE n.depth=5)                                                                  AS complete_branches,
+      (SELECT COUNT(*) FROM outcomes o JOIN nodes n ON n.id=o.node_id WHERE n.depth=5 AND o.diagnostic_triage IS NOT NULL AND TRIM(o.diagnostic_triage)!='') AS triage_filled,
+      (SELECT COUNT(*) FROM outcomes o JOIN nodes n ON n.id=o.node_id WHERE n.depth=5 AND o.actions IS NOT NULL AND TRIM(o.actions)!='')                         AS actions_filled
+    """
+    row = conn.execute(q).fetchone()
+    keys = ["roots","nodes","leaves","parents_total","saturated_parents","incomplete_lt4","complete_parents",
+            "complete_parents_same","complete_parents_diff","complete_branches","triage_filled","actions_filled"]
+    return {k: int(row[i]) if row[i] is not None else 0 for i,k in enumerate(keys)}
+
+
+def parents_query(conn, filt: str, limit: int, offset: int, q: str|None) -> Dict[str, Any]:
+    """Query parents with various filters."""
+    where = []
+    if filt in ("complete_same","complete_diff","incomplete_lt4","saturated","complete5","all"):
+        pass
+    else:
+        filt = "all"
+    
+    # precompute child counts per parent
+    base = """
+    WITH ch AS (
+      SELECT parent_id AS pid, COUNT(*) AS c
+      FROM nodes WHERE parent_id IS NOT NULL
+      GROUP BY parent_id
+    ),
+    parents AS (
+      SELECT n.id, n.label, n.depth, COALESCE(ch.c,0) AS child_count
+      FROM nodes n LEFT JOIN ch ON ch.pid = n.id
+    ),
+    complete5 AS ( SELECT * FROM parents WHERE child_count=5 ),
+    sig AS (
+      SELECT c.parent_id AS pid, GROUP_CONCAT(COALESCE(nc.label,''), '||') AS sig
+      FROM nodes c JOIN nodes nc ON nc.id=c.id
+      WHERE c.parent_id IN (SELECT id FROM complete5)
+      GROUP BY c.parent_id
+    ),
+    p5 AS (
+      SELECT p.id, p.label, p.depth, p.child_count, s.sig
+      FROM complete5 p JOIN sig s ON s.pid = p.id
+    ),
+    sig_by_label AS (
+      SELECT p.label AS plabel, p.sig, COUNT(*) AS cnt
+      FROM p5 p GROUP BY p.label, p.sig
+    ),
+    labels_sigs AS (
+      SELECT plabel, COUNT(DISTINCT sig) AS sigs
+      FROM sig_by_label
+      GROUP BY plabel
+    )
+    SELECT * FROM (
+      SELECT p.id, p.label, p.depth, p.child_count,
+             CASE WHEN p.child_count=5 THEN
+                (SELECT ls.sigs FROM labels_sigs ls WHERE ls.plabel=p.label)
+             ELSE NULL END AS label_sigs
+      FROM parents p
+    ) WHERE 1=1
+    """
+    
+    if filt == "incomplete_lt4":
+        where.append("child_count < 4")
+    elif filt == "saturated":
+        where.append("child_count > 5")
+    elif filt == "complete_same":
+        where.append("child_count = 5 AND IFNULL(label_sigs,1)=1")
+    elif filt == "complete_diff":
+        where.append("child_count = 5 AND IFNULL(label_sigs,1)>1")
+    elif filt == "complete5":
+        where.append("child_count = 5")
+    
+    # search
+    params = []
+    if q:
+        where.append("LOWER(label) LIKE ?")
+        params.append(f"%{q.lower()}%")
+    
+    where_sql = (" AND ".join(where)) if where else "1=1"
+    total = conn.execute(f"SELECT COUNT(*) FROM ({base}) WHERE {where_sql}", params).fetchone()[0]
+    rows = conn.execute(f"SELECT * FROM ({base}) WHERE {where_sql} ORDER BY depth, label LIMIT ? OFFSET ?", params+[limit, offset]).fetchall()
+    items = [{"id": r[0], "label": r[1], "depth": r[2], "child_count": r[3], "label_sigs": r[4]} for r in rows]
+    return {"items": items, "total": int(total), "limit": limit, "offset": offset}
+
+
+CANON = ["Vital Measurement","Node 1","Node 2","Node 3","Node 4","Node 5","Diagnostic Triage","Actions"]
+
+def _normalize_export_items(rows):
+    """
+    Accepts either:
+      - {'items':[{'Vital Measurement':..., ...}], 'total': ...}
+      - a list[dict]
+    Returns a list[dict] aligned to CANON keys (missing -> "")
+    """
+    if isinstance(rows, dict) and "items" in rows:
+        data = rows["items"]
+    else:
+        data = rows
+
+    out = []
+    for r in data:
+        row = {}
+        for k in CANON:
+            row[k] = (r.get(k) if isinstance(r, dict) else "") or ""
+        out.append(row)
+    return out
+
+def export_rows_csv(conn) -> bytes:
+    """Export tree data as CSV bytes."""
+    rows = export_rows(conn)  # existing function returning list of dicts in canonical order
+    items = _normalize_export_items(rows)
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(CANON)
+    for r in items:
+        w.writerow([r[k] for k in CANON])
+    return buf.getvalue().encode("utf-8")
+
+
+def export_rows_xlsx(conn) -> bytes:
+    """Export tree data as XLSX bytes."""
+    if openpyxl is None:
+        raise RuntimeError("openpyxl required for xlsx export")
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(CANON)
+    rows = export_rows(conn)
+    items = _normalize_export_items(rows)
+    for r in items:
+        ws.append([r[k] for k in CANON])
+    out = io.BytesIO()
+    wb.save(out)
+    return out.getvalue()
