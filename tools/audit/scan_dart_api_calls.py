@@ -3,7 +3,8 @@ import os, re, json
 from typing import List, Dict, Set, Tuple
 import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _util import UI_ROOT
+from _util import ROOT
+UI_ROOT = os.path.join(ROOT, "ui_flutter", "lib")
 
 HTTP_RE = re.compile(r"""Uri\.parse\(\s*['"](?P<url>[^'"]+)['"]\s*\)""")
 RAW_PATH_RE = re.compile(r"""['"](/api/v1/[^'"]+|/[a-zA-Z0-9][^'"]+)['"]""")

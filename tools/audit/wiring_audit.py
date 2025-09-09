@@ -3,10 +3,14 @@ from typing import List, Dict, Any, Tuple, Set
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _util import import_fastapi_app, ROUTE_EXCLUDES
+from _util import import_app
+
+ROUTE_EXCLUDES = (
+    "/openapi.json", "/docs", "/redoc", "/docs/oauth2-redirect"
+)
 
 def collect_routes() -> List[Dict[str,Any]]:
-    app = import_fastapi_app()
+    app = import_app()
     out = []
     for r in app.routes:
         path = getattr(r, "path", None) or getattr(r, "path_format", None)

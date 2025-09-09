@@ -3,7 +3,7 @@ import os, json, datetime
 from typing import Dict, Any, List
 import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _util import REPO_ROOT, run
+from _util import ROOT as REPO_ROOT, run
 from wiring_audit import collect_routes, map_dual_mount
 from scan_dart_api_calls import scan_dart
 from check_dual_mount import run_check as dual_check
