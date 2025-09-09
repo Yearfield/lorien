@@ -60,7 +60,8 @@ class DictionarySuggestionsOverlay extends ConsumerWidget {
                   onDismiss();
                 },
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   child: Row(
                     children: [
                       Icon(
@@ -119,8 +120,8 @@ class DictionarySuggestionsOverlay extends ConsumerWidget {
             Text(
               'Failed to load suggestions',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.error,
-              ),
+                    color: Theme.of(context).colorScheme.error,
+                  ),
             ),
           ],
         ),

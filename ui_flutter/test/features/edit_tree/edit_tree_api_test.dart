@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http_mock_adapter/http_mock_adapter.dart';
-import '../../../lib/api/lorien_api.dart';
-import '../../../lib/data/api_client.dart';
+import 'package:lorien/api/lorien_api.dart';
+import 'package:lorien/data/api_client.dart';
 
 void main() {
   late DioAdapter dioAdapter;
@@ -22,9 +22,24 @@ void main() {
         'version': 7,
         'missing_slots': [2, 4],
         'children': [
-          {'slot': 1, 'node_id': 456, 'label': 'Fever', 'updated_at': '2025-01-01T12:00:00Z'},
-          {'slot': 2, 'node_id': 0, 'label': '', 'updated_at': '2025-01-01T12:00:00Z'},
-          {'slot': 3, 'node_id': 789, 'label': 'High', 'updated_at': '2025-01-01T12:00:00Z'},
+          {
+            'slot': 1,
+            'node_id': 456,
+            'label': 'Fever',
+            'updated_at': '2025-01-01T12:00:00Z'
+          },
+          {
+            'slot': 2,
+            'node_id': 0,
+            'label': '',
+            'updated_at': '2025-01-01T12:00:00Z'
+          },
+          {
+            'slot': 3,
+            'node_id': 789,
+            'label': 'High',
+            'updated_at': '2025-01-01T12:00:00Z'
+          },
         ],
         'path': {
           'node_id': 123,
@@ -82,7 +97,11 @@ void main() {
         ]
       });
 
-      final body = {'children': [{'slot': 2, 'label': 'New Label'}]};
+      final body = {
+        'children': [
+          {'slot': 2, 'label': 'New Label'}
+        ]
+      };
 
       expect(
         () => api.updateParentChildren(123, body),
@@ -101,7 +120,11 @@ void main() {
         ]
       });
 
-      final body = {'children': [{'slot': 1, 'label': 'Very long label that exceeds word limit'}]};
+      final body = {
+        'children': [
+          {'slot': 1, 'label': 'Very long label that exceeds word limit'}
+        ]
+      };
 
       expect(
         () => api.updateParentChildren(123, body),

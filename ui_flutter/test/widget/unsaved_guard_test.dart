@@ -32,7 +32,7 @@ void main() {
             appBar: AppBar(
               leading: const BackButton(),
             ),
-            body: ParentDetailScreen(parentId: 1),
+            body: const ParentDetailScreen(parentId: 1),
           ),
         ),
       ),

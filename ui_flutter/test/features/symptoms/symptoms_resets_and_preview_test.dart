@@ -4,9 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import 'package:http_mock_adapter/http_mock_adapter.dart';
 import 'package:mockito/mockito.dart';
-import '../../../lib/features/symptoms/ui/symptoms_screen.dart';
-import '../../../lib/features/symptoms/data/symptoms_repository.dart';
-import '../../../lib/core/http/api_client.dart';
+import 'package:lorien/features/symptoms/ui/symptoms_screen.dart';
+import 'package:lorien/core/http/api_client.dart';
 
 class MockDio extends Mock implements Dio {}
 
@@ -29,19 +28,21 @@ void main() {
 
   testWidgets('Selections reset when root changes', (tester) async {
     // Mock initial roots response
-    dioAdapter.onGet('/tree/roots',
-      (server) => server.reply(200, ['Root A', 'Root B']));
+    dioAdapter.onGet(
+        '/tree/roots', (server) => server.reply(200, ['Root A', 'Root B']));
 
     // Mock options response when root changes
-    dioAdapter.onGet('/calc/options',
-      (server) => server.reply(200, {
-        'n1': ['Option 1A', 'Option 1B'],
-        'n2': [],
-        'n3': [],
-        'n4': [],
-        'n5': [],
-        'remaining': 10
-      }), queryParameters: {'root': 'Root A'});
+    dioAdapter.onGet(
+        '/calc/options',
+        (server) => server.reply(200, {
+              'n1': ['Option 1A', 'Option 1B'],
+              'n2': [],
+              'n3': [],
+              'n4': [],
+              'n5': [],
+              'remaining': 10
+            }),
+        queryParameters: {'root': 'Root A'});
 
     await tester.pumpWidget(
       ProviderScope(
@@ -76,31 +77,31 @@ void main() {
 
   testWidgets('Leaf preview shows when at leaf', (tester) async {
     // Mock responses
-    dioAdapter.onGet('/tree/roots',
-      (server) => server.reply(200, ['Root A']));
+    dioAdapter.onGet('/tree/roots', (server) => server.reply(200, ['Root A']));
 
-    dioAdapter.onGet('/calc/options',
-      (server) => server.reply(200, {
-        'n1': ['Option 1A'],
-        'n2': ['Option 2A'],
-        'n3': ['Option 3A'],
-        'n4': ['Option 4A'],
-        'n5': ['Option 5A'],
-        'remaining': 1,
-        'leaf_id': '123'
-      }), queryParameters: {
-        'root': 'Root A',
-        'n1': 'Option 1A',
-        'n2': 'Option 2A',
-        'n3': 'Option 3A',
-        'n4': 'Option 4A'
-      });
+    dioAdapter.onGet(
+        '/calc/options',
+        (server) => server.reply(200, {
+              'n1': ['Option 1A'],
+              'n2': ['Option 2A'],
+              'n3': ['Option 3A'],
+              'n4': ['Option 4A'],
+              'n5': ['Option 5A'],
+              'remaining': 1,
+              'leaf_id': '123'
+            }),
+        queryParameters: {
+          'root': 'Root A',
+          'n1': 'Option 1A',
+          'n2': 'Option 2A',
+          'n3': 'Option 3A',
+          'n4': 'Option 4A'
+        });
 
-    dioAdapter.onGet('/triage/123',
-      (server) => server.reply(200, {
-        'diagnostic_triage': 'Test triage',
-        'actions': 'Test actions'
-      }));
+    dioAdapter.onGet(
+        '/triage/123',
+        (server) => server.reply(200,
+            {'diagnostic_triage': 'Test triage', 'actions': 'Test actions'}));
 
     await tester.pumpWidget(
       ProviderScope(

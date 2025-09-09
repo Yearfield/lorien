@@ -30,7 +30,8 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          healthControllerProvider.overrideWith(() => TestHealthController(mockHealth)),
+          healthControllerProvider
+              .overrideWith(() => TestHealthController(mockHealth)),
         ],
         child: const MaterialApp(
           home: OutcomesDetailScreen(outcomeId: 'test'),
@@ -42,7 +43,8 @@ void main() {
 
     // Verify disabled message is shown
     expect(find.text('LLM Features Disabled'), findsOneWidget);
-    expect(find.textContaining('disabled by server configuration'), findsOneWidget);
+    expect(find.textContaining('disabled by server configuration'),
+        findsOneWidget);
     expect(find.byIcon(Icons.auto_awesome), findsOneWidget);
   });
 
@@ -59,7 +61,8 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          healthControllerProvider.overrideWith(() => TestHealthController(mockHealth)),
+          healthControllerProvider
+              .overrideWith(() => TestHealthController(mockHealth)),
         ],
         child: const MaterialApp(
           home: OutcomesDetailScreen(outcomeId: 'test'),

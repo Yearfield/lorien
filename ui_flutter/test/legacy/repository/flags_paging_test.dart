@@ -20,7 +20,9 @@ void main() {
       // Arrange
       final mockResponse = Response(
         data: {
-          'items': [{'id': 1, 'label': 'Test Flag'}],
+          'items': [
+            {'id': 1, 'label': 'Test Flag'}
+          ],
           'total': 1,
           'limit': 10,
           'offset': 0,

@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../api/lorien_api.dart';
 import '../../../providers/lorien_api_provider.dart';
@@ -21,8 +20,12 @@ class OutcomesApi {
   }
 
   Future<Map<String, dynamic>> copyFromVm(String vm) async {
-    final res = await _api.client.getJson('triage/search',
-        query: {'vm': vm, 'leaf_only': true, 'sort': 'updated_at:desc', 'limit': 1});
+    final res = await _api.client.getJson('triage/search', query: {
+      'vm': vm,
+      'leaf_only': true,
+      'sort': 'updated_at:desc',
+      'limit': 1
+    });
     return res;
   }
 

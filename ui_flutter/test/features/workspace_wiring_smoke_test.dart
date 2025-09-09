@@ -4,7 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ui_flutter/features/workspace/ui/workspace_screen.dart';
 
 void main() {
-  testWidgets('Workspace shows Replace toggle & Calculator button', (tester) async {
+  testWidgets('Workspace shows Replace toggle & Calculator button',
+      (tester) async {
     await tester.pumpWidget(
       const ProviderScope(
         child: MaterialApp(
@@ -12,7 +13,7 @@ void main() {
         ),
       ),
     );
-    
+
     expect(find.textContaining('Replace existing data'), findsOneWidget);
     expect(find.text('Open Calculator'), findsOneWidget);
     expect(find.text('Clear workspace (keep dictionary)'), findsOneWidget);

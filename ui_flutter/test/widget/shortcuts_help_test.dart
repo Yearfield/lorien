@@ -9,25 +9,18 @@ void main() {
   testWidgets('Ctrl+/ opens Help dialog', (tester) async {
     final r = GoRouter(routes: [
       GoRoute(
-        path: '/',
-        builder: (_, __) => const NavShortcuts(
-          child: AppScaffold(
-            title: 'Test', 
-            body: SizedBox()
-          )
-        )
-      )
+          path: '/',
+          builder: (_, __) => const NavShortcuts(
+              child: AppScaffold(title: 'Test', body: SizedBox())))
     ]);
-    
-    await tester.pumpWidget(
-      MaterialApp.router(routerConfig: r)
-    );
-    
+
+    await tester.pumpWidget(MaterialApp.router(routerConfig: r));
+
     await tester.sendKeyDownEvent(LogicalKeyboardKey.control);
     await tester.sendKeyEvent(LogicalKeyboardKey.slash);
     await tester.sendKeyUpEvent(LogicalKeyboardKey.control);
     await tester.pumpAndSettle();
-    
+
     expect(find.text('Keyboard Shortcuts'), findsOneWidget);
   });
 }

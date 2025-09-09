@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import '../../../lib/core/services/health_service.dart';
-import '../../../lib/shared/widgets/connected_badge.dart';
+import 'package:lorien/core/services/health_service.dart';
+import 'package:lorien/shared/widgets/connected_badge.dart';
 
 void main() {
   group('LlmBadge', () {
@@ -70,7 +70,8 @@ void main() {
       expect(find.text('LLM: Ready'), findsOneWidget);
     });
 
-    testWidgets('shows Unavailable when LLM is enabled but not ready', (tester) async {
+    testWidgets('shows Unavailable when LLM is enabled but not ready',
+        (tester) async {
       final container = ProviderContainer(
         overrides: [
           llmHealthProvider.overrideWithValue({

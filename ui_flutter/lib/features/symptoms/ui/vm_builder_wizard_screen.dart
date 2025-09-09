@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../widgets/layout/scroll_scaffold.dart';
 import '../../../widgets/app_back_leading.dart';
 import '../data/vm_builder_service.dart';
 import '../data/vm_builder_models.dart';
-import '../data/materialization_service.dart';
 
 class VmBuilderWizardScreen extends ConsumerStatefulWidget {
   const VmBuilderWizardScreen({super.key});
 
   @override
-  ConsumerState<VmBuilderWizardScreen> createState() => _VmBuilderWizardScreenState();
+  ConsumerState<VmBuilderWizardScreen> createState() =>
+      _VmBuilderWizardScreenState();
 }
 
 class _VmBuilderWizardScreenState extends ConsumerState<VmBuilderWizardScreen> {
@@ -31,7 +30,8 @@ class _VmBuilderWizardScreenState extends ConsumerState<VmBuilderWizardScreen> {
 
   // Step 3: Node configuration
   VitalMeasurementDraft? _selectedVM;
-  final List<TextEditingController> _nodeControllers = List.generate(5, (_) => TextEditingController());
+  final List<TextEditingController> _nodeControllers =
+      List.generate(5, (_) => TextEditingController());
   bool _autoGenerateNodes = true;
 
   // Step 4: Review and validation
@@ -161,7 +161,7 @@ class _VmBuilderWizardScreenState extends ConsumerState<VmBuilderWizardScreen> {
 
     // Check for duplicates
     final exists = _existingVMs.contains(label) ||
-                   _vitalMeasurements.any((vm) => vm.label == label);
+        _vitalMeasurements.any((vm) => vm.label == label);
 
     if (exists) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -204,7 +204,8 @@ class _VmBuilderWizardScreenState extends ConsumerState<VmBuilderWizardScreen> {
       case 2:
         return true; // Node configuration is optional
       case 3:
-        return _validationResult?.isValid == true && _duplicateResult?.hasDuplicates == false;
+        return _validationResult?.isValid == true &&
+            _duplicateResult?.hasDuplicates == false;
       default:
         return false;
     }
@@ -274,7 +275,7 @@ class _VmBuilderWizardScreenState extends ConsumerState<VmBuilderWizardScreen> {
                 labelText: 'Select Template',
                 border: OutlineInputBorder(),
               ),
-              value: _selectedTemplate,
+              initialValue: _selectedTemplate,
               items: _availableTemplates.map((template) {
                 return DropdownMenuItem(
                   value: template['id'] as String,
@@ -321,7 +322,8 @@ class _VmBuilderWizardScreenState extends ConsumerState<VmBuilderWizardScreen> {
         ),
         const SizedBox(height: 16),
         if (_vitalMeasurements.isNotEmpty) ...[
-          const Text('Added Vital Measurements:', style: TextStyle(fontWeight: FontWeight.bold)),
+          const Text('Added Vital Measurements:',
+              style: TextStyle(fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           Container(
             constraints: const BoxConstraints(maxHeight: 200),
@@ -347,7 +349,8 @@ class _VmBuilderWizardScreenState extends ConsumerState<VmBuilderWizardScreen> {
         ],
         if (_existingVMs.isNotEmpty) ...[
           const SizedBox(height: 16),
-          const Text('Existing Vital Measurements:', style: TextStyle(fontWeight: FontWeight.bold)),
+          const Text('Existing Vital Measurements:',
+              style: TextStyle(fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -381,7 +384,8 @@ class _VmBuilderWizardScreenState extends ConsumerState<VmBuilderWizardScreen> {
         ),
         if (!_autoGenerateNodes) ...[
           const SizedBox(height: 16),
-          const Text('Configure Node 1 for each Vital Measurement:', style: TextStyle(fontWeight: FontWeight.bold)),
+          const Text('Configure Node 1 for each Vital Measurement:',
+              style: TextStyle(fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           ...List.generate(_vitalMeasurements.length, (index) {
             final vm = _vitalMeasurements[index];
@@ -391,7 +395,8 @@ class _VmBuilderWizardScreenState extends ConsumerState<VmBuilderWizardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(vm.label, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    Text(vm.label,
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
                     ...List.generate(5, (nodeIndex) {
                       return Padding(
@@ -414,8 +419,10 @@ class _VmBuilderWizardScreenState extends ConsumerState<VmBuilderWizardScreen> {
                                 ),
                               ));
                             }
-                            nodes[nodeIndex] = nodes[nodeIndex].copyWith(label: value);
-                            _vitalMeasurements[index] = vm.copyWith(nodes: nodes);
+                            nodes[nodeIndex] =
+                                nodes[nodeIndex].copyWith(label: value);
+                            _vitalMeasurements[index] =
+                                vm.copyWith(nodes: nodes);
                           },
                         ),
                       );
@@ -468,20 +475,27 @@ class _VmBuilderWizardScreenState extends ConsumerState<VmBuilderWizardScreen> {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  _validationResult!.isValid ? 'Validation Passed' : 'Validation Failed',
+                  _validationResult!.isValid
+                      ? 'Validation Passed'
+                      : 'Validation Failed',
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ],
             ),
-            if (_validationResult!.errors != null && _validationResult!.errors!.isNotEmpty) ...[
+            if (_validationResult!.errors != null &&
+                _validationResult!.errors!.isNotEmpty) ...[
               const SizedBox(height: 8),
-              const Text('Errors:', style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text('Errors:',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
               ..._validationResult!.errors!.map((error) => Text('• $error')),
             ],
-            if (_duplicateResult != null && _duplicateResult!.hasDuplicates) ...[
+            if (_duplicateResult != null &&
+                _duplicateResult!.hasDuplicates) ...[
               const SizedBox(height: 8),
-              const Text('Duplicates:', style: TextStyle(fontWeight: FontWeight.bold)),
-              ..._duplicateResult!.duplicateLabels!.map((label) => Text('• $label')),
+              const Text('Duplicates:',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              ..._duplicateResult!.duplicateLabels!
+                  .map((label) => Text('• $label')),
             ],
           ],
         ),
@@ -496,7 +510,8 @@ class _VmBuilderWizardScreenState extends ConsumerState<VmBuilderWizardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Draft Summary', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text('Draft Summary',
+                style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Text('Sheet Name: ${_sheetNameController.text}'),
             Text('Vital Measurements: ${_vitalMeasurements.length}'),
@@ -558,14 +573,17 @@ class _VmBuilderWizardScreenState extends ConsumerState<VmBuilderWizardScreen> {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  result.success ? 'Sheet Created Successfully!' : 'Creation Failed',
+                  result.success
+                      ? 'Sheet Created Successfully!'
+                      : 'Creation Failed',
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ],
             ),
             if (result.materializationResult != null) ...[
               const SizedBox(height: 16),
-              const Text('Materialization Results:', style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text('Materialization Results:',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
               Text('Added: ${result.materializationResult!.added}'),
               Text('Filled: ${result.materializationResult!.filled}'),
               Text('Pruned: ${result.materializationResult!.pruned}'),
@@ -573,7 +591,8 @@ class _VmBuilderWizardScreenState extends ConsumerState<VmBuilderWizardScreen> {
             ],
             if (result.errors != null && result.errors!.isNotEmpty) ...[
               const SizedBox(height: 16),
-              const Text('Errors:', style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text('Errors:',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
               ...result.errors!.map((error) => Text('• $error')),
             ],
           ],

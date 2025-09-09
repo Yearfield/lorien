@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../lib/features/edit_tree/ui/edit_tree_screen.dart';
+import 'package:lorien/features/edit_tree/ui/edit_tree_screen.dart';
 
 void main() {
-
   testWidgets('should switch layout based on screen width', (tester) async {
     // Test wide layout (split pane)
     await tester.binding.setSurfaceSize(const Size(1200, 800));
@@ -31,7 +30,8 @@ void main() {
     expect(find.byType(LayoutBuilder), findsOneWidget);
   });
 
-  testWidgets('should have LayoutBuilder for responsive behavior', (tester) async {
+  testWidgets('should have LayoutBuilder for responsive behavior',
+      (tester) async {
     await tester.binding.setSurfaceSize(const Size(1000, 600));
 
     await tester.pumpWidget(

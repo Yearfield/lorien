@@ -27,7 +27,9 @@ void main() {
     expect(find.byType(TextFormField), findsNWidgets(5)); // Should have 5 slots
   });
 
-  testWidgets('validation dialog shows when trying to save invalid children count', (tester) async {
+  testWidgets(
+      'validation dialog shows when trying to save invalid children count',
+      (tester) async {
     await tester.pumpWidget(
       const ProviderScope(
         child: MaterialApp(

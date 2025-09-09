@@ -5,7 +5,7 @@ class StableList extends StatelessWidget {
   final IndexedWidgetBuilder itemBuilder;
   final EdgeInsetsGeometry? padding;
   final Key? storageKey;
-  
+
   const StableList({
     super.key,
     required this.itemCount,
@@ -13,7 +13,7 @@ class StableList extends StatelessWidget {
     this.padding,
     this.storageKey,
   });
-  
+
   @override
   Widget build(BuildContext context) {
     return RepaintBoundary(

@@ -1,10 +1,9 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http_mock_adapter/http_mock_adapter.dart';
-import '../../lib/api/lorien_api.dart';
-import '../../lib/data/api_client.dart';
-import '../../lib/providers/lorien_api_provider.dart';
+import 'package:lorien/api/lorien_api.dart';
+import 'package:lorien/data/api_client.dart';
+import 'package:lorien/providers/lorien_api_provider.dart';
 
 void main() {
   late DioAdapter dioAdapter;
@@ -33,11 +32,7 @@ void main() {
       dioAdapter.onGet('/health').reply(200, {
         'ok': true,
         'version': '6.8.0-beta.1',
-        'db': {
-          'path': '/tmp/lorien.db',
-          'wal': true,
-          'foreign_keys': true
-        },
+        'db': {'path': '/tmp/lorien.db', 'wal': true, 'foreign_keys': true},
         'features': {'llm': false}
       });
 
@@ -50,11 +45,8 @@ void main() {
     });
 
     test('LLM health endpoint integration', () async {
-      dioAdapter.onGet('/llm/health').reply(503, {
-        'ok': false,
-        'ready': false,
-        'checked_at': '2025-01-01T12:00:00Z'
-      });
+      dioAdapter.onGet('/llm/health').reply(503,
+          {'ok': false, 'ready': false, 'checked_at': '2025-01-01T12:00:00Z'});
 
       final llmHealth = await api.llmHealth();
 
@@ -69,8 +61,18 @@ void main() {
         'version': 7,
         'missing_slots': [2, 4],
         'children': [
-          {'slot': 1, 'node_id': 456, 'label': 'Fever', 'updated_at': '2025-01-01T12:00:00Z'},
-          {'slot': 2, 'node_id': 0, 'label': '', 'updated_at': '2025-01-01T12:00:00Z'},
+          {
+            'slot': 1,
+            'node_id': 456,
+            'label': 'Fever',
+            'updated_at': '2025-01-01T12:00:00Z'
+          },
+          {
+            'slot': 2,
+            'node_id': 0,
+            'label': '',
+            'updated_at': '2025-01-01T12:00:00Z'
+          },
         ],
         'path': {
           'node_id': 123,
@@ -94,9 +96,11 @@ void main() {
     });
 
     test('Dictionary suggestions integration', () async {
-      dioAdapter.onGet('/dictionary',
-          queryParameters: {'type': 'node_label', 'query': 'fe', 'limit': 10}
-      ).reply(200, [
+      dioAdapter.onGet('/dictionary', queryParameters: {
+        'type': 'node_label',
+        'query': 'fe',
+        'limit': 10
+      }).reply(200, [
         {'id': 1, 'term': 'Fever'},
         {'id': 2, 'term': 'Feverish'},
       ]);
@@ -109,7 +113,8 @@ void main() {
     });
 
     test('Tree path integration', () async {
-      dioAdapter.onGet('/tree/path', queryParameters: {'node_id': 456}).reply(200, {
+      dioAdapter
+          .onGet('/tree/path', queryParameters: {'node_id': 456}).reply(200, {
         'node_id': 456,
         'is_leaf': true,
         'depth': 5,

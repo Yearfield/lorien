@@ -15,7 +15,8 @@ class SessionService {
   }
 
   Future<SessionImportResult> importSession(SessionExport sessionData) async {
-    final response = await _dio.post('/session/import', data: sessionData.toJson());
+    final response =
+        await _dio.post('/session/import', data: sessionData.toJson());
     return SessionImportResult.fromJson(response.data as Map<String, dynamic>);
   }
 
@@ -27,17 +28,21 @@ class SessionService {
   Future<List<WorkbookSnapshot>> getWorkbookList() async {
     final response = await _dio.get('/session/workbooks');
     final data = response.data as List<dynamic>;
-    return data.map((item) => WorkbookSnapshot.fromJson(item as Map<String, dynamic>)).toList();
+    return data
+        .map((item) => WorkbookSnapshot.fromJson(item as Map<String, dynamic>))
+        .toList();
   }
 
-  Future<CsvPreview> previewCsv(String filePath, {bool hasHeaders = true}) async {
+  Future<CsvPreview> previewCsv(String filePath,
+      {bool hasHeaders = true}) async {
     final params = <String, dynamic>{'has_headers': hasHeaders};
     final response = await _dio.post('/session/csv-preview',
         data: {'file_path': filePath}, queryParameters: params);
     return CsvPreview.fromJson(response.data as Map<String, dynamic>);
   }
 
-  Future<CsvImportResult> importCsv(String filePath, Map<String, String> headerMapping,
+  Future<CsvImportResult> importCsv(
+      String filePath, Map<String, String> headerMapping,
       {bool hasHeaders = true, String? sheetName}) async {
     final data = {
       'file_path': filePath,
@@ -49,15 +54,17 @@ class SessionService {
     return CsvImportResult.fromJson(response.data as Map<String, dynamic>);
   }
 
-  Future<Map<String, String>> suggestHeaderMapping(List<String> csvHeaders) async {
-    final response = await _dio.post('/session/suggest-headers',
-        data: {'headers': csvHeaders});
+  Future<Map<String, String>> suggestHeaderMapping(
+      List<String> csvHeaders) async {
+    final response = await _dio
+        .post('/session/suggest-headers', data: {'headers': csvHeaders});
     return (response.data as Map<String, dynamic>).cast<String, String>();
   }
 
   Future<PushLogSummary> getPushLog({int limit = 50, int offset = 0}) async {
     final params = <String, dynamic>{'limit': limit, 'offset': offset};
-    final response = await _dio.get('/session/push-log', queryParameters: params);
+    final response =
+        await _dio.get('/session/push-log', queryParameters: params);
     return PushLogSummary.fromJson(response.data as Map<String, dynamic>);
   }
 
@@ -91,12 +98,14 @@ class SessionService {
   }
 
   Future<List<String>> validateSessionImport(SessionExport data) async {
-    final response = await _dio.post('/session/validate-import', data: data.toJson());
+    final response =
+        await _dio.post('/session/validate-import', data: data.toJson());
     return (response.data as List<dynamic>).cast<String>();
   }
 
   Future<Map<String, dynamic>> getImportConflicts(SessionExport data) async {
-    final response = await _dio.post('/session/import-conflicts', data: data.toJson());
+    final response =
+        await _dio.post('/session/import-conflicts', data: data.toJson());
     return response.data as Map<String, dynamic>;
   }
 

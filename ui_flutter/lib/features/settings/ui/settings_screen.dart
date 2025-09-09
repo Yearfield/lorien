@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import '../../../core/services/health_service.dart';
 import '../../../shared/widgets/connected_badge.dart';
-import '../../../shared/widgets/app_scaffold.dart';
 import '../../../widgets/layout/scroll_scaffold.dart';
 import '../../../widgets/app_back_leading.dart';
 
@@ -26,7 +25,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Timer? _healthCheckTimer;
   ConnectivityResult _connectivity = ConnectivityResult.none;
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
-  List<String> _connectionHistory = [];
+  final List<String> _connectionHistory = [];
   DateTime? _lastSuccessfulConnection;
   Map<String, dynamic>? _serverInfo;
 
@@ -46,16 +45,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     // Monitor connectivity changes
     _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
-      (results) => setState(() => _connectivity = results.isNotEmpty ? results.first : ConnectivityResult.none),
-    );
+          (results) => setState(() => _connectivity =
+              results.isNotEmpty ? results.first : ConnectivityResult.none),
+        );
 
     // Auto health check every 30 seconds
     _startHealthMonitoring();
 
     // Get initial connectivity
     Connectivity().checkConnectivity().then(
-      (results) => setState(() => _connectivity = results.isNotEmpty ? results.first : ConnectivityResult.none),
-    );
+          (results) => setState(() => _connectivity =
+              results.isNotEmpty ? results.first : ConnectivityResult.none),
+        );
   }
 
   @override
@@ -88,7 +89,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             _lastSuccessfulConnection = DateTime.now();
             _serverInfo = res.serverInfo;
           }
-          _connectionHistory.add('${DateTime.now().toIso8601String()}: ${res.statusCode}');
+          _connectionHistory
+              .add('${DateTime.now().toIso8601String()}: ${res.statusCode}');
           if (_connectionHistory.length > 10) {
             _connectionHistory.removeAt(0);
           }
@@ -122,7 +124,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           if (res.statusCode == 200) {
             _lastSuccessfulConnection = DateTime.now();
             _serverInfo = res.serverInfo;
-            _connectionHistory.add('${DateTime.now().toIso8601String()}: ${res.statusCode} (${_responseTime})');
+            _connectionHistory.add(
+                '${DateTime.now().toIso8601String()}: ${res.statusCode} ($_responseTime)');
             if (_connectionHistory.length > 10) {
               _connectionHistory.removeAt(0);
             }
@@ -135,7 +138,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         setState(() {
           _responseTime = '${stopwatch.elapsedMilliseconds}ms';
           _busy = false;
-          _connectionHistory.add('${DateTime.now().toIso8601String()}: ERROR (${_responseTime})');
+          _connectionHistory.add(
+              '${DateTime.now().toIso8601String()}: ERROR ($_responseTime)');
           if (_connectionHistory.length > 10) {
             _connectionHistory.removeAt(0);
           }
@@ -170,9 +174,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return ScrollScaffold(
       title: 'Settings',
       leading: const AppBackLeading(),
-      actions: [
+      actions: const [
         Padding(
-          padding: const EdgeInsets.all(8),
+          padding: EdgeInsets.all(8),
           child: ConnectedBadge(),
         ),
       ],
@@ -262,7 +266,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 const SizedBox(height: 12),
 
                 // URL Templates
-                const Text('Quick Setup:', style: TextStyle(fontWeight: FontWeight.w500)),
+                const Text('Quick Setup:',
+                    style: TextStyle(fontWeight: FontWeight.w500)),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
@@ -287,7 +292,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             ? const SizedBox(
                                 width: 16,
                                 height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
                               )
                             : const Icon(Icons.network_check),
                         label: Text(_busy ? 'Testing...' : 'Test Connection'),
@@ -328,7 +334,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           child: Text(
                             _code == 200 ? 'Connected' : 'Connection Failed',
                             style: TextStyle(
-                              color: _code == 200 ? Colors.green[800] : Colors.red[800],
+                              color: _code == 200
+                                  ? Colors.green[800]
+                                  : Colors.red[800],
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -336,7 +344,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         if (_responseTime != null)
                           Text(
                             _responseTime!,
-                            style: const TextStyle(fontSize: 12, color: Colors.grey),
+                            style: const TextStyle(
+                                fontSize: 12, color: Colors.grey),
                           ),
                       ],
                     ),
@@ -363,35 +372,42 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                   const SizedBox(height: 12),
                   DefaultTextStyle.merge(
-                    style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                    style:
+                        const TextStyle(fontFamily: 'monospace', fontSize: 12),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
-                            const Text('URL: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                            const Text('URL: ',
+                                style: TextStyle(fontWeight: FontWeight.bold)),
                             Expanded(child: Text(_testedUrl!)),
                             IconButton(
                               icon: const Icon(Icons.copy, size: 16),
-                              onPressed: () => Clipboard.setData(ClipboardData(text: _testedUrl!)),
+                              onPressed: () => Clipboard.setData(
+                                  ClipboardData(text: _testedUrl!)),
                               tooltip: 'Copy URL',
                             ),
                           ],
                         ),
                         Row(
                           children: [
-                            const Text('HTTP: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                            const Text('HTTP: ',
+                                style: TextStyle(fontWeight: FontWeight.bold)),
                             Text('${_code ?? 'N/A'}'),
                             if (_responseTime != null) ...[
                               const SizedBox(width: 16),
-                              const Text('Response: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                              const Text('Response: ',
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold)),
                               Text(_responseTime!),
                             ],
                           ],
                         ),
                         if (_snippet != null && _snippet!.isNotEmpty) ...[
                           const SizedBox(height: 8),
-                          const Text('Response: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                          const Text('Response: ',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
                           Container(
                             width: double.infinity,
                             padding: const EdgeInsets.all(8),
@@ -410,7 +426,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                   if (_serverInfo != null) ...[
                     const SizedBox(height: 16),
-                    const Text('Server Info:', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const Text('Server Info:',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
                     ..._serverInfo!.entries.map((entry) {
                       return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 2),
@@ -439,7 +456,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 const SizedBox(height: 12),
                 SwitchListTile(
                   title: const Text('Auto Health Check'),
-                  subtitle: const Text('Automatically test connection every 30 seconds'),
+                  subtitle: const Text(
+                      'Automatically test connection every 30 seconds'),
                   value: _autoTest,
                   onChanged: (value) {
                     setState(() => _autoTest = value);
@@ -452,9 +470,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
-                  onPressed: () => setState(() => _showAdvanced = !_showAdvanced),
-                  icon: Icon(_showAdvanced ? Icons.expand_less : Icons.expand_more),
-                  label: Text(_showAdvanced ? 'Hide Advanced' : 'Show Advanced'),
+                  onPressed: () =>
+                      setState(() => _showAdvanced = !_showAdvanced),
+                  icon: Icon(
+                      _showAdvanced ? Icons.expand_less : Icons.expand_more),
+                  label:
+                      Text(_showAdvanced ? 'Hide Advanced' : 'Show Advanced'),
                 ),
                 if (_showAdvanced) ...[
                   const SizedBox(height: 16),
@@ -476,12 +497,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         : ListView.builder(
                             itemCount: _connectionHistory.length,
                             itemBuilder: (context, index) {
-                              final entry = _connectionHistory[_connectionHistory.length - 1 - index];
+                              final entry = _connectionHistory[
+                                  _connectionHistory.length - 1 - index];
                               return Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 4),
                                 child: Text(
                                   entry,
-                                  style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+                                  style: const TextStyle(
+                                      fontSize: 12, fontFamily: 'monospace'),
                                 ),
                               );
                             },
@@ -498,7 +522,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       const Spacer(),
                       Text(
                         '${_connectionHistory.length} entries',
-                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                        style:
+                            const TextStyle(fontSize: 12, color: Colors.grey),
                       ),
                     ],
                   ),
@@ -527,10 +552,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   style: TextStyle(fontWeight: FontWeight.w500),
                 ),
                 const SizedBox(height: 8),
-                _buildHelpItem('Local Development', 'http://127.0.0.1:8000/api/v1'),
-                _buildHelpItem('Android Emulator', 'http://10.0.2.2:8000/api/v1'),
+                _buildHelpItem(
+                    'Local Development', 'http://127.0.0.1:8000/api/v1'),
+                _buildHelpItem(
+                    'Android Emulator', 'http://10.0.2.2:8000/api/v1'),
                 _buildHelpItem('iOS Simulator', 'http://127.0.0.1:8000/api/v1'),
-                _buildHelpItem('LAN/Network', 'http://192.168.1.xxx:8000/api/v1'),
+                _buildHelpItem(
+                    'LAN/Network', 'http://192.168.1.xxx:8000/api/v1'),
                 const SizedBox(height: 12),
                 const Text(
                   'Note: Replace xxx with your server\'s IP address on the local network.',
@@ -553,7 +581,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
+                Text(label,
+                    style: const TextStyle(fontWeight: FontWeight.w500)),
                 Text(
                   url,
                   style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),

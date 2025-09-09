@@ -18,8 +18,10 @@ class MaterializationService {
       'safe_prune': safePrune,
     };
 
-    final response = await _dio.post('/tree/parent/$parentId/materialize', queryParameters: params);
-    return MaterializationResult.fromJson(response.data as Map<String, dynamic>);
+    final response = await _dio.post('/tree/parent/$parentId/materialize',
+        queryParameters: params);
+    return MaterializationResult.fromJson(
+        response.data as Map<String, dynamic>);
   }
 
   Future<MaterializationResult> materializeMultipleParents(
@@ -33,8 +35,10 @@ class MaterializationService {
       'parent_ids': parentIds.join(','),
     };
 
-    final response = await _dio.post('/tree/materialize-batch', queryParameters: params);
-    return MaterializationResult.fromJson(response.data as Map<String, dynamic>);
+    final response =
+        await _dio.post('/tree/materialize-batch', queryParameters: params);
+    return MaterializationResult.fromJson(
+        response.data as Map<String, dynamic>);
   }
 
   Future<MaterializationResult> materializeAllIncomplete({
@@ -46,8 +50,10 @@ class MaterializationService {
       'safe_prune': safePrune,
     };
 
-    final response = await _dio.post('/tree/materialize-all', queryParameters: params);
-    return MaterializationResult.fromJson(response.data as Map<String, dynamic>);
+    final response =
+        await _dio.post('/tree/materialize-all', queryParameters: params);
+    return MaterializationResult.fromJson(
+        response.data as Map<String, dynamic>);
   }
 
   Future<List<MaterializationHistoryItem>> getMaterializationHistory({
@@ -59,9 +65,13 @@ class MaterializationService {
       'offset': offset,
     };
 
-    final response = await _dio.get('/tree/materialization-history', queryParameters: params);
+    final response = await _dio.get('/tree/materialization-history',
+        queryParameters: params);
     final data = response.data as List<dynamic>;
-    return data.map((item) => MaterializationHistoryItem.fromJson(item as Map<String, dynamic>)).toList();
+    return data
+        .map((item) =>
+            MaterializationHistoryItem.fromJson(item as Map<String, dynamic>))
+        .toList();
   }
 
   Future<void> undoLastMaterialization() async {
@@ -78,8 +88,11 @@ class MaterializationService {
       'safe_prune': safePrune,
     };
 
-    final response = await _dio.get('/tree/parent/$parentId/materialize-preview', queryParameters: params);
-    return MaterializationPreview.fromJson(response.data as Map<String, dynamic>);
+    final response = await _dio.get(
+        '/tree/parent/$parentId/materialize-preview',
+        queryParameters: params);
+    return MaterializationPreview.fromJson(
+        response.data as Map<String, dynamic>);
   }
 
   Future<MaterializationStats> getMaterializationStats() async {

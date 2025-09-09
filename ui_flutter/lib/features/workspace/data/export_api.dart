@@ -17,7 +17,8 @@ class WorkspaceApi {
       return Map<String, dynamic>.from(r.data);
     } on DioException catch (e) {
       if (e.response?.statusCode == 404) {
-        final r = await _dio.post('/import/excel', data: form); // legacy fallback
+        final r =
+            await _dio.post('/import/excel', data: form); // legacy fallback
         return Map<String, dynamic>.from(r.data);
       }
       rethrow;

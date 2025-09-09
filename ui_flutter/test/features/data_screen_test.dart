@@ -11,21 +11,22 @@ void main() {
     final payload = {
       "items": [
         {
-          "Vital Measurement":"BP",
-          "Node 1":"High",
-          "Node 2":"Headache",
-          "Node 3":"",
-          "Node 4":"",
-          "Node 5":"",
-          "Diagnostic Triage":"Emergent",
-          "Actions":"IV labetalol"
+          "Vital Measurement": "BP",
+          "Node 1": "High",
+          "Node 2": "Headache",
+          "Node 3": "",
+          "Node 4": "",
+          "Node 5": "",
+          "Diagnostic Triage": "Emergent",
+          "Actions": "IV labetalol"
         }
       ],
       "total": 1,
       "limit": 10,
       "offset": 0
     };
-    final mock = MockClient((req) async => http.Response(jsonEncode(payload), 200));
+    final mock =
+        MockClient((req) async => http.Response(jsonEncode(payload), 200));
 
     await tester.pumpWidget(MaterialApp(home: DataScreen(client: mock)));
     await tester.pump(); // let FutureBuilder/fetch settle

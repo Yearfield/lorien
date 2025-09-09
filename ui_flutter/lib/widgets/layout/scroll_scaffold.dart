@@ -24,7 +24,8 @@ class ScrollScaffold extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(title),
-        leading: leading ?? const AppBackLeading(), // Home on root, Back on child
+        leading:
+            leading ?? const AppBackLeading(), // Home on root, Back on child
       ),
       body: ListView(
         padding: padding,
@@ -35,7 +36,8 @@ class ScrollScaffold extends StatelessWidget {
           : SafeArea(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                child: Row(children: _withGaps(actions, const SizedBox(width: 8))),
+                child:
+                    Row(children: _withGaps(actions, const SizedBox(width: 8))),
               ),
             ),
     );

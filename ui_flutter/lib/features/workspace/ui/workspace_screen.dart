@@ -32,7 +32,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
 
   // Enhanced status tracking
   ImportJob? _currentImportJob;
-  List<ImportJob> _importHistory = [];
+  final List<ImportJob> _importHistory = [];
   BackupRestoreStatus? _backupStatus;
 
   @override
@@ -59,12 +59,14 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
 
   Future<void> _importFile(String path, {required bool isExcel}) async {
     // Gate behind health check
-    final health = await ref.read(healthControllerProvider.future)
+    final health = await ref
+        .read(healthControllerProvider.future)
         .timeout(const Duration(seconds: 2), onTimeout: () => null);
     _apiAvailable = health?.ok == true;
     if (!_apiAvailable) {
       setState(() {
-        _status = '❌ API is offline at ${ApiClient.I().baseUrl}. Start the server or update Settings → API Base URL.';
+        _status =
+            '❌ API is offline at ${ApiClient.I().baseUrl}. Start the server or update Settings → API Base URL.';
       });
       return;
     }
@@ -94,7 +96,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
           if (!mounted) return;
           if (total > 0) {
             final percent = ((sent / total) * 100).toInt();
-            setState(() => _status = 'Uploading $fileName... ${percent}%');
+            setState(() => _status = 'Uploading $fileName... $percent%');
           }
         },
       );
@@ -107,12 +109,16 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
         final sp = await SharedPreferences.getInstance();
         final fileName = path.split('/').last;
         await sp.setString('workspace_last_uploaded_file', fileName);
-        if (mounted) setState(() { _lastUploadedFileName = fileName; });
+        if (mounted) {
+          setState(() {
+            _lastUploadedFileName = fileName;
+          });
+        }
       } catch (_) {}
-
-    } on ApiUnavailable catch (e) {
+    } on ApiUnavailable {
       setState(() {
-        _status = '❌ Connection failed: Could not reach ${ApiClient.I().baseUrl}. Is the server running?';
+        _status =
+            '❌ Connection failed: Could not reach ${ApiClient.I().baseUrl}. Is the server running?';
         _apiAvailable = false;
       });
     } on ApiFailure catch (e) {
@@ -125,7 +131,8 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
       } else if (e.statusCode == 500) {
         setState(() => _status = '❌ Server error: Please try again later');
       } else {
-        setState(() => _status = '❌ Import failed (${e.statusCode ?? 'error'}): ${e.message}');
+        setState(() => _status =
+            '❌ Import failed (${e.statusCode ?? 'error'}): ${e.message}');
       }
     } catch (e) {
       final errorMsg = e.toString();
@@ -137,7 +144,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
 
   Future<void> _onPickExcelCsv() async {
     try {
-      final typeGroup = XTypeGroup(
+      const typeGroup = XTypeGroup(
         label: 'Spreadsheets',
         extensions: ['xlsx', 'xls', 'csv'],
       );
@@ -153,7 +160,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
 
   Future<void> _onPickCsv() async {
     try {
-      final typeGroup = XTypeGroup(
+      const typeGroup = XTypeGroup(
         label: 'CSV Files',
         extensions: ['csv'],
       );
@@ -167,7 +174,8 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
   }
 
   // Helper to build calculator payload for CSV export
-  Future<Map<String, dynamic>> _buildCalcPayloadOrPrompt(BuildContext context) async {
+  Future<Map<String, dynamic>> _buildCalcPayloadOrPrompt(
+      BuildContext context) async {
     // For now, return a minimal payload structure
     // In a real implementation, this would prompt the user for diagnosis and node values
     return {
@@ -185,17 +193,22 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
   Future<void> _detectCsvSupported() async {
     try {
       final health = await ref.read(healthControllerProvider.future);
-      if (health != null && health.features.csvExport != false) { // true or absent -> optimistic
+      if (health != null && health.features.csvExport != false) {
+        // true or absent -> optimistic
         _csvSupported = health.features.csvExport == true;
         _checkedFromFeatures = true;
       }
     } catch (_) {/* ignore; fall through */}
     if (!_checkedFromFeatures) {
       // Fallback probe if features key absent
-      try { await ApiClient.I().head('export/csv'); _csvSupported = true; }
-      catch (_) { _csvSupported = false; }
+      try {
+        await ApiClient.I().head('export/csv');
+        _csvSupported = true;
+      } catch (_) {
+        _csvSupported = false;
+      }
     }
-    if (mounted) setState((){});
+    if (mounted) setState(() {});
   }
 
   String _enhance422ErrorMessage(String originalMessage, dynamic errorData) {
@@ -203,7 +216,8 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
 
     try {
       // Parse header validation errors
-      if (errorData is Map<String, dynamic> && errorData.containsKey('header_errors')) {
+      if (errorData is Map<String, dynamic> &&
+          errorData.containsKey('header_errors')) {
         final headerErrors = errorData['header_errors'] as List<dynamic>;
         if (headerErrors.isNotEmpty) {
           final error = headerErrors.first as Map<String, dynamic>;
@@ -213,8 +227,8 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
           final received = error['received'] ?? '';
 
           return 'Header mismatch at row $row, column $col. '
-                 'Expected: ${expected.join(', ')}, Received: $received. '
-                 '${originalMessage}';
+              'Expected: ${expected.join(', ')}, Received: $received. '
+              '$originalMessage';
         }
       }
     } catch (e) {
@@ -240,7 +254,8 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
         if (passed) {
           setState(() => _status = '✅ Integrity check passed');
         } else {
-          setState(() => _status = '⚠️ Integrity issues found: ${issues.length} issues');
+          setState(() =>
+              _status = '⚠️ Integrity issues found: ${issues.length} issues');
           // Show detailed issues dialog
           _showIntegrityIssuesDialog(issues);
         }
@@ -265,9 +280,9 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
               const Text('The following integrity issues were detected:'),
               const SizedBox(height: 8),
               ...issues.map((issue) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2),
-                child: Text('• ${issue.toString()}'),
-              )),
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Text('• ${issue.toString()}'),
+                  )),
               const SizedBox(height: 16),
               const Text(
                 'Consider creating a backup before proceeding with any repairs.',
@@ -328,13 +343,24 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Wrap(spacing: 8, runSpacing: 8, children: [
-                    _buildClickableChip('Nodes: ${res['nodes']}', () => _openDetails('nodes')),
-                    _buildClickableChip('Roots: ${res['roots']}', () => _openDetails('roots')),
-                    _buildClickableChip('Leaves: ${res['leaves']}', () => _openDetails('leaves')),
-                    _buildClickableChip('Complete paths: ${res['complete_paths']}', () => _openDetails('complete_paths')),
-                    _buildClickableChip('Complete parents: ${progress['complete_parents'] ?? 0}', () => _openDetails('complete5')),
-                    _buildClickableChip('Incomplete parents (<4): ${progress['incomplete_lt4'] ?? 0}', () => _openDetails('incomplete_lt4')),
-                    _buildClickableChip('Saturated: ${progress['saturated_parents'] ?? 0}', () => _openDetails('saturated')),
+                    _buildClickableChip(
+                        'Nodes: ${res['nodes']}', () => _openDetails('nodes')),
+                    _buildClickableChip(
+                        'Roots: ${res['roots']}', () => _openDetails('roots')),
+                    _buildClickableChip('Leaves: ${res['leaves']}',
+                        () => _openDetails('leaves')),
+                    _buildClickableChip(
+                        'Complete paths: ${res['complete_paths']}',
+                        () => _openDetails('complete_paths')),
+                    _buildClickableChip(
+                        'Complete parents: ${progress['complete_parents'] ?? 0}',
+                        () => _openDetails('complete5')),
+                    _buildClickableChip(
+                        'Incomplete parents (<4): ${progress['incomplete_lt4'] ?? 0}',
+                        () => _openDetails('incomplete_lt4')),
+                    _buildClickableChip(
+                        'Saturated: ${progress['saturated_parents'] ?? 0}',
+                        () => _openDetails('saturated')),
                   ]),
                   const SizedBox(height: 16),
                   _buildProgressBars(progress),
@@ -342,7 +368,9 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
               ),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close')),
+              TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Close')),
             ],
           );
         },
@@ -354,7 +382,11 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
         builder: (context) => AlertDialog(
           title: const Text('Database Statistics'),
           content: Text('Failed to load stats: $e'),
-          actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close'))],
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Close'))
+          ],
         ),
       );
     }
@@ -373,21 +405,36 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
   Widget _buildProgressBars(Map<String, dynamic> progress) {
     final totalParents = (progress['parents_total'] ?? 0) as int;
     int v(String k) => (progress[k] ?? 0) as int;
-    
+
     List<Widget> bars = [
-      _buildProgressBar('Complete parents (same)', v('complete_parents_same'), totalParents, color: Colors.green),
-      _buildProgressBar('Complete parents (different)', v('complete_parents_diff'), totalParents, color: Colors.teal),
-      _buildProgressBar('Incomplete parents (<4)', v('incomplete_lt4'), totalParents, color: Colors.orange),
-      _buildProgressBar('Saturated parents (>5)', v('saturated_parents'), totalParents, color: Colors.red),
-      _buildProgressBar('Complete branches', v('complete_branches'), v('leaves'), color: Colors.blue),
-      _buildProgressBar('Triage filled', v('triage_filled'), v('complete_branches'), color: Colors.indigo),
-      _buildProgressBar('Actions filled', v('actions_filled'), v('complete_branches'), color: Colors.purple),
+      _buildProgressBar(
+          'Complete parents (same)', v('complete_parents_same'), totalParents,
+          color: Colors.green),
+      _buildProgressBar('Complete parents (different)',
+          v('complete_parents_diff'), totalParents,
+          color: Colors.teal),
+      _buildProgressBar(
+          'Incomplete parents (<4)', v('incomplete_lt4'), totalParents,
+          color: Colors.orange),
+      _buildProgressBar(
+          'Saturated parents (>5)', v('saturated_parents'), totalParents,
+          color: Colors.red),
+      _buildProgressBar(
+          'Complete branches', v('complete_branches'), v('leaves'),
+          color: Colors.blue),
+      _buildProgressBar(
+          'Triage filled', v('triage_filled'), v('complete_branches'),
+          color: Colors.indigo),
+      _buildProgressBar(
+          'Actions filled', v('actions_filled'), v('complete_branches'),
+          color: Colors.purple),
     ];
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Progress Analytics', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+        const Text('Progress Analytics',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
         const SizedBox(height: 8),
         ...bars,
       ],
@@ -426,7 +473,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
 
   Future<void> _restoreFromBackup() async {
     try {
-      final typeGroup = XTypeGroup(
+      const typeGroup = XTypeGroup(
         label: 'Backup Files',
         extensions: ['db', 'sqlite', 'bak'],
       );
@@ -471,7 +518,8 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
               ),
             });
 
-            final response = await ApiClient.I().postMultipart('/workspace/restore', formData: formData);
+            final response = await ApiClient.I()
+                .postMultipart('/workspace/restore', formData: formData);
 
             // postMultipart returns data, success indicated by no exception
             setState(() => _status = '✅ Database restored successfully');
@@ -495,18 +543,21 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
       if (result == null) return;
       final payload = {
         'diagnosis': result.diagnosis,
-        'nodes': result.nodes.map((n)=> {
-          'rank': n.rank,
-          'symptom_id': n.symptomId,
-          'symptom_label': n.symptomLabel,
-          'quality': n.quality,
-        }).toList(),
+        'nodes': result.nodes
+            .map((n) => {
+                  'rank': n.rank,
+                  'symptom_id': n.symptomId,
+                  'symptom_label': n.symptomLabel,
+                  'quality': n.quality,
+                })
+            .toList(),
       };
-      final resp = await ApiClient.I().postBytes('export/csv', body: payload,
-        headers: {'Accept':'text/csv'});
+      final resp = await ApiClient.I().postBytes('export/csv',
+          body: payload, headers: {'Accept': 'text/csv'});
       setState(() => _status = 'Downloading CSV file...');
 
-      final dir = await getDownloadsDirectory() ?? await getApplicationDocumentsDirectory();
+      final dir = await getDownloadsDirectory() ??
+          await getApplicationDocumentsDirectory();
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final file = File('${dir.path}/lorien_calc_export_$timestamp.csv');
       await file.writeAsBytes(resp.data ?? const <int>[]);
@@ -514,8 +565,9 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
       setState(() => _status = '✅ CSV exported: ${file.path}');
     } on ApiFailure catch (e) {
       if (e.statusCode == 404) {
-        setState(() => _status = '❌ CSV export endpoint not found on server. Check API version or use XLSX export.');
-        setState(()=>_csvSupported=false);
+        setState(() => _status =
+            '❌ CSV export endpoint not found on server. Check API version or use XLSX export.');
+        setState(() => _csvSupported = false);
       } else {
         setState(() => _status = '❌ Export failed: ${e.message}');
       }
@@ -530,7 +582,8 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
       final resp = await ApiClient.I().download('export/xlsx');
       setState(() => _status = 'Downloading XLSX file...');
 
-      final dir = await getDownloadsDirectory() ?? await getApplicationDocumentsDirectory();
+      final dir = await getDownloadsDirectory() ??
+          await getApplicationDocumentsDirectory();
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final file = File('${dir.path}/lorien_tree_export_$timestamp.xlsx');
       await file.writeAsBytes(resp.data ?? const <int>[]);
@@ -547,8 +600,6 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
       }
     }
   }
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -572,9 +623,9 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
           lastUploadedFileName: _lastUploadedFileName,
         ),
         const SizedBox(height: 24),
-        _EditTreePanel(),
+        const _EditTreePanel(),
         const SizedBox(height: 24),
-        _VMBuilderPanel(),
+        const _VMBuilderPanel(),
         const SizedBox(height: 24),
         _MaintenancePanel(
           onIntegrityCheck: _performIntegrityCheck,
@@ -602,7 +653,6 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
       ],
     );
   }
-
 }
 
 class _ImportPanel extends StatefulWidget {
@@ -636,11 +686,13 @@ class _ImportPanelState extends State<_ImportPanel> {
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Import Data', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+          const Text('Import Data',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
           const SizedBox(height: 12),
           SwitchListTile(
             title: const Text('Replace existing data (atomic)'),
-            subtitle: const Text('Clears current nodes & outcomes before importing'),
+            subtitle:
+                const Text('Clears current nodes & outcomes before importing'),
             value: _replace,
             onChanged: (v) => setState(() => _replace = v),
           ),
@@ -648,23 +700,37 @@ class _ImportPanelState extends State<_ImportPanel> {
           Row(children: [
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: (widget.busy || !widget.apiAvailable) ? null : widget.onPickExcelCsv,
-                icon: widget.busy ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.upload),
-                label: Text(widget.busy ? 'Importing...' : 'Select Excel/CSV')
-              ),
+                  onPressed: (widget.busy || !widget.apiAvailable)
+                      ? null
+                      : widget.onPickExcelCsv,
+                  icon: widget.busy
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.upload),
+                  label:
+                      Text(widget.busy ? 'Importing...' : 'Select Excel/CSV')),
             ),
             const SizedBox(width: 16),
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: (widget.busy || !widget.apiAvailable) ? null : widget.onPickCsv,
-                icon: widget.busy ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.upload),
-                label: Text(widget.busy ? 'Importing...' : 'Select CSV')
-              ),
+                  onPressed: (widget.busy || !widget.apiAvailable)
+                      ? null
+                      : widget.onPickCsv,
+                  icon: widget.busy
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.upload),
+                  label: Text(widget.busy ? 'Importing...' : 'Select CSV')),
             ),
           ]),
           if (widget.lastUploadedFileName != null) ...[
             const SizedBox(height: 12),
-            Text('Last uploaded: ${widget.lastUploadedFileName}', style: const TextStyle(color: Colors.grey)),
+            Text('Last uploaded: ${widget.lastUploadedFileName}',
+                style: const TextStyle(color: Colors.grey)),
           ],
           if (!widget.apiAvailable) ...[
             const SizedBox(height: 12),
@@ -714,33 +780,37 @@ class _ImportPanelState extends State<_ImportPanel> {
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: widget.status!.startsWith('✅')
-                  ? Colors.green[50]
-                  : widget.status!.startsWith('❌') || widget.status!.startsWith('⚠️')
-                    ? Colors.red[50]
-                    : Colors.blue[50],
+                    ? Colors.green[50]
+                    : widget.status!.startsWith('❌') ||
+                            widget.status!.startsWith('⚠️')
+                        ? Colors.red[50]
+                        : Colors.blue[50],
                 borderRadius: BorderRadius.circular(4),
                 border: Border.all(
                   color: widget.status!.startsWith('✅')
-                    ? Colors.green[200]!
-                    : widget.status!.startsWith('❌') || widget.status!.startsWith('⚠️')
-                      ? Colors.red[200]!
-                      : Colors.blue[200]!,
+                      ? Colors.green[200]!
+                      : widget.status!.startsWith('❌') ||
+                              widget.status!.startsWith('⚠️')
+                          ? Colors.red[200]!
+                          : Colors.blue[200]!,
                 ),
               ),
               child: Row(
                 children: [
                   Icon(
                     widget.status!.startsWith('✅')
-                      ? Icons.check_circle
-                      : widget.status!.startsWith('❌') || widget.status!.startsWith('⚠️')
-                        ? Icons.error
-                        : Icons.info,
+                        ? Icons.check_circle
+                        : widget.status!.startsWith('❌') ||
+                                widget.status!.startsWith('⚠️')
+                            ? Icons.error
+                            : Icons.info,
                     size: 16,
                     color: widget.status!.startsWith('✅')
-                      ? Colors.green[700]
-                      : widget.status!.startsWith('❌') || widget.status!.startsWith('⚠️')
-                        ? Colors.red[700]
-                        : Colors.blue[700],
+                        ? Colors.green[700]
+                        : widget.status!.startsWith('❌') ||
+                                widget.status!.startsWith('⚠️')
+                            ? Colors.red[700]
+                            : Colors.blue[700],
                   ),
                   const SizedBox(width: 8),
                   Expanded(
@@ -748,10 +818,11 @@ class _ImportPanelState extends State<_ImportPanel> {
                       widget.status!,
                       style: TextStyle(
                         color: widget.status!.startsWith('✅')
-                          ? Colors.green[700]
-                          : widget.status!.startsWith('❌') || widget.status!.startsWith('⚠️')
-                            ? Colors.red[700]
-                            : Colors.blue[700],
+                            ? Colors.green[700]
+                            : widget.status!.startsWith('❌') ||
+                                    widget.status!.startsWith('⚠️')
+                                ? Colors.red[700]
+                                : Colors.blue[700],
                       ),
                     ),
                   ),
@@ -764,7 +835,6 @@ class _ImportPanelState extends State<_ImportPanel> {
     );
   }
 }
-
 
 class _EditTreePanel extends StatelessWidget {
   const _EditTreePanel();
@@ -943,7 +1013,8 @@ class _MaintenancePanel extends StatelessWidget {
                         context: context,
                         builder: (ctx) => AlertDialog(
                           title: const Text('Clear Workspace'),
-                          content: const Text('This will remove all nodes and outcomes but keep the dictionary intact. Continue?'),
+                          content: const Text(
+                              'This will remove all nodes and outcomes but keep the dictionary intact. Continue?'),
                           actions: [
                             TextButton(
                               onPressed: () => Navigator.of(ctx).pop(false),
@@ -956,13 +1027,16 @@ class _MaintenancePanel extends StatelessWidget {
                           ],
                         ),
                       );
-                      
+
                       if (confirmed == true) {
                         try {
-                          final response = await ApiClient.I().post('/admin/clear-nodes');
+                          final response =
+                              await ApiClient.I().post('/admin/clear-nodes');
                           if (response.statusCode == 200) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Workspace cleared (nodes/outcomes only)')),
+                              const SnackBar(
+                                  content: Text(
+                                      'Workspace cleared (nodes/outcomes only)')),
                             );
                           }
                         } catch (e) {
@@ -987,4 +1061,3 @@ class _MaintenancePanel extends StatelessWidget {
     );
   }
 }
-

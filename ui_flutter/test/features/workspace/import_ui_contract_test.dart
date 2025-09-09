@@ -76,7 +76,16 @@ void main() {
               'loc': ['file', 'header'],
               'msg': 'Expected 8 columns, got 6',
               'type': 'value_error.header_mismatch',
-              'expected': ['vm', 'node1', 'node2', 'node3', 'node4', 'node5', 'diagnosis', 'actions'],
+              'expected': [
+                'vm',
+                'node1',
+                'node2',
+                'node3',
+                'node4',
+                'node5',
+                'diagnosis',
+                'actions'
+              ],
               'received': ['vm', 'node1', 'node2', 'node3', 'node4', 'node5'],
               'row_index': 1,
               'col_index': 6,

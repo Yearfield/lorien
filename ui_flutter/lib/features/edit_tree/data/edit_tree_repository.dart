@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import '../../../data/dto/child_slot_dto.dart';
 import '../../../api/lorien_api.dart';
+import '../../tree/data/tree_api.dart';
 
 class IncompleteParent {
   final int parentId;
@@ -79,14 +80,16 @@ class ParentChildrenData {
   );
 
   factory ParentChildrenData.fromJson(Map<String, dynamic> json) {
-    final children = (json['children'] as List)
-        .map((e) => ChildInfo.fromJson(e))
-        .toList();
+    final children =
+        (json['children'] as List).map((e) => ChildInfo.fromJson(e)).toList();
 
     return ParentChildrenData(
       json['parent_id'],
       json['version'],
-      List<int>.from((json['missing_slots'] as String).split(',').where((s) => s.isNotEmpty).map(int.parse)),
+      List<int>.from((json['missing_slots'] as String)
+          .split(',')
+          .where((s) => s.isNotEmpty)
+          .map(int.parse)),
       children,
       json['path'],
       json['etag'],
@@ -119,8 +122,9 @@ class BulkUpsertResult {
 
 class EditTreeRepository {
   final LorienApi _api;
+  final TreeApi _treeApi;
 
-  EditTreeRepository(this._api);
+  EditTreeRepository(this._api, this._treeApi);
 
   Future<IncompleteParentsPage> listIncomplete({
     String query = "",
@@ -135,7 +139,8 @@ class EditTreeRepository {
     };
     if (depth != null) params["depth"] = depth;
 
-    final response = await _api.client.getJson('tree/missing-slots', query: params);
+    final response =
+        await _api.client.getJson('tree/missing-slots', query: params);
     return IncompleteParentsPage.fromJson(response);
   }
 
@@ -149,21 +154,18 @@ class EditTreeRepository {
   }
 
   Future<ParentChildrenData> getParentChildren(int parentId) async {
-    final response = await _api.readParentChildren(parentId);
+    final response = await _treeApi.readChildren(parentId);
     return ParentChildrenData.fromJson(response);
   }
 
   Future<Map<String, dynamic>> updateParentChildren(
-    int parentId,
-    List<ChildSlotDTO> slots, {
-    int? version,
-    String? etag
-  }) async {
+      int parentId, List<ChildSlotDTO> slots,
+      {int? version, String? etag}) async {
     final body = {
       if (version != null) 'version': version,
       'children': slots.map((e) => e.toJson()).toList(),
     };
 
-    return _api.updateParentChildren(parentId, body, etag: etag);
+    return _treeApi.updateChildren(parentId, body, etag: etag);
   }
 }

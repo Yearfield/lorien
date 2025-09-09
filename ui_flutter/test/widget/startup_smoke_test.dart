@@ -3,8 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lorien/main.dart';
-import 'package:lorien/shared/widgets/nav_shortcuts.dart';
-import 'package:lorien/features/workspace/ui/workspace_screen.dart';
 
 void main() {
   setUp(() async {
@@ -63,7 +61,8 @@ void main() {
     expect(find.byType(MaterialApp), findsOneWidget);
   });
 
-  testWidgets('App handles various startup scenarios gracefully', (tester) async {
+  testWidgets('App handles various startup scenarios gracefully',
+      (tester) async {
     // Test with different SharedPreferences states
     SharedPreferences.setMockInitialValues({
       'api_base_url': 'http://test.example.com',

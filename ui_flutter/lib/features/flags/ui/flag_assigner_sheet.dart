@@ -142,11 +142,15 @@ class _S extends ConsumerState<FlagAssignerSheet> {
                 const SizedBox(width: 16),
                 Expanded(
                   child: FilledButton(
-                      onPressed: (_selectedFlagIds.isNotEmpty && _nodeIdController.text.isNotEmpty)
+                      onPressed: (_selectedFlagIds.isNotEmpty &&
+                              _nodeIdController.text.isNotEmpty)
                           ? () {
-                              final nodeId = int.tryParse(_nodeIdController.text);
-                              if (nodeId != null && _selectedFlagIds.isNotEmpty) {
-                                widget.onAssign?.call(_selectedFlagIds.first, nodeId, _cascade);
+                              final nodeId =
+                                  int.tryParse(_nodeIdController.text);
+                              if (nodeId != null &&
+                                  _selectedFlagIds.isNotEmpty) {
+                                widget.onAssign?.call(
+                                    _selectedFlagIds.first, nodeId, _cascade);
                               }
                               Navigator.pop(context);
                             }

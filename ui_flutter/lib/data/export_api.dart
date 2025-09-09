@@ -1,16 +1,18 @@
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class ExportApi {
   final String baseUrl; // may or may not already include /api/v1
   final http.Client _client;
-  ExportApi(this.baseUrl, {http.Client? client}) : _client = client ?? http.Client();
+  ExportApi(this.baseUrl, {http.Client? client})
+      : _client = client ?? http.Client();
 
   String _v1(String path) {
     // normalize base (strip trailing '/')
     var b = baseUrl;
-    while (b.endsWith('/')) b = b.substring(0, b.length - 1);
+    while (b.endsWith('/')) {
+      b = b.substring(0, b.length - 1);
+    }
     final hasV1 = b.endsWith('/api/v1');
     // normalize path (no leading /api/v1, ensure leading '/')
     var p = path;

@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lorien/features/settings/ui/settings_screen.dart';
-import 'package:lorien/core/services/health_service.dart';
 
 void main() {
   testWidgets('Settings shows tested URL/code/snippet', (tester) async {

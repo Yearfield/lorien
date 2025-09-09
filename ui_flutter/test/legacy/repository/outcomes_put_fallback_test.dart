@@ -27,7 +27,8 @@ void main() {
         requestOptions: RequestOptions(path: '/outcomes/1'),
       );
 
-      when(mockApiClient.get('/outcomes/1')).thenAnswer((_) async => mockResponse);
+      when(mockApiClient.get('/outcomes/1'))
+          .thenAnswer((_) async => mockResponse);
 
       // Act
       final result = await repo.getOutcomes(1);
@@ -52,8 +53,10 @@ void main() {
         requestOptions: RequestOptions(path: '/triage/1'),
       );
 
-      when(mockApiClient.get('/outcomes/1')).thenAnswer((_) async => notFoundResponse);
-      when(mockApiClient.get('/triage/1')).thenAnswer((_) async => triageResponse);
+      when(mockApiClient.get('/outcomes/1'))
+          .thenAnswer((_) async => notFoundResponse);
+      when(mockApiClient.get('/triage/1'))
+          .thenAnswer((_) async => triageResponse);
 
       // Act
       final result = await repo.getOutcomes(1);
@@ -76,10 +79,12 @@ void main() {
           .thenAnswer((_) async => mockResponse);
 
       // Act
-      await repo.updateOutcomes(1, const TriageDTO(diagnosticTriage: 'Test', actions: 'Actions'));
+      await repo.updateOutcomes(
+          1, const TriageDTO(diagnosticTriage: 'Test', actions: 'Actions'));
 
       // Assert
-      verify(mockApiClient.put('/outcomes/1', data: anyNamed('data'))).called(1);
+      verify(mockApiClient.put('/outcomes/1', data: anyNamed('data')))
+          .called(1);
       verifyNever(mockApiClient.put('/triage/1', data: anyNamed('data')));
     });
 
@@ -101,10 +106,12 @@ void main() {
           .thenAnswer((_) async => triageResponse);
 
       // Act
-      await repo.updateOutcomes(1, const TriageDTO(diagnosticTriage: 'Test', actions: 'Actions'));
+      await repo.updateOutcomes(
+          1, const TriageDTO(diagnosticTriage: 'Test', actions: 'Actions'));
 
       // Assert
-      verify(mockApiClient.put('/outcomes/1', data: anyNamed('data'))).called(1);
+      verify(mockApiClient.put('/outcomes/1', data: anyNamed('data')))
+          .called(1);
       verify(mockApiClient.put('/triage/1', data: anyNamed('data'))).called(1);
     });
   });

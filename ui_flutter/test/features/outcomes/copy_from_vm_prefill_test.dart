@@ -3,10 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http_mock_adapter/http_mock_adapter.dart';
 import 'package:dio/dio.dart';
-import '../../../lib/features/outcomes/ui/outcomes_detail_screen.dart';
-import '../../../lib/features/outcomes/data/outcomes_api.dart';
-import '../../../lib/core/http/api_client.dart';
-import '../../../lib/state/app_settings_provider.dart';
+import 'package:lorien/features/outcomes/ui/outcomes_detail_screen.dart';
+import 'package:lorien/core/http/api_client.dart';
+import 'package:lorien/state/app_settings_provider.dart';
 
 void main() {
   late DioAdapter dioAdapter;
@@ -39,7 +38,16 @@ void main() {
           'depth': 5,
           'vital_measurement': 'Hypertension',
           'nodes': ['Node 1', 'Node 2', 'Node 3', 'Node 4', 'Node 5'],
-          'csv_header': ['Vital Measurement', 'Node 1', 'Node 2', 'Node 3', 'Node 4', 'Node 5', 'Diagnostic Triage', 'Actions'],
+          'csv_header': [
+            'Vital Measurement',
+            'Node 1',
+            'Node 2',
+            'Node 3',
+            'Node 4',
+            'Node 5',
+            'Diagnostic Triage',
+            'Actions'
+          ],
         },
       ),
     );
@@ -93,10 +101,12 @@ void main() {
     final actionsField = find.byType(TextField).last;
 
     // Check that the triage field contains the expected text
-    expect(find.text('Hypertension diagnosis with elevated BP'), findsOneWidget);
+    expect(
+        find.text('Hypertension diagnosis with elevated BP'), findsOneWidget);
 
     // Check that the actions field contains the expected text
-    expect(find.text('Prescribe medication and lifestyle changes'), findsOneWidget);
+    expect(find.text('Prescribe medication and lifestyle changes'),
+        findsOneWidget);
   });
 
   testWidgets('without vm param loads existing outcome data',
@@ -112,7 +122,16 @@ void main() {
           'depth': 5,
           'vital_measurement': 'Diabetes',
           'nodes': ['Node 1', 'Node 2', 'Node 3', 'Node 4', 'Node 5'],
-          'csv_header': ['Vital Measurement', 'Node 1', 'Node 2', 'Node 3', 'Node 4', 'Node 5', 'Diagnostic Triage', 'Actions'],
+          'csv_header': [
+            'Vital Measurement',
+            'Node 1',
+            'Node 2',
+            'Node 3',
+            'Node 4',
+            'Node 5',
+            'Diagnostic Triage',
+            'Actions'
+          ],
         },
       ),
     );
@@ -176,7 +195,16 @@ void main() {
           'depth': 5,
           'vital_measurement': 'Unknown Condition',
           'nodes': ['Node 1', 'Node 2', 'Node 3', 'Node 4', 'Node 5'],
-          'csv_header': ['Vital Measurement', 'Node 1', 'Node 2', 'Node 3', 'Node 4', 'Node 5', 'Diagnostic Triage', 'Actions'],
+          'csv_header': [
+            'Vital Measurement',
+            'Node 1',
+            'Node 2',
+            'Node 3',
+            'Node 4',
+            'Node 5',
+            'Diagnostic Triage',
+            'Actions'
+          ],
         },
       ),
     );

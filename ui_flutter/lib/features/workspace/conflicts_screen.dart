@@ -8,7 +8,8 @@ class ConflictsScreen extends StatefulWidget {
   final http.Client? client;
   const ConflictsScreen({
     super.key,
-    this.baseUrl = const String.fromEnvironment('API_BASE_URL', defaultValue: 'http://127.0.0.1:8000'),
+    this.baseUrl = const String.fromEnvironment('API_BASE_URL',
+        defaultValue: 'http://127.0.0.1:8000'),
     this.client,
   });
   @override
@@ -25,7 +26,8 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
   final Set<String> _chosen = {};
   int? _keepId;
   final TextEditingController _newChildCtl = TextEditingController();
-  final List<Map<String, dynamic>> _syntheticChildren = []; // [{label, from_id: 'new', slot: null}]
+  final List<Map<String, dynamic>> _syntheticChildren =
+      []; // [{label, from_id: 'new', slot: null}]
 
   Future<void> _load() async {
     setState(() {
@@ -33,10 +35,12 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
       _err = null;
     });
     try {
-      final r = await _http.get(Uri.parse('${widget.baseUrl}/api/v1/tree/conflicts/conflicts?limit=50&offset=0'));
+      final r = await _http.get(Uri.parse(
+          '${widget.baseUrl}/api/v1/tree/conflicts/conflicts?limit=50&offset=0'));
       if (r.statusCode == 200) {
         final b = jsonDecode(r.body) as Map<String, dynamic>;
-        setState(() => _items = List<Map<String, dynamic>>.from((b["items"] as List).map((e) => Map<String, dynamic>.from(e))));
+        setState(() => _items = List<Map<String, dynamic>>.from(
+            (b["items"] as List).map((e) => Map<String, dynamic>.from(e))));
       } else {
         setState(() => _err = 'HTTP ${r.statusCode}');
       }
@@ -49,11 +53,13 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
 
   Future<void> _normalize(int parentId) async {
     setState(() => _loading = true);
-    final r = await _http.post(Uri.parse('${widget.baseUrl}/api/v1/tree/conflicts/parent/$parentId/normalize'));
+    final r = await _http.post(Uri.parse(
+        '${widget.baseUrl}/api/v1/tree/conflicts/parent/$parentId/normalize'));
     setState(() => _loading = false);
     await _load();
     if (r.statusCode != 200) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Normalize failed: ${r.statusCode}')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Normalize failed: ${r.statusCode}')));
     }
   }
 
@@ -64,27 +70,34 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
       _keepId = null;
       _syntheticChildren.clear();
     });
-    final uri = Uri.parse('${widget.baseUrl}/api/v1/tree/conflicts/group?node_id=$nodeId');
+    final uri = Uri.parse(
+        '${widget.baseUrl}/api/v1/tree/conflicts/group?node_id=$nodeId');
     final r = await _http.get(uri);
     if (r.statusCode == 200) {
       final b = jsonDecode(r.body) as Map<String, dynamic>;
       setState(() {
-        _groupChildren = List<Map<String, dynamic>>.from((b["children"] as List).map((e) => Map<String, dynamic>.from(e)));
-        final group = List<Map<String, dynamic>>.from((b["group"] as List).map((e) => Map<String, dynamic>.from(e)));
+        _groupChildren = List<Map<String, dynamic>>.from(
+            (b["children"] as List).map((e) => Map<String, dynamic>.from(e)));
+        final group = List<Map<String, dynamic>>.from(
+            (b["group"] as List).map((e) => Map<String, dynamic>.from(e)));
         _keepId = group.isNotEmpty ? (group.first["id"] as num).toInt() : null;
       });
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Load group failed: ${r.statusCode}')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Load group failed: ${r.statusCode}')));
     }
   }
 
   Future<void> _confirmResolve() async {
     if (_keepId == null || _chosen.length != 5) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Choose exactly 5 children')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Choose exactly 5 children')));
       return;
     }
-    final uri = Uri.parse('${widget.baseUrl}/api/v1/tree/conflicts/group/resolve');
-    final r = await _http.post(uri, headers: {"Content-Type": "application/json"},
+    final uri =
+        Uri.parse('${widget.baseUrl}/api/v1/tree/conflicts/group/resolve');
+    final r = await _http.post(uri,
+        headers: {"Content-Type": "application/json"},
         body: jsonEncode({"keep_id": _keepId, "chosen": _chosen.toList()}));
     if (r.statusCode == 200) {
       await _load(); // refresh conflicts list
@@ -94,10 +107,12 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
         _keepId = null;
         _selected = null;
       });
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Resolved')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Resolved')));
     } else {
       final body = r.body;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Resolve failed: ${r.statusCode} $body')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Resolve failed: ${r.statusCode} $body')));
     }
   }
 
@@ -116,12 +131,15 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
   void _addNewChildLabel() {
     final txt = _newChildCtl.text.trim();
     if (txt.isEmpty) return;
-    if (_groupChildren.any((c) => (c["label"] ?? '') == txt) || _syntheticChildren.any((c) => (c["label"] ?? '') == txt)) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Label already present.')));
+    if (_groupChildren.any((c) => (c["label"] ?? '') == txt) ||
+        _syntheticChildren.any((c) => (c["label"] ?? '') == txt)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Label already present.')));
       return;
     }
     setState(() {
-      _syntheticChildren.add({"child_id": null, "from_id": "new", "slot": null, "label": txt});
+      _syntheticChildren.add(
+          {"child_id": null, "from_id": "new", "slot": null, "label": txt});
       // auto-select if we still have room
       if (_chosen.length < 5) _chosen.add(txt);
       _newChildCtl.clear();
@@ -131,25 +149,27 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
   Future<void> _deleteSelectedParent() async {
     final pid = _selected!['parent_id'];
     final ok = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Delete parent?'),
-        content: const Text('This will remove the parent and its subtree. Continue?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Delete parent?'),
+            content: const Text(
+                'This will remove the parent and its subtree. Continue?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Delete'),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    ) ?? false;
-    
+        ) ??
+        false;
+
     if (!ok) return;
-    
+
     final url = '${widget.baseUrl}/api/v1/tree/$pid';
     final r = await _http.delete(Uri.parse(url));
     if (r.statusCode == 200) {
@@ -159,8 +179,8 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
         _selected = null;
         _groupChildren = []; // clear shown children
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Parent deleted')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Parent deleted')));
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Delete failed (${r.statusCode})')));
@@ -170,7 +190,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
   @override
   Widget build(BuildContext context) {
     // BACK FIX: guard back to workspace if cannot pop
-    Future<bool> _onWillPop() async {
+    Future<bool> onWillPop() async {
       if (Navigator.of(context).canPop()) {
         return true;
       }
@@ -180,7 +200,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
     }
 
     return WillPopScope(
-      onWillPop: _onWillPop,
+      onWillPop: onWillPop,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Conflicts'),
@@ -211,7 +231,8 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
               child: Column(
                 children: [
                   if (_loading) const LinearProgressIndicator(),
-                  if (_err != null) Text(_err!, style: const TextStyle(color: Colors.red)),
+                  if (_err != null)
+                    Text(_err!, style: const TextStyle(color: Colors.red)),
                   Expanded(
                     child: ListView.builder(
                       itemCount: _items.length,
@@ -219,11 +240,15 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                         final it = _items[i];
                         return Card(
                           child: ListTile(
-                            title: Text('${it["label"]}  (id=${it["parent_id"]})'),
-                            subtitle: Text('children=${it["child_count"]} • slotDup=${it["slot_dup_count"]} • null=${it["null_slot_count"]}'),
+                            title:
+                                Text('${it["label"]}  (id=${it["parent_id"]})'),
+                            subtitle: Text(
+                                'children=${it["child_count"]} • slotDup=${it["slot_dup_count"]} • null=${it["null_slot_count"]}'),
                             onTap: () {
                               setState(() => _selected = it);
-                              final nodeId = (it["parent_id"] as num?)?.toInt() ?? (it["id"] as num?)?.toInt();
+                              final nodeId =
+                                  (it["parent_id"] as num?)?.toInt() ??
+                                      (it["id"] as num?)?.toInt();
                               if (nodeId != null) {
                                 _loadGroupByNode(nodeId);
                               }
@@ -243,18 +268,26 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
               child: Padding(
                 padding: const EdgeInsets.all(12),
                 child: _selected == null
-                    ? const Center(child: Text('Select a conflict on the left.'))
+                    ? const Center(
+                        child: Text('Select a conflict on the left.'))
                     : Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Text('Parent ${_selected!["label"]} • id=${_selected!["parent_id"]} • Choose exactly 5 children to keep'),
+                          Text(
+                              'Parent ${_selected!["label"]} • id=${_selected!["parent_id"]} • Choose exactly 5 children to keep'),
                           const SizedBox(height: 8),
                           Row(
                             children: [
                               DropdownButton<int>(
                                 value: _keepId,
                                 hint: const Text('Keeper parent'),
-                                items: _groupChildren.map((c) => c["from_id"]).toSet().map((id) => DropdownMenuItem(value: (id as num).toInt(), child: Text('Keep #$id'))).toList(),
+                                items: _groupChildren
+                                    .map((c) => c["from_id"])
+                                    .toSet()
+                                    .map((id) => DropdownMenuItem(
+                                        value: (id as num).toInt(),
+                                        child: Text('Keep #$id')))
+                                    .toList(),
                                 onChanged: (v) => setState(() => _keepId = v),
                               ),
                               const Spacer(),
@@ -293,12 +326,18 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                             child: GridView.count(
                               crossAxisCount: 2,
                               childAspectRatio: 4.5,
-                              children: [..._groupChildren, ..._syntheticChildren].map((c) {
+                              children: [
+                                ..._groupChildren,
+                                ..._syntheticChildren
+                              ].map((c) {
                                 final lbl = '${c["label"]}';
                                 final selected = _chosen.contains(lbl);
-                                final src = c["from_id"] == "new" ? 'new' : '${c["from_id"]}';
+                                final src = c["from_id"] == "new"
+                                    ? 'new'
+                                    : '${c["from_id"]}';
                                 return FilterChip(
-                                  label: Text('S${c["slot"] ?? "-"}: $lbl  • from $src'),
+                                  label: Text(
+                                      'S${c["slot"] ?? "-"}: $lbl  • from $src'),
                                   selected: selected,
                                   onSelected: (_) {
                                     setState(() {
@@ -314,7 +353,8 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                             ),
                           ),
                           const SizedBox(height: 8),
-                          const Text('Tip: choose the best five, then Confirm. All other children under the kept parent will be removed; duplicates will be merged.'),
+                          const Text(
+                              'Tip: choose the best five, then Confirm. All other children under the kept parent will be removed; duplicates will be merged.'),
                         ],
                       ),
               ),

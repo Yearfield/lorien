@@ -9,10 +9,12 @@ class ConflictsInspectorScreen extends ConsumerStatefulWidget {
   const ConflictsInspectorScreen({super.key});
 
   @override
-  ConsumerState<ConflictsInspectorScreen> createState() => _ConflictsInspectorScreenState();
+  ConsumerState<ConflictsInspectorScreen> createState() =>
+      _ConflictsInspectorScreenState();
 }
 
-class _ConflictsInspectorScreenState extends ConsumerState<ConflictsInspectorScreen>
+class _ConflictsInspectorScreenState
+    extends ConsumerState<ConflictsInspectorScreen>
     with TickerProviderStateMixin {
   late TabController _tabController;
   Map<ConflictType, List<ConflictItem>> _conflictsByType = {};
@@ -24,7 +26,8 @@ class _ConflictsInspectorScreenState extends ConsumerState<ConflictsInspectorScr
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: ConflictType.values.length, vsync: this);
+    _tabController =
+        TabController(length: ConflictType.values.length, vsync: this);
     _loadConflicts();
     _loadSummary();
   }
@@ -79,7 +82,8 @@ class _ConflictsInspectorScreenState extends ConsumerState<ConflictsInspectorScr
     }
   }
 
-  Future<void> _resolveConflict(ConflictItem conflict, String action, {String? newValue}) async {
+  Future<void> _resolveConflict(ConflictItem conflict, String action,
+      {String? newValue}) async {
     try {
       final service = ref.read(conflictsServiceProvider);
       final resolution = ConflictResolution(
@@ -117,7 +121,8 @@ class _ConflictsInspectorScreenState extends ConsumerState<ConflictsInspectorScr
         // For now, show a message
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Navigate to parent ${location['parent_id']}')),
+            SnackBar(
+                content: Text('Navigate to parent ${location['parent_id']}')),
           );
         }
       }
@@ -134,7 +139,7 @@ class _ConflictsInspectorScreenState extends ConsumerState<ConflictsInspectorScr
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Conflict Details'),
+        title: const Text('Conflict Details'),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -144,13 +149,14 @@ class _ConflictsInspectorScreenState extends ConsumerState<ConflictsInspectorScr
               Text('Description: ${conflict.description}'),
               if (conflict.parentId != null)
                 Text('Parent ID: ${conflict.parentId}'),
-              if (conflict.depth != null)
-                Text('Depth: ${conflict.depth}'),
+              if (conflict.depth != null) Text('Depth: ${conflict.depth}'),
               const SizedBox(height: 16),
-              const Text('Affected Labels:', style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text('Affected Labels:',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
               ...conflict.affectedLabels.map((label) => Text('• $label')),
               const SizedBox(height: 16),
-              const Text('Affected Nodes:', style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text('Affected Nodes:',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
               ...conflict.affectedNodes.map((nodeId) => Text('• Node $nodeId')),
               if (conflict.resolution != null) ...[
                 const SizedBox(height: 16),
@@ -185,7 +191,8 @@ class _ConflictsInspectorScreenState extends ConsumerState<ConflictsInspectorScr
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Filters', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text('Filters',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             Row(
               children: [
@@ -206,7 +213,8 @@ class _ConflictsInspectorScreenState extends ConsumerState<ConflictsInspectorScr
                   value: _depthFilter,
                   hint: const Text('All Depths'),
                   items: [
-                    const DropdownMenuItem(value: null, child: Text('All Depths')),
+                    const DropdownMenuItem(
+                        value: null, child: Text('All Depths')),
                     ...List.generate(5, (i) => i + 1).map((depth) {
                       return DropdownMenuItem(
                         value: depth,
@@ -242,7 +250,8 @@ class _ConflictsInspectorScreenState extends ConsumerState<ConflictsInspectorScr
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Summary', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text('Summary',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             Wrap(
               spacing: 16,
@@ -280,7 +289,8 @@ class _ConflictsInspectorScreenState extends ConsumerState<ConflictsInspectorScr
         final conflict = conflicts[index];
         return Card(
           child: ListTile(
-            leading: Icon(_getConflictIcon(type), color: _getConflictColor(type)),
+            leading:
+                Icon(_getConflictIcon(type), color: _getConflictColor(type)),
             title: Text(conflict.description),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -402,7 +412,7 @@ class _ConflictsInspectorScreenState extends ConsumerState<ConflictsInspectorScr
                 tabs: ConflictType.values.map((type) {
                   final count = _conflictsByType[type]?.length ?? 0;
                   return Tab(
-                    text: '${type.name} (${count})',
+                    text: '${type.name} ($count)',
                     icon: Icon(_getConflictIcon(type)),
                   );
                 }).toList(),
@@ -412,7 +422,9 @@ class _ConflictsInspectorScreenState extends ConsumerState<ConflictsInspectorScr
                 height: 400,
                 child: TabBarView(
                   controller: _tabController,
-                  children: ConflictType.values.map((type) => _buildConflictsList(type)).toList(),
+                  children: ConflictType.values
+                      .map((type) => _buildConflictsList(type))
+                      .toList(),
                 ),
               ),
             ],

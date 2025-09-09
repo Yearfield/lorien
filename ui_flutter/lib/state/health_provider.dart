@@ -3,7 +3,8 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import '../data/api_client.dart';
 
 class DbInfo {
-  const DbInfo({required this.path, required this.wal, required this.foreignKeys});
+  const DbInfo(
+      {required this.path, required this.wal, required this.foreignKeys});
   final String path;
   final bool wal;
   final bool foreignKeys;

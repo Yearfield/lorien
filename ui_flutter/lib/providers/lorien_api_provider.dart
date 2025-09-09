@@ -9,9 +9,9 @@ final lorienApiProvider = Provider<LorienApi>((ref) {
   // Create Dio instance and use ApiClient's baseUrl
   final dio = Dio(BaseOptions(
     baseUrl: apiClient.baseUrl,
-    connectTimeout: Duration(seconds: 2),
-    receiveTimeout: Duration(seconds: 8),
-    sendTimeout: Duration(seconds: 8),
+    connectTimeout: const Duration(seconds: 2),
+    receiveTimeout: const Duration(seconds: 8),
+    sendTimeout: const Duration(seconds: 8),
     responseType: ResponseType.json,
     followRedirects: true,
     validateStatus: (code) => code != null && code >= 200 && code < 400,

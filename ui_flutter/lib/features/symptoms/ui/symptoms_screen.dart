@@ -1,8 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import '../../../widgets/layout/scroll_scaffold.dart';
 import '../../../widgets/app_back_leading.dart';
 import '../data/symptoms_repository.dart';
@@ -16,7 +14,8 @@ class SymptomsScreen extends ConsumerStatefulWidget {
   ConsumerState<SymptomsScreen> createState() => _SymptomsScreenState();
 }
 
-class _SymptomsScreenState extends ConsumerState<SymptomsScreen> with TickerProviderStateMixin {
+class _SymptomsScreenState extends ConsumerState<SymptomsScreen>
+    with TickerProviderStateMixin {
   // Level picker and filtering
   int _selectedLevel = 1;
   bool _compactMode = false;
@@ -88,7 +87,9 @@ class _SymptomsScreenState extends ConsumerState<SymptomsScreen> with TickerProv
       final repo = ref.read(symptomsRepositoryProvider);
       final parents = await repo.getIncompleteParents(
         depth: _selectedLevel,
-        query: _searchController.text.trim().isNotEmpty ? _searchController.text.trim() : null,
+        query: _searchController.text.trim().isNotEmpty
+            ? _searchController.text.trim()
+            : null,
         limit: _limit,
         offset: append ? _offset : 0,
         sortMode: _sortMode,
@@ -212,7 +213,8 @@ class _SymptomsScreenState extends ConsumerState<SymptomsScreen> with TickerProv
                 Text('Kept: ${result.kept}'),
                 if (result.log != null) ...[
                   const SizedBox(height: 8),
-                  const Text('Log:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const Text('Log:',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
                   Text(result.log!),
                 ],
               ],
@@ -329,13 +331,16 @@ class _SymptomsScreenState extends ConsumerState<SymptomsScreen> with TickerProv
         final isSelected = _selectedParent?.parentId == parent.parentId;
 
         return Card(
-          color: isSelected ? Theme.of(context).colorScheme.primaryContainer : null,
+          color: isSelected
+              ? Theme.of(context).colorScheme.primaryContainer
+              : null,
           child: ListTile(
             title: Text(parent.label),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Depth ${parent.depth} • Missing: ${parent.missingSlots.join(", ")}'),
+                Text(
+                    'Depth ${parent.depth} • Missing: ${parent.missingSlots.join(", ")}'),
                 Text('Updated: ${parent.updatedAt.toString().split('T')[0]}'),
                 _buildParentStatus(parent),
               ],
@@ -417,7 +422,8 @@ class _SymptomsScreenState extends ConsumerState<SymptomsScreen> with TickerProv
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
                 Text('Path: ${_currentParentData!.path}'),
-                Text('Missing slots: ${_currentParentData!.missingSlots.join(", ")}'),
+                Text(
+                    'Missing slots: ${_currentParentData!.missingSlots.join(", ")}'),
               ],
             ),
           ),
@@ -439,14 +445,16 @@ class _SymptomsScreenState extends ConsumerState<SymptomsScreen> with TickerProv
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Slot $slot', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text('Slot $slot',
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   TextField(
                     controller: _slotControllers[slot],
                     focusNode: _slotFocusNodes[slot],
                     decoration: InputDecoration(
                       labelText: 'Label',
-                      helperText: childSlot.existing == true ? 'Existing' : 'Empty',
+                      helperText:
+                          childSlot.existing == true ? 'Existing' : 'Empty',
                       errorText: childSlot.error,
                       border: const OutlineInputBorder(),
                     ),
@@ -456,7 +464,8 @@ class _SymptomsScreenState extends ConsumerState<SymptomsScreen> with TickerProv
                     const SizedBox(height: 4),
                     Text(
                       childSlot.warning!,
-                      style: const TextStyle(color: Colors.orange, fontSize: 12),
+                      style:
+                          const TextStyle(color: Colors.orange, fontSize: 12),
                     ),
                   ],
                 ],

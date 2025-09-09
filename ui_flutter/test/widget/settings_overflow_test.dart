@@ -38,7 +38,8 @@ void main() {
     expect(find.byType(ListView), findsOneWidget); // Verify ListView is used
   });
 
-  testWidgets('Settings page renders without throwing at tight constraints', (tester) async {
+  testWidgets('Settings page renders without throwing at tight constraints',
+      (tester) async {
     // Test with very tight constraints to ensure no overflow
     tester.view.physicalSize = const Size(600, 400);
     tester.view.devicePixelRatio = 1.0;

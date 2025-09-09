@@ -9,14 +9,30 @@ import 'package:lorien/features/workspace/completeness_screen.dart';
 void main() {
   testWidgets('CompletenessScreen shows counts and table', (tester) async {
     final stats = {
-      "nodes": 10, "roots": 2, "leaves": 3, "complete_paths": 1, "incomplete_parents": 7
+      "nodes": 10,
+      "roots": 2,
+      "leaves": 3,
+      "complete_paths": 1,
+      "incomplete_parents": 7
     };
     final missing = {
       "items": [
-        {"parent_id":1,"label":"BP","depth":0,"missing_slots":[3,4,5]},
-        {"parent_id":2,"label":"High","depth":1,"missing_slots":[2,3,4,5]},
+        {
+          "parent_id": 1,
+          "label": "BP",
+          "depth": 0,
+          "missing_slots": [3, 4, 5]
+        },
+        {
+          "parent_id": 2,
+          "label": "High",
+          "depth": 1,
+          "missing_slots": [2, 3, 4, 5]
+        },
       ],
-      "total": 2,"limit": 10,"offset":0
+      "total": 2,
+      "limit": 10,
+      "offset": 0
     };
 
     int callCount = 0;
@@ -32,7 +48,8 @@ void main() {
       return http.Response('Not Found', 404);
     });
 
-    await tester.pumpWidget(MaterialApp(home: CompletenessScreen(client: mock)));
+    await tester
+        .pumpWidget(MaterialApp(home: CompletenessScreen(client: mock)));
     await tester.pump();
 
     expect(find.textContaining('Nodes:'), findsOneWidget);

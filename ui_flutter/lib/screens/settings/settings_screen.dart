@@ -207,15 +207,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       decoration: BoxDecoration(
                         color: Colors.blue.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+                        border: Border.all(
+                            color: Colors.blue.withValues(alpha: 0.3)),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
+                          const Row(
                             children: [
                               Icon(Icons.info, color: Colors.blue, size: 20),
-                              const SizedBox(width: 8),
+                              SizedBox(width: 8),
                               Text(
                                 'LAN Usage Tips',
                                 style: TextStyle(
@@ -305,7 +306,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     const SizedBox(height: 16),
                     SwitchListTile(
                       title: const Text('Send crash telemetry (opt-in)'),
-                      subtitle: const Text('Includes error message and stack trace; no PII.'),
+                      subtitle: const Text(
+                          'Includes error message and stack trace; no PII.'),
                       value: _telemetryEnabled,
                       onChanged: _toggleTelemetry,
                     ),
@@ -347,18 +349,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             title: Text('API Version'),
                             subtitle: Text('Loading...'),
                           ),
-                          error: (error, stack) => ListTile(
-                            leading: const Icon(Icons.error),
-                            title: const Text('API Version'),
-                            subtitle: const Text('Unable to fetch'),
+                          error: (error, stack) => const ListTile(
+                            leading: Icon(Icons.error),
+                            title: Text('API Version'),
+                            subtitle: Text('Unable to fetch'),
                           ),
                         );
                       },
                     ),
-                    ListTile(
-                      leading: const Icon(Icons.description),
-                      title: const Text('Description'),
-                      subtitle: const Text(
+                    const ListTile(
+                      leading: Icon(Icons.description),
+                      title: Text('Description'),
+                      subtitle: Text(
                           'Cross-platform decision tree management with offline-first storage'),
                     ),
                   ],

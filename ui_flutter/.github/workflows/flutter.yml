@@ -22,4 +22,13 @@ jobs:
       
       - run: flutter analyze
       
-      - run: flutter test --no-pub
+      - name: Run tests with coverage
+        run: flutter test --coverage --reporter expanded
+      
+      - name: Enforce coverage >= 20%
+        run: |
+          LCOV=$(grep -Po 'LF:\K\d+' coverage/lcov.info | awk '{sum+=$1} END {print sum}')
+          HCOV=$(grep -Po 'LH:\K\d+' coverage/lcov.info | awk '{sum+=$1} END {print sum}')
+          PCT=$((100*HCOV/LCOV))
+          echo "Coverage: $PCT%"
+          if [ "$PCT" -lt "20" ]; then echo "Coverage gate failed"; exit 1; fi

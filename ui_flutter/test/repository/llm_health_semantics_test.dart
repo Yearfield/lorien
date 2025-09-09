@@ -1,12 +1,16 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dio/dio.dart';
-import '../../../lib/features/outcomes/data/llm_api.dart';
+import 'package:lorien/features/outcomes/data/llm_api.dart';
 
 class MockDio implements Dio {
   dynamic mockResponse;
 
   @override
-  Future<Response<T>> get<T>(String path, {Map<String, dynamic>? queryParameters, Options? options, CancelToken? cancelToken, ProgressCallback? onReceiveProgress}) async {
+  Future<Response<T>> get<T>(String path,
+      {Map<String, dynamic>? queryParameters,
+      Options? options,
+      CancelToken? cancelToken,
+      ProgressCallback? onReceiveProgress}) async {
     return Response<T>(
       data: mockResponse as T,
       statusCode: 200,
@@ -27,7 +31,8 @@ void main() {
     llmApi = LlmApi(mockDio);
   });
 
-  test('LLM health returns ready=true when status=200 and ready=true', () async {
+  test('LLM health returns ready=true when status=200 and ready=true',
+      () async {
     mockDio.mockResponse = {
       'ready': true,
       'checked_at': '2024-01-01T12:00:00Z'

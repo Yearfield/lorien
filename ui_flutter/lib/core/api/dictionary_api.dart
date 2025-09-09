@@ -42,7 +42,8 @@ class DefaultDictionaryApi implements DictionaryApi {
   }
 
   @override
-  Future<Map<String, dynamic>> updateTerm(int id, Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> updateTerm(
+      int id, Map<String, dynamic> data) async {
     return await _client.put('/dictionary/$id', body: data);
   }
 

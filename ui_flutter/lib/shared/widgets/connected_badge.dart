@@ -26,7 +26,7 @@ class LlmBadge extends ConsumerWidget {
     if (llmHealth == null) {
       return Chip(
         label: const Text('LLM: Unknown'),
-        backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
       );
     }
 
@@ -38,7 +38,7 @@ class LlmBadge extends ConsumerWidget {
 
     if (!llmEnabled) {
       label = 'LLM: Disabled';
-      backgroundColor = Theme.of(context).colorScheme.surfaceVariant;
+      backgroundColor = Theme.of(context).colorScheme.surfaceContainerHighest;
     } else if (ready) {
       label = 'LLM: Ready';
       backgroundColor = Theme.of(context).colorScheme.secondaryContainer;

@@ -17,6 +17,12 @@ class AboutScreen extends ConsumerWidget {
     return ScrollScaffold(
       title: 'About / Status',
       leading: const AppBackLeading(),
+      actions: [
+        OutlinedButton(
+          onPressed: () => ref.read(healthControllerProvider.notifier).ping(),
+          child: const Text('Ping API'),
+        ),
+      ],
       children: [
         ListTile(
           title: const Text('API Base URL'),
@@ -40,12 +46,14 @@ class AboutScreen extends ConsumerWidget {
           ),
           ListTile(
             title: const Text('Database'),
-            subtitle: Text('${health.db.path} • WAL: ${health.db.wal ? 'ON' : 'OFF'} • FK: ${health.db.foreignKeys ? 'ON' : 'OFF'}'),
+            subtitle: Text(
+                '${health.db.path} • WAL: ${health.db.wal ? 'ON' : 'OFF'} • FK: ${health.db.foreignKeys ? 'ON' : 'OFF'}'),
             leading: const Icon(Icons.storage),
           ),
           ListTile(
             title: const Text('Features'),
-            subtitle: Text('LLM: ${health.features.llm ? 'ENABLED' : 'DISABLED'}'),
+            subtitle:
+                Text('LLM: ${health.features.llm ? 'ENABLED' : 'DISABLED'}'),
             leading: const Icon(Icons.settings),
           ),
         ],
@@ -67,12 +75,6 @@ class AboutScreen extends ConsumerWidget {
           title: Text('Flutter Version'),
           subtitle: Text('3.35.2'),
           leading: Icon(Icons.flutter_dash),
-        ),
-      ],
-      actions: [
-        OutlinedButton(
-          onPressed: () => ref.read(healthControllerProvider.notifier).ping(),
-          child: const Text('Ping API'),
         ),
       ],
     );

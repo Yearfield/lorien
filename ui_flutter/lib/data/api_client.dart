@@ -71,28 +71,29 @@ class ApiClient {
           handler.next(options);
         },
         onResponse: (response, handler) {
-          _log('[HTTP] ← ${response.statusCode} ${response.requestOptions.uri}', extra: {
-            'id': response.requestOptions.headers['X-Request-ID'],
-            'ms': response.requestOptions.extra['rt_ms'],
-          });
+          _log('[HTTP] ← ${response.statusCode} ${response.requestOptions.uri}',
+              extra: {
+                'id': response.requestOptions.headers['X-Request-ID'],
+                'ms': response.requestOptions.extra['rt_ms'],
+              });
           handler.next(response);
         },
         onError: (e, handler) {
-          _log('[HTTP] ✖ ${e.requestOptions.uri} ${e.type} ${e.message}', level: 'warn');
+          _log('[HTTP] ✖ ${e.requestOptions.uri} ${e.type} ${e.message}',
+              level: 'warn');
           handler.next(e);
         },
       ),
     );
   }
 
-  static void _log(String msg, {String level = 'info', Map<String, Object?> extra = const {}}) {
+  static void _log(String msg,
+      {String level = 'info', Map<String, Object?> extra = const {}}) {
     // Central logging hook; ensure redaction if ever logging headers/bodies
     // (we never log Authorization/cookies)
     // ignore: avoid_print
     print('[$level] $msg ${extra.isEmpty ? '' : extra}');
   }
-
-
 
   Dio get dio => _dio;
 
@@ -182,11 +183,13 @@ class ApiClient {
     }
   }
 
-  Future<Map<String, dynamic>> getJson(String resource, {Map<String, dynamic>? query}) async {
+  Future<Map<String, dynamic>> getJson(String resource,
+      {Map<String, dynamic>? query}) async {
     _log('[HTTP] → GET $baseUrl$resource');
     try {
       final p = _join(resource);
-      final res = await _retryIdempotent(() => _dio.get<Map<String, dynamic>>(p, queryParameters: query));
+      final res = await _retryIdempotent(
+          () => _dio.get<Map<String, dynamic>>(p, queryParameters: query));
       return res.data ?? <String, dynamic>{};
     } on DioException catch (e) {
       throw _normalizeDioError(e);
@@ -231,7 +234,8 @@ class ApiClient {
   }
 
   /// Download bytes and return them. Caller persists to disk.
-  Future<Response<List<int>>> download(String resource, {Map<String, dynamic>? query}) async {
+  Future<Response<List<int>>> download(String resource,
+      {Map<String, dynamic>? query}) async {
     try {
       final p = _join(resource);
       final res = await _dio.get<List<int>>(
@@ -260,7 +264,8 @@ class ApiClient {
   }
 
   /// POST with body and return bytes response. For CSV export with payload.
-  Future<Response<List<int>>> postBytes(String resource, {
+  Future<Response<List<int>>> postBytes(
+    String resource, {
     Object? body,
     Map<String, String>? headers,
   }) async {

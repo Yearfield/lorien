@@ -10,7 +10,8 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  test('Crash report service does not fire remote posts during startup', () async {
+  test('Crash report service does not fire remote posts during startup',
+      () async {
     // Ensure remote telemetry is disabled by default
     CrashReportService.enableRemote(false);
 
@@ -55,7 +56,8 @@ void main() {
 
   test('Crash report service handles malformed errors gracefully', () async {
     // Test with empty stack trace
-    await CrashReportService.recordZoneError(Exception('Test'), StackTrace.empty);
+    await CrashReportService.recordZoneError(
+        Exception('Test'), StackTrace.empty);
 
     // Should not crash the app
     expect(true, isTrue);

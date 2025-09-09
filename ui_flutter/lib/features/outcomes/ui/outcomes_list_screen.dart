@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../widgets/layout/scroll_scaffold.dart';
 import '../../../widgets/app_back_leading.dart';
-import '../../../shared/widgets/scroll_to_top_fab.dart';
 
 class OutcomesListScreen extends StatefulWidget {
   const OutcomesListScreen({super.key});
@@ -63,12 +62,14 @@ class _OutcomesListScreenState extends State<OutcomesListScreen> {
           ],
         ),
         const SizedBox(height: 16),
-        ...List.generate(10, (index) => _OutcomeListItem(
-          id: 'outcome_$index',
-          title: 'Outcome ${index + 1}',
-          vitalMeasurement: 'Blood Pressure',
-          isLeaf: index % 3 == 0,
-        )),
+        ...List.generate(
+            10,
+            (index) => _OutcomeListItem(
+                  id: 'outcome_$index',
+                  title: 'Outcome ${index + 1}',
+                  vitalMeasurement: 'Blood Pressure',
+                  isLeaf: index % 3 == 0,
+                )),
       ],
     );
   }

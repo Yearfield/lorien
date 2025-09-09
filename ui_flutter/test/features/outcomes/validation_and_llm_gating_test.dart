@@ -98,7 +98,8 @@ void main() {
     expect(diagnosticField, findsOneWidget);
 
     // Enter text over 7 words
-    const overlongText = 'This diagnostic triage has way more than seven words in the sentence and should be rejected';
+    const overlongText =
+        'This diagnostic triage has way more than seven words in the sentence and should be rejected';
     await tester.enterText(diagnosticField, overlongText);
     await tester.pump();
 
@@ -192,7 +193,8 @@ void main() {
     final diagnosticField = find.byType(TextFormField).first;
 
     // First enter invalid text (over 7 words)
-    const invalidText = 'This is an invalid diagnostic triage with more than seven words';
+    const invalidText =
+        'This is an invalid diagnostic triage with more than seven words';
     await tester.enterText(diagnosticField, invalidText);
     await tester.pump();
 

@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'package:dio/dio.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../api/lorien_api.dart';
 import '../../../providers/lorien_api_provider.dart';
@@ -14,11 +12,17 @@ class DictionaryEntry {
   final String updatedAt;
   final bool? isRedFlag;
 
-  DictionaryEntry(this.id, this.type, this.term, this.normalized, this.hints, this.updatedAt, this.isRedFlag);
+  DictionaryEntry(this.id, this.type, this.term, this.normalized, this.hints,
+      this.updatedAt, this.isRedFlag);
 
   factory DictionaryEntry.fromJson(Map<String, dynamic> j) => DictionaryEntry(
-    j['id'], j['type'], j['term'], j['normalized'], j['hints'], j['updated_at'], j['is_red_flag']
-  );
+      j['id'],
+      j['type'],
+      j['term'],
+      j['normalized'],
+      j['hints'],
+      j['updated_at'],
+      j['is_red_flag']);
 }
 
 class DictionaryPage {
@@ -30,9 +34,10 @@ class DictionaryPage {
   DictionaryPage(this.items, this.total, this.limit, this.offset);
 
   factory DictionaryPage.fromJson(Map<String, dynamic> j) => DictionaryPage(
-    (j['items'] as List).map((e) => DictionaryEntry.fromJson(e)).toList(),
-    j['total'], j['limit'], j['offset']
-  );
+      (j['items'] as List).map((e) => DictionaryEntry.fromJson(e)).toList(),
+      j['total'],
+      j['limit'],
+      j['offset']);
 
   DictionaryPage copyWith({
     List<DictionaryEntry>? items,
@@ -58,15 +63,18 @@ final dictionarySuggestionsProvider = StateNotifierProvider.family<
     DictionarySuggestionsNotifier,
     AsyncValue<List<String>>,
     String>((ref, type) {
-  return DictionarySuggestionsNotifier(ref.read(dictionaryRepositoryProvider), type);
+  return DictionarySuggestionsNotifier(
+      ref.read(dictionaryRepositoryProvider), type);
 });
 
-class DictionarySuggestionsNotifier extends StateNotifier<AsyncValue<List<String>>> {
+class DictionarySuggestionsNotifier
+    extends StateNotifier<AsyncValue<List<String>>> {
   final DictionaryRepository _repository;
   final String _type;
   Timer? _debounceTimer;
 
-  DictionarySuggestionsNotifier(this._repository, this._type) : super(const AsyncValue.data([]));
+  DictionarySuggestionsNotifier(this._repository, this._type)
+      : super(const AsyncValue.data([]));
 
   void searchDebounced(String query) {
     _debounceTimer?.cancel();
@@ -103,36 +111,34 @@ class DictionaryRepository {
 
   DictionaryRepository(this._api);
 
-  Future<DictionaryPage> list({
-    String? type,
-    String query = "",
-    int limit = 50,
-    int offset = 0,
-    bool onlyRedFlags = false,
-    String? sort,
-    String? direction
-  }) async {
+  Future<DictionaryPage> list(
+      {String? type,
+      String query = "",
+      int limit = 50,
+      int offset = 0,
+      bool onlyRedFlags = false,
+      String? sort,
+      String? direction}) async {
     final r = await _api.dictionaryList(
-      type: type,
-      query: query,
-      limit: limit,
-      offset: offset,
-      onlyRedFlags: onlyRedFlags,
-      sort: sort,
-      direction: direction
-    );
+        type: type,
+        query: query,
+        limit: limit,
+        offset: offset,
+        onlyRedFlags: onlyRedFlags,
+        sort: sort,
+        direction: direction);
     return DictionaryPage.fromJson(r);
   }
 
-  Future<DictionaryEntry> create({
-    required String type,
-    required String term,
-    String? normalized,
-    String? hints,
-    bool? isRedFlag
-  }) async {
+  Future<DictionaryEntry> create(
+      {required String type,
+      required String term,
+      String? normalized,
+      String? hints,
+      bool? isRedFlag}) async {
     final data = {
-      "type": type, "term": term,
+      "type": type,
+      "term": term,
       if (normalized != null) "normalized": normalized,
       if (hints != null) "hints": hints,
       if (isRedFlag != null) "is_red_flag": isRedFlag
@@ -141,12 +147,11 @@ class DictionaryRepository {
     return DictionaryEntry.fromJson(r);
   }
 
-  Future<DictionaryEntry> update(int id, {
-    String? term,
-    String? normalized,
-    String? hints,
-    bool? isRedFlag
-  }) async {
+  Future<DictionaryEntry> update(int id,
+      {String? term,
+      String? normalized,
+      String? hints,
+      bool? isRedFlag}) async {
     final data = {
       if (term != null) "term": term,
       if (normalized != null) "normalized": normalized,
@@ -166,11 +171,13 @@ class DictionaryRepository {
     return r;
   }
 
-  Future<List<String>> getSuggestions(String type, String query, {int limit = 10}) async {
+  Future<List<String>> getSuggestions(String type, String query,
+      {int limit = 10}) async {
     if (query.trim().length < 2) return [];
 
     try {
-      final suggestions = await _api.dictionarySuggest(type: 'node_label', query: query, limit: limit);
+      final suggestions = await _api.dictionarySuggest(
+          type: 'node_label', query: query, limit: limit);
       return suggestions.map((item) => item['term'] as String).toList();
     } catch (e) {
       // Fallback to empty list on error
@@ -178,11 +185,8 @@ class DictionaryRepository {
     }
   }
 
-  Future<String> exportCsv({
-    String? type,
-    String? query,
-    bool onlyRedFlags = false
-  }) async {
+  Future<String> exportCsv(
+      {String? type, String? query, bool onlyRedFlags = false}) async {
     final qp = {
       if (type != null) "type": type,
       if (query != null && query.isNotEmpty) "query": query,

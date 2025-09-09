@@ -6,15 +6,18 @@ import 'shortcuts_help.dart';
 class NavShortcuts extends StatelessWidget {
   const NavShortcuts({super.key, required this.child});
   final Widget child;
-  
+
   @override
   Widget build(BuildContext context) {
     return Shortcuts(
       shortcuts: <LogicalKeySet, Intent>{
         LogicalKeySet(LogicalKeyboardKey.escape): const _BackIntent(),
-        LogicalKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.arrowLeft): const _BackIntent(),
-        LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyH): const _HomeIntent(),
-        LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.slash): const _HelpIntent(),
+        LogicalKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.arrowLeft):
+            const _BackIntent(),
+        LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyH):
+            const _HomeIntent(),
+        LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.slash):
+            const _HelpIntent(),
       },
       child: Actions(
         actions: <Type, Action<Intent>>{
@@ -38,12 +41,12 @@ class NavShortcuts extends StatelessWidget {
   }
 }
 
-class _BackIntent extends Intent { 
-  const _BackIntent(); 
+class _BackIntent extends Intent {
+  const _BackIntent();
 }
 
-class _HomeIntent extends Intent { 
-  const _HomeIntent(); 
+class _HomeIntent extends Intent {
+  const _HomeIntent();
 }
 
 class _HelpIntent extends Intent {

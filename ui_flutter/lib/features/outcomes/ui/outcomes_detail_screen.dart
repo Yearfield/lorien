@@ -70,7 +70,8 @@ class _S extends ConsumerState<OutcomesDetailScreen> {
         final api = ref.read(outcomesApiProvider);
         final results = await api.search(vm: widget.vm);
         if (results['items'] != null && (results['items'] as List).isNotEmpty) {
-          final latest = (results['items'] as List).first as Map<String, dynamic>;
+          final latest =
+              (results['items'] as List).first as Map<String, dynamic>;
           _triage.text = latest['diagnostic_triage'] ?? '';
           _actions.text = latest['actions'] ?? '';
           _dirty = true;
@@ -93,7 +94,6 @@ class _S extends ConsumerState<OutcomesDetailScreen> {
     }
     setState(() => _loading = false);
   }
-
 
   Future<void> _llmFill() async {
     if (!_llmOn) return;
@@ -140,7 +140,8 @@ class _S extends ConsumerState<OutcomesDetailScreen> {
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('No previous outcomes found for this VM')),
+            const SnackBar(
+                content: Text('No previous outcomes found for this VM')),
           );
         }
       }
@@ -222,13 +223,14 @@ class _S extends ConsumerState<OutcomesDetailScreen> {
                   'LLM suggestions are disabled by server configuration. '
                   'Contact your administrator to enable LLM features.',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.grey[600],
-                  ),
+                        color: Colors.grey[600],
+                      ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 24),
                 OutlinedButton.icon(
-                  onPressed: () => ref.read(healthControllerProvider.notifier).ping(),
+                  onPressed: () =>
+                      ref.read(healthControllerProvider.notifier).ping(),
                   icon: const Icon(Icons.refresh),
                   label: const Text('Check Status'),
                 ),
@@ -251,16 +253,15 @@ class _S extends ConsumerState<OutcomesDetailScreen> {
             context: context,
             builder: (_) => AlertDialog(
               title: const Text('Discard changes?'),
-              content: const Text('You have unsaved edits. Do you want to discard them?'),
+              content: const Text(
+                  'You have unsaved edits. Do you want to discard them?'),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.of(context).pop(false),
-                  child: const Text('Stay')
-                ),
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: const Text('Stay')),
                 FilledButton(
-                  onPressed: () => Navigator.of(context).pop(true),
-                  child: const Text('Discard')
-                ),
+                    onPressed: () => Navigator.of(context).pop(true),
+                    child: const Text('Discard')),
               ],
             ),
           );
@@ -269,112 +270,122 @@ class _S extends ConsumerState<OutcomesDetailScreen> {
           }
         },
         child: AppScaffold(
-        title: 'Outcomes Detail',
-        body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : Form(
-            key: _fKey,
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                // Breadcrumb
-                if (_breadcrumb.isNotEmpty) ...[
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surfaceVariant,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.location_on, size: 16),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _breadcrumb.join(' > '),
-                            style: Theme.of(context).textTheme.bodySmall,
+          title: 'Outcomes Detail',
+          body: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : Form(
+                  key: _fKey,
+                  child: ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      // Breadcrumb
+                      if (_breadcrumb.isNotEmpty) ...[
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.location_on, size: 16),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _breadcrumb.join(' > '),
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
+                        const SizedBox(height: 16),
                       ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-                TextFormField(
-                controller: _triage,
-                validator: (v) =>
-                    maxSevenWordsAndAllowed(v, field: 'Diagnostic Triage'),
-                decoration: InputDecoration(
-                    labelText: 'Diagnostic Triage',
-                    helperText: 'Keep under 7 words. Avoid dosing/route/time tokens (mg, ml, IV, q6h, etc.).',
-                    suffixText: '${_wc(_triage.text)}/7'),
-                onChanged: (_) => setState(() { _dirty = true; }),
-              ),
-              FieldErrorText(_errTriage),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _actions,
-                validator: (v) => maxSevenWordsAndAllowed(v, field: 'Actions'),
-                decoration: InputDecoration(
-                    labelText: 'Actions',
-                    helperText: 'Keep under 7 words. Avoid dosing/route/time tokens (mg, ml, IV, q6h, etc.).',
-                    suffixText: '${_wc(_actions.text)}/7'),
-                onChanged: (_) => setState(() { _dirty = true; }),
-              ),
-              FieldErrorText(_errActions),
-              const SizedBox(height: 24),
-              Row(children: [
-                if (_vmLabel != null)
-                  OutlinedButton.icon(
-                    onPressed: _copyFromVm,
-                    icon: const Icon(Icons.content_copy),
-                    label: const Text('Copy from VM'),
-                  ),
-                if (_vmLabel != null) const SizedBox(width: 8),
-                if (_llmOn)
-                  OutlinedButton.icon(
-                    onPressed: _llmFill,
-                    icon: const Icon(Icons.auto_awesome),
-                    label: const Text('LLM Fill'),
-                  ),
-                if (!_llmOn && llmEnabled)
-                  OutlinedButton.icon(
-                    onPressed: null,
-                    icon: const Icon(Icons.auto_awesome),
-                    label: const Text('LLM Unavailable'),
-                  ),
-                const Spacer(),
-                FilledButton(
-                    onPressed: _saving ? null : _save,
-                    child: _saving
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Text('Save')),
-              ]),
-              // Show LLM status if enabled but not ready
-              if (!llmEnabled) ...[
-                const SizedBox(height: 8),
-                Text(
-                  'LLM features disabled by server',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.error,
+                      TextFormField(
+                        controller: _triage,
+                        validator: (v) => maxSevenWordsAndAllowed(v,
+                            field: 'Diagnostic Triage'),
+                        decoration: InputDecoration(
+                            labelText: 'Diagnostic Triage',
+                            helperText:
+                                'Keep under 7 words. Avoid dosing/route/time tokens (mg, ml, IV, q6h, etc.).',
+                            suffixText: '${_wc(_triage.text)}/7'),
+                        onChanged: (_) => setState(() {
+                          _dirty = true;
+                        }),
+                      ),
+                      FieldErrorText(_errTriage),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _actions,
+                        validator: (v) =>
+                            maxSevenWordsAndAllowed(v, field: 'Actions'),
+                        decoration: InputDecoration(
+                            labelText: 'Actions',
+                            helperText:
+                                'Keep under 7 words. Avoid dosing/route/time tokens (mg, ml, IV, q6h, etc.).',
+                            suffixText: '${_wc(_actions.text)}/7'),
+                        onChanged: (_) => setState(() {
+                          _dirty = true;
+                        }),
+                      ),
+                      FieldErrorText(_errActions),
+                      const SizedBox(height: 24),
+                      Row(children: [
+                        if (_vmLabel != null)
+                          OutlinedButton.icon(
+                            onPressed: _copyFromVm,
+                            icon: const Icon(Icons.content_copy),
+                            label: const Text('Copy from VM'),
+                          ),
+                        if (_vmLabel != null) const SizedBox(width: 8),
+                        if (_llmOn)
+                          OutlinedButton.icon(
+                            onPressed: _llmFill,
+                            icon: const Icon(Icons.auto_awesome),
+                            label: const Text('LLM Fill'),
+                          ),
+                        if (!_llmOn && llmEnabled)
+                          OutlinedButton.icon(
+                            onPressed: null,
+                            icon: const Icon(Icons.auto_awesome),
+                            label: const Text('LLM Unavailable'),
+                          ),
+                        const Spacer(),
+                        FilledButton(
+                            onPressed: _saving ? null : _save,
+                            child: _saving
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2))
+                                : const Text('Save')),
+                      ]),
+                      // Show LLM status if enabled but not ready
+                      if (!llmEnabled) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          'LLM features disabled by server',
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Theme.of(context).colorScheme.error,
+                                  ),
+                        ),
+                      ] else if (!_llmOn && _llmCheckedAt != null) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          'LLM unavailable (last checked: $_llmCheckedAt)',
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Theme.of(context).colorScheme.error,
+                                  ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
-              ] else if (!_llmOn && _llmCheckedAt != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  'LLM unavailable (last checked: $_llmCheckedAt)',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.error,
-                  ),
-                ),
-              ],
-            ],
-          ),
         ),
-      ),
       ),
     );
   }

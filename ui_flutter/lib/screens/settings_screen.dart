@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../data/api_client.dart';
-import '../utils/env.dart';
 import '../widgets/layout/scroll_scaffold.dart';
 import '../widgets/app_back_leading.dart';
 
@@ -63,7 +62,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       // Use the shared ApiClient for testing
       final response = await ApiClient.I().get('health');
       final data = response.data as Map<String, dynamic>?;
-      
+
       if (response.statusCode == 200 && data?['ok'] == true) {
         setState(() {
           _connectionStatus = 'Connected: ${ApiClient.I().baseUrl}';
@@ -184,35 +183,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
       const SizedBox(height: 16),
 
-      Card(
+      const Card(
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: EdgeInsets.all(16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Linux/Desktop:',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
-              const Text('http://127.0.0.1:8000/api/v1'),
-              const SizedBox(height: 8),
-              const Text(
+              Text('http://127.0.0.1:8000/api/v1'),
+              SizedBox(height: 8),
+              Text(
                 'Android Emulator:',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
-              const Text('http://10.0.2.2:8000/api/v1'),
-              const SizedBox(height: 8),
-              const Text(
+              Text('http://10.0.2.2:8000/api/v1'),
+              SizedBox(height: 8),
+              Text(
                 'Physical Device (same network):',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
-              const Text('http://<LAN-IP>:8000/api/v1'),
-              const SizedBox(height: 8),
-              const Text(
+              Text('http://<LAN-IP>:8000/api/v1'),
+              SizedBox(height: 8),
+              Text(
                 'iOS Simulator:',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
-              const Text('http://localhost:8000/api/v1'),
+              Text('http://localhost:8000/api/v1'),
             ],
           ),
         ),
@@ -239,21 +238,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
       const SizedBox(height: 16),
 
-      Card(
+      const Card(
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: EdgeInsets.all(16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Default File Names:',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 8),
-              const Text('• Calculator Export: lorien_calc_export.csv'),
-              const Text('• Tree Export: lorien_tree_export.csv'),
-              const SizedBox(height: 8),
-              const Text(
+              SizedBox(height: 8),
+              Text('• Calculator Export: lorien_calc_export.csv'),
+              Text('• Tree Export: lorien_tree_export.csv'),
+              SizedBox(height: 8),
+              Text(
                 'Files are saved to temporary directory and can be shared or moved.',
                 style: TextStyle(fontStyle: FontStyle.italic),
               ),
@@ -272,17 +271,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return ScrollScaffold(
       title: 'Settings',
       leading: const AppBackLeading(),
-      children: _buildFields(context),
       actions: <Widget>[
         ElevatedButton(
           onPressed: _saving ? null : _onSave,
-          child: _saving ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Save'),
+          child: _saving
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2))
+              : const Text('Save'),
         ),
         OutlinedButton(
           onPressed: _testConnection,
           child: const Text('Test Connection'),
         ),
       ],
+      children: _buildFields(context),
     );
   }
 
@@ -290,13 +294,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     // This is a placeholder - in a real app you'd get the actual LAN IP
     const lanIp = '192.168.1.100'; // Example IP
 
-    await Clipboard.setData(ClipboardData(text: lanIp));
+    await Clipboard.setData(const ClipboardData(text: lanIp));
 
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text('LAN IP copied to clipboard: $lanIp'),
-          duration: const Duration(seconds: 2),
+          duration: Duration(seconds: 2),
         ),
       );
     }

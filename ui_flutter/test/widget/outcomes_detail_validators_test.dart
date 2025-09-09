@@ -20,7 +20,8 @@ void main() {
             routes: [
               GoRoute(
                 path: '/',
-                builder: (context, state) => const OutcomesDetailScreen(outcomeId: 'test_id'),
+                builder: (context, state) =>
+                    const OutcomesDetailScreen(outcomeId: 'test_id'),
               ),
             ],
           ),

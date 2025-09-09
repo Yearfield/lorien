@@ -24,7 +24,7 @@ void main() {
       tester.view.resetPhysicalSize();
       tester.view.resetDevicePixelRatio();
     });
-    
+
     await tester.pumpWidget(
       const ProviderScope(
         child: MaterialApp(home: WorkspaceScreen()),

@@ -1,10 +1,9 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/testing.dart';
 import 'package:http/http.dart' as http;
 
-import '../../lib/features/workspace/conflicts_screen.dart';
+import 'package:lorien/features/workspace/conflicts_screen.dart';
 
 void main() {
   testWidgets('Conflicts: basic screen loads', (tester) async {

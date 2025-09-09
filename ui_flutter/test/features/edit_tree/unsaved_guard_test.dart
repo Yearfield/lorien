@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mockito/mockito.dart';
-import '../../../lib/features/edit_tree/ui/edit_tree_screen.dart';
-import '../../../lib/features/edit_tree/data/edit_tree_repository.dart';
-import '../../../lib/features/edit_tree/data/edit_tree_provider.dart';
+import 'package:lorien/features/edit_tree/ui/edit_tree_screen.dart';
+import 'package:lorien/features/edit_tree/data/edit_tree_repository.dart';
+import 'package:lorien/features/edit_tree/data/edit_tree_provider.dart';
 
 class MockEditTreeRepository extends Mock implements EditTreeRepository {
   @override
@@ -38,7 +38,8 @@ void main() {
     mockRepo = MockEditTreeRepository();
   });
 
-  testWidgets('should allow parent switch when no unsaved changes', (tester) async {
+  testWidgets('should allow parent switch when no unsaved changes',
+      (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -60,7 +61,8 @@ void main() {
     expect(find.byType(AlertDialog), findsNothing);
   });
 
-  testWidgets('should show unsaved changes dialog when switching parents', (tester) async {
+  testWidgets('should show unsaved changes dialog when switching parents',
+      (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -84,7 +86,8 @@ void main() {
     );
 
     // Access the state and set dirty to true
-    final state = tester.state<EditTreeScreenState>(find.byType(EditTreeScreen));
+    final state =
+        tester.state<EditTreeScreenState>(find.byType(EditTreeScreen));
     state.setState(() => state._dirty = true);
 
     // Try to switch to another parent
@@ -94,10 +97,12 @@ void main() {
     // Should show unsaved changes dialog
     expect(find.byType(AlertDialog), findsOneWidget);
     expect(find.text('Unsaved Changes'), findsOneWidget);
-    expect(find.text('You have unsaved changes. What would you like to do?'), findsOneWidget);
+    expect(find.text('You have unsaved changes. What would you like to do?'),
+        findsOneWidget);
   });
 
-  testWidgets('should stay on current parent when "Stay" is selected', (tester) async {
+  testWidgets('should stay on current parent when "Stay" is selected',
+      (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -116,7 +121,8 @@ void main() {
     await tester.pumpAndSettle();
 
     // Set dirty state
-    final state = tester.state<EditTreeScreenState>(find.byType(EditTreeScreen));
+    final state =
+        tester.state<EditTreeScreenState>(find.byType(EditTreeScreen));
     state.setState(() => state._dirty = true);
 
     // Try to switch parents
@@ -132,7 +138,9 @@ void main() {
     // The parent should still be selected (we can't easily test this without more setup)
   });
 
-  testWidgets('should discard changes and switch when "Discard Changes" is selected', (tester) async {
+  testWidgets(
+      'should discard changes and switch when "Discard Changes" is selected',
+      (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -151,7 +159,8 @@ void main() {
     await tester.pumpAndSettle();
 
     // Set dirty state
-    final state = tester.state<EditTreeScreenState>(find.byType(EditTreeScreen));
+    final state =
+        tester.state<EditTreeScreenState>(find.byType(EditTreeScreen));
     state.setState(() => state._dirty = true);
 
     // Try to switch parents
@@ -166,19 +175,22 @@ void main() {
     expect(find.byType(AlertDialog), findsNothing);
   });
 
-  testWidgets('should save and continue when "Save & Continue" is selected', (tester) async {
+  testWidgets('should save and continue when "Save & Continue" is selected',
+      (tester) async {
     // This test would require mocking the save operation
     // For now, we'll skip this complex integration test
     // In a real scenario, we'd mock the save operation to succeed
   });
 
-  testWidgets('should show error when save fails in "Save & Continue"', (tester) async {
+  testWidgets('should show error when save fails in "Save & Continue"',
+      (tester) async {
     // This test would require mocking the save operation to fail
     // For now, we'll skip this complex integration test
     // In a real scenario, we'd mock the save operation to fail and verify error handling
   });
 
-  testWidgets('should protect Next Incomplete button with unsaved guard', (tester) async {
+  testWidgets('should protect Next Incomplete button with unsaved guard',
+      (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -197,7 +209,8 @@ void main() {
     await tester.pumpAndSettle();
 
     // Set dirty state
-    final state = tester.state<EditTreeScreenState>(find.byType(EditTreeScreen));
+    final state =
+        tester.state<EditTreeScreenState>(find.byType(EditTreeScreen));
     state.setState(() => state._dirty = true);
 
     // Click Next Incomplete button
@@ -209,7 +222,8 @@ void main() {
     expect(find.text('Unsaved Changes'), findsOneWidget);
   });
 
-  testWidgets('should protect header Next Incomplete button with unsaved guard', (tester) async {
+  testWidgets('should protect header Next Incomplete button with unsaved guard',
+      (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -228,7 +242,8 @@ void main() {
     await tester.pumpAndSettle();
 
     // Set dirty state
-    final state = tester.state<EditTreeScreenState>(find.byType(EditTreeScreen));
+    final state =
+        tester.state<EditTreeScreenState>(find.byType(EditTreeScreen));
     state.setState(() => state._dirty = true);
 
     // Find and click header Next Incomplete button
@@ -258,7 +273,8 @@ void main() {
     await tester.pumpAndSettle();
 
     // Set dirty state
-    final state = tester.state<EditTreeScreenState>(find.byType(EditTreeScreen));
+    final state =
+        tester.state<EditTreeScreenState>(find.byType(EditTreeScreen));
     state.setState(() => state._dirty = true);
 
     // Try to switch parents
@@ -273,7 +289,8 @@ void main() {
     expect(find.byType(AlertDialog), findsNothing);
   });
 
-  testWidgets('should style Discard Changes button appropriately', (tester) async {
+  testWidgets('should style Discard Changes button appropriately',
+      (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -292,7 +309,8 @@ void main() {
     await tester.pumpAndSettle();
 
     // Set dirty state
-    final state = tester.state<EditTreeScreenState>(find.byType(EditTreeScreen));
+    final state =
+        tester.state<EditTreeScreenState>(find.byType(EditTreeScreen));
     state.setState(() => state._dirty = true);
 
     // Try to switch parents

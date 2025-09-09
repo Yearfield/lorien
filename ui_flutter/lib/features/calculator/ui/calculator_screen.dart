@@ -180,9 +180,9 @@ class _CalculatorScreenState extends ConsumerState<CalculatorScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return AppScaffold(
+      return const AppScaffold(
         title: 'Calculator',
-        body: const Center(child: CircularProgressIndicator()),
+        body: Center(child: CircularProgressIndicator()),
       );
     }
 
@@ -193,7 +193,7 @@ class _CalculatorScreenState extends ConsumerState<CalculatorScreen> {
         children: [
           // Vital Measurement dropdown
           DropdownButtonFormField<String>(
-            value: _selectedVM,
+            initialValue: _selectedVM,
             decoration: const InputDecoration(labelText: 'Vital Measurement'),
             items: _vitalMeasurements.map((String value) {
               return DropdownMenuItem<String>(
@@ -212,17 +212,27 @@ class _CalculatorScreenState extends ConsumerState<CalculatorScreen> {
             String? selectedValue;
 
             switch (nodeIndex) {
-              case 1: selectedValue = _selectedNode1; break;
-              case 2: selectedValue = _selectedNode2; break;
-              case 3: selectedValue = _selectedNode3; break;
-              case 4: selectedValue = _selectedNode4; break;
-              case 5: selectedValue = _selectedNode5; break;
+              case 1:
+                selectedValue = _selectedNode1;
+                break;
+              case 2:
+                selectedValue = _selectedNode2;
+                break;
+              case 3:
+                selectedValue = _selectedNode3;
+                break;
+              case 4:
+                selectedValue = _selectedNode4;
+                break;
+              case 5:
+                selectedValue = _selectedNode5;
+                break;
             }
 
             return Padding(
               padding: const EdgeInsets.only(bottom: 16),
               child: DropdownButtonFormField<String>(
-                value: selectedValue,
+                initialValue: selectedValue,
                 decoration: InputDecoration(labelText: 'Node $nodeIndex'),
                 items: options.map((String value) {
                   return DropdownMenuItem<String>(

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../lib/features/edit_tree/ui/edit_tree_screen.dart';
+import 'package:lorien/features/edit_tree/ui/edit_tree_screen.dart';
 
 void main() {
   testWidgets('shows Complete badge when no missing slots', (tester) async {
@@ -19,7 +19,8 @@ void main() {
     expect(true, isTrue); // Placeholder for actual verification
   });
 
-  testWidgets('shows Missing badge with count when slots are missing', (tester) async {
+  testWidgets('shows Missing badge with count when slots are missing',
+      (tester) async {
     await tester.pumpWidget(
       const ProviderScope(
         child: MaterialApp(home: EditTreeScreen()),
@@ -33,7 +34,8 @@ void main() {
     expect(true, isTrue); // Placeholder for actual verification
   });
 
-  testWidgets('Next Incomplete button is present and functional', (tester) async {
+  testWidgets('Next Incomplete button is present and functional',
+      (tester) async {
     await tester.pumpWidget(
       const ProviderScope(
         child: MaterialApp(home: EditTreeScreen()),

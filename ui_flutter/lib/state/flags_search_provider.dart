@@ -4,7 +4,9 @@ import '../data/api_client.dart';
 
 final flagsQueryProvider = StateProvider<String>((ref) => '');
 
-final flagsResultsProvider = AsyncNotifierProvider<FlagsSearchController, List<Map<String, dynamic>>>(() {
+final flagsResultsProvider =
+    AsyncNotifierProvider<FlagsSearchController, List<Map<String, dynamic>>>(
+        () {
   return FlagsSearchController();
 });
 
@@ -25,8 +27,10 @@ class FlagsSearchController extends AsyncNotifier<List<Map<String, dynamic>>> {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: _debounceMs), () async {
       try {
-        final data = await ApiClient.I().getJson('flags/search', query: {'q': q});
-        final items = (data['items'] as List?)?.cast<Map<String, dynamic>>() ?? const <Map<String, dynamic>>[];
+        final data =
+            await ApiClient.I().getJson('flags/search', query: {'q': q});
+        final items = (data['items'] as List?)?.cast<Map<String, dynamic>>() ??
+            const <Map<String, dynamic>>[];
         c.complete(items);
       } catch (e, st) {
         c.completeError(e, st);

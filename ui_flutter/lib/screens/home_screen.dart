@@ -5,7 +5,7 @@ import '../features/workspace/ui/workspace_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -35,7 +35,8 @@ class HomeScreen extends StatelessWidget {
                   ElevatedButton.icon(
                     onPressed: () => Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (_) => CalculatorScreen(baseUrl: ApiConfig.baseUrl),
+                        builder: (_) =>
+                            const CalculatorScreen(baseUrl: ApiConfig.baseUrl),
                       ),
                     ),
                     icon: const Icon(Icons.calculate_outlined),

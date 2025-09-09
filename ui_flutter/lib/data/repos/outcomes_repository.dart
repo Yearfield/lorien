@@ -33,7 +33,8 @@ class OutcomesRepository {
             return null; // No triage found for this node
           }
 
-          throw Exception('Failed to get triage fallback: ${response.statusCode}');
+          throw Exception(
+              'Failed to get triage fallback: ${response.statusCode}');
         } on DioException catch (fallbackE) {
           if (fallbackE.response?.statusCode == 404) {
             return null; // No triage found for this node
@@ -72,10 +73,12 @@ class OutcomesRepository {
             return; // Success
           }
 
-          throw Exception('Failed to update triage fallback: ${response.statusCode}');
+          throw Exception(
+              'Failed to update triage fallback: ${response.statusCode}');
         } on DioException catch (fallbackE) {
           if (fallbackE.response?.statusCode == 400) {
-            throw Exception('Validation error: ${fallbackE.response?.data?['detail']}');
+            throw Exception(
+                'Validation error: ${fallbackE.response?.data?['detail']}');
           } else if (fallbackE.response?.statusCode == 404) {
             throw Exception('Node not found');
           }

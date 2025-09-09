@@ -1,6 +1,4 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_selector/file_selector.dart';
 import '../../../widgets/layout/scroll_scaffold.dart';
@@ -12,7 +10,8 @@ class SessionSourceScreen extends ConsumerStatefulWidget {
   const SessionSourceScreen({super.key});
 
   @override
-  ConsumerState<SessionSourceScreen> createState() => _SessionSourceScreenState();
+  ConsumerState<SessionSourceScreen> createState() =>
+      _SessionSourceScreenState();
 }
 
 class _SessionSourceScreenState extends ConsumerState<SessionSourceScreen>
@@ -57,7 +56,8 @@ class _SessionSourceScreenState extends ConsumerState<SessionSourceScreen>
       final jsonString = await service.exportToJsonFile(sessionData);
 
       // Save to file
-      final fileName = 'lorien_session_${DateTime.now().toIso8601String().split('T')[0]}.json';
+      final fileName =
+          'lorien_session_${DateTime.now().toIso8601String().split('T')[0]}.json';
       final filePath = await _saveJsonToFile(jsonString, fileName);
 
       if (mounted) {
@@ -165,17 +165,20 @@ class _SessionSourceScreenState extends ConsumerState<SessionSourceScreen>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (result.importedSheets.isNotEmpty) ...[
-                const Text('Imported sheets:', style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text('Imported sheets:',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
                 ...result.importedSheets.map((sheet) => Text('• $sheet')),
                 const SizedBox(height: 8),
               ],
               if (result.errors.isNotEmpty) ...[
-                const Text('Errors:', style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text('Errors:',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
                 ...result.errors.map((error) => Text('• $error')),
                 const SizedBox(height: 8),
               ],
               if (result.warnings.isNotEmpty) ...[
-                const Text('Warnings:', style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text('Warnings:',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
                 ...result.warnings.map((warning) => Text('• $warning')),
               ],
             ],
@@ -205,7 +208,7 @@ class _SessionSourceScreenState extends ConsumerState<SessionSourceScreen>
 
   Future<void> _pickCsvFile() async {
     try {
-      final typeGroup = XTypeGroup(
+      const typeGroup = XTypeGroup(
         label: 'CSV Files',
         extensions: ['csv'],
       );
@@ -231,7 +234,8 @@ class _SessionSourceScreenState extends ConsumerState<SessionSourceScreen>
 
     try {
       final service = ref.read(sessionServiceProvider);
-      final preview = await service.previewCsv(_selectedFilePath!, hasHeaders: _hasHeaders);
+      final preview =
+          await service.previewCsv(_selectedFilePath!, hasHeaders: _hasHeaders);
 
       // Auto-suggest header mapping
       final suggestions = await service.suggestHeaderMapping(preview.headers);
@@ -289,12 +293,14 @@ class _SessionSourceScreenState extends ConsumerState<SessionSourceScreen>
               Text('Rows imported: ${result.rowsImported}'),
               if (result.errors.isNotEmpty) ...[
                 const SizedBox(height: 8),
-                const Text('Errors:', style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text('Errors:',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
                 ...result.errors.map((error) => Text('• $error')),
               ],
               if (result.warnings.isNotEmpty) ...[
                 const SizedBox(height: 8),
-                const Text('Warnings:', style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text('Warnings:',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
                 ...result.warnings.map((warning) => Text('• $warning')),
               ],
             ],
@@ -367,7 +373,8 @@ class _SessionSourceScreenState extends ConsumerState<SessionSourceScreen>
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.download),
-                    label: Text(_isExporting ? 'Exporting...' : 'Export Session'),
+                    label:
+                        Text(_isExporting ? 'Exporting...' : 'Export Session'),
                   ),
                 ],
               ),
@@ -398,7 +405,8 @@ class _SessionSourceScreenState extends ConsumerState<SessionSourceScreen>
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.upload),
-                    label: Text(_isImporting ? 'Importing...' : 'Import Session'),
+                    label:
+                        Text(_isImporting ? 'Importing...' : 'Import Session'),
                   ),
                 ],
               ),
@@ -414,10 +422,12 @@ class _SessionSourceScreenState extends ConsumerState<SessionSourceScreen>
                   children: [
                     const Text(
                       'Last Exported Session',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
-                    Text('Exported: ${_currentSession!.exportedAt.toString().split('.')[0]}'),
+                    Text(
+                        'Exported: ${_currentSession!.exportedAt.toString().split('.')[0]}'),
                     Text('Version: ${_currentSession!.version}'),
                     Text('Sheets: ${_currentSession!.workbook.sheets.length}'),
                   ],
@@ -458,7 +468,9 @@ class _SessionSourceScreenState extends ConsumerState<SessionSourceScreen>
                         child: Text(
                           _selectedFilePath ?? 'No file selected',
                           style: TextStyle(
-                            color: _selectedFilePath != null ? Colors.black : Colors.grey,
+                            color: _selectedFilePath != null
+                                ? Colors.black
+                                : Colors.grey,
                           ),
                         ),
                       ),
@@ -521,7 +533,8 @@ class _SessionSourceScreenState extends ConsumerState<SessionSourceScreen>
             ),
             const SizedBox(height: 16),
             // Header mapping
-            const Text('Header Mapping:', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text('Header Mapping:',
+                style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             ..._csvPreview!.normalizedHeaders.entries.map((entry) {
               return Padding(
@@ -556,7 +569,8 @@ class _SessionSourceScreenState extends ConsumerState<SessionSourceScreen>
             }),
             const SizedBox(height: 16),
             // Data preview
-            const Text('Data Preview:', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text('Data Preview:',
+                style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Container(
               height: 200,
@@ -572,7 +586,8 @@ class _SessionSourceScreenState extends ConsumerState<SessionSourceScreen>
                   }).toList(),
                   rows: _csvPreview!.rows.take(5).map((row) {
                     return DataRow(
-                      cells: _csvPreview!.normalizedHeaders.values.map((header) {
+                      cells:
+                          _csvPreview!.normalizedHeaders.values.map((header) {
                         return DataCell(Text(row[header] ?? ''));
                       }).toList(),
                     );
@@ -583,7 +598,8 @@ class _SessionSourceScreenState extends ConsumerState<SessionSourceScreen>
             const SizedBox(height: 16),
             Row(
               children: [
-                Text('${_csvPreview!.totalRows ?? _csvPreview!.rows.length} total rows'),
+                Text(
+                    '${_csvPreview!.totalRows ?? _csvPreview!.rows.length} total rows'),
                 const Spacer(),
                 ElevatedButton.icon(
                   onPressed: _importCsv,
@@ -621,7 +637,8 @@ class _SessionSourceScreenState extends ConsumerState<SessionSourceScreen>
                     context: context,
                     builder: (context) => AlertDialog(
                       title: const Text('Clear Push Log'),
-                      content: const Text('This will clear all push log entries. Continue?'),
+                      content: const Text(
+                          'This will clear all push log entries. Continue?'),
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.of(context).pop(false),
@@ -681,7 +698,8 @@ class _SessionSourceScreenState extends ConsumerState<SessionSourceScreen>
                                 ),
                               ],
                             ),
-                            trailing: entry.user != null ? Text(entry.user!) : null,
+                            trailing:
+                                entry.user != null ? Text(entry.user!) : null,
                           ),
                         );
                       },

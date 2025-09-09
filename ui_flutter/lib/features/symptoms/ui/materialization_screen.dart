@@ -4,13 +4,13 @@ import '../../../widgets/layout/scroll_scaffold.dart';
 import '../../../widgets/app_back_leading.dart';
 import '../data/materialization_service.dart';
 import '../data/symptoms_models.dart';
-import '../data/symptoms_repository.dart';
 
 class MaterializationScreen extends ConsumerStatefulWidget {
   const MaterializationScreen({super.key});
 
   @override
-  ConsumerState<MaterializationScreen> createState() => _MaterializationScreenState();
+  ConsumerState<MaterializationScreen> createState() =>
+      _MaterializationScreenState();
 }
 
 class _MaterializationScreenState extends ConsumerState<MaterializationScreen> {
@@ -157,16 +157,18 @@ class _MaterializationScreenState extends ConsumerState<MaterializationScreen> {
               ],
               if (result.log != null && result.log!.isNotEmpty) ...[
                 const SizedBox(height: 16),
-                const Text('Log:', style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text('Log:',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
                 Text(result.log!, style: const TextStyle(fontSize: 12)),
               ],
               if (result.details != null && result.details!.isNotEmpty) ...[
                 const SizedBox(height: 16),
-                const Text('Details:', style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text('Details:',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
                 ...result.details!.map((detail) => Text(
-                  '• $detail',
-                  style: const TextStyle(fontSize: 12),
-                )),
+                      '• $detail',
+                      style: const TextStyle(fontSize: 12),
+                    )),
               ],
             ],
           ),
@@ -188,7 +190,8 @@ class _MaterializationScreenState extends ConsumerState<MaterializationScreen> {
         children: [
           SizedBox(
             width: 60,
-            child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+            child: Text(label,
+                style: const TextStyle(fontWeight: FontWeight.bold)),
           ),
           Container(
             width: 24,
@@ -288,7 +291,8 @@ class _MaterializationScreenState extends ConsumerState<MaterializationScreen> {
     );
   }
 
-  Widget _buildStatItem(String label, String value, IconData icon, Color color) {
+  Widget _buildStatItem(
+      String label, String value, IconData icon, Color color) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -353,7 +357,8 @@ class _MaterializationScreenState extends ConsumerState<MaterializationScreen> {
                   children: [
                     Text(item.timestamp.toString().split('.')[0]),
                     if (item.description != null)
-                      Text(item.description!, style: const TextStyle(fontSize: 12)),
+                      Text(item.description!,
+                          style: const TextStyle(fontSize: 12)),
                     Text(
                       'Added: ${item.result.added}, Filled: ${item.result.filled}, Pruned: ${item.result.pruned}',
                       style: const TextStyle(fontSize: 12),
@@ -362,7 +367,8 @@ class _MaterializationScreenState extends ConsumerState<MaterializationScreen> {
                 ),
                 trailing: IconButton(
                   icon: const Icon(Icons.info_outline),
-                  onPressed: () => _showResultDialog('Operation Details', item.result),
+                  onPressed: () =>
+                      _showResultDialog('Operation Details', item.result),
                   tooltip: 'View details',
                 ),
               );
@@ -397,13 +403,15 @@ class _MaterializationScreenState extends ConsumerState<MaterializationScreen> {
                 const SizedBox(height: 16),
                 SwitchListTile(
                   title: const Text('Enforce 5 Children'),
-                  subtitle: const Text('Always ensure exactly 5 children per parent'),
+                  subtitle:
+                      const Text('Always ensure exactly 5 children per parent'),
                   value: _enforceFive,
                   onChanged: (value) => setState(() => _enforceFive = value),
                 ),
                 SwitchListTile(
                   title: const Text('Safe Prune'),
-                  subtitle: const Text('Only prune when deeper nodes are blank'),
+                  subtitle:
+                      const Text('Only prune when deeper nodes are blank'),
                   value: _safePrune,
                   onChanged: (value) => setState(() => _safePrune = value),
                 ),
@@ -440,10 +448,13 @@ class _MaterializationScreenState extends ConsumerState<MaterializationScreen> {
                             ? const SizedBox(
                                 width: 20,
                                 height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
                               )
                             : const Icon(Icons.build),
-                        label: Text(_loading ? 'Processing...' : 'Materialize All Incomplete'),
+                        label: Text(_loading
+                            ? 'Processing...'
+                            : 'Materialize All Incomplete'),
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -452,7 +463,8 @@ class _MaterializationScreenState extends ConsumerState<MaterializationScreen> {
                       icon: const Icon(Icons.undo),
                       label: const Text('Undo Last'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).colorScheme.secondary,
+                        backgroundColor:
+                            Theme.of(context).colorScheme.secondary,
                       ),
                     ),
                   ],

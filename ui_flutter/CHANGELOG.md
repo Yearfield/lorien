@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - Phase-6D+ Finalization & Release
+
+### Added
+- **TreeApi Fallback**: Unified children endpoint to `/tree/{id}/children` with 404->legacy fallback
+- **Duplicate Label Mapping**: Per-slot 422 error mapping for `value_error.duplicate_child_label`
+- **Test Infrastructure**: Comprehensive Dio mock helpers and API stubs
+- **CI Coverage Gate**: Automated coverage enforcement (>=20%) in GitHub Actions
+- **Integration Smoke Tests**: Basic app launch and navigation validation
+- **Release Checklist**: Comprehensive pre-release validation and manual verification steps
+
+### Enhanced
+- **Error Mapping**: Extended `error_mapper.dart` to handle duplicate_child_label with slot context
+- **API Client**: TreeApi now handles both canonical and legacy endpoints automatically
+- **Test Coverage**: 50+ tests passing with comprehensive regression coverage
+- **Code Quality**: 0 analyzer issues maintained throughout stabilization
+
+### Technical
+- **Stabilization Complete**: All P0-P1 tasks completed successfully
+- **API Standardization**: Single source of truth for children endpoints with fallback
+- **Contract Validation**: Enhanced 8-column CSV header contract tests
+- **CI Hardening**: Coverage gates and integration test validation
+
 ## [0.9.0-beta.1] - Phase 5: Beta Rollout Hardening
 
 ### Added

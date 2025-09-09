@@ -7,7 +7,7 @@ void main() {
     // Test Home icon on root page (no back navigation available)
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
-        appBar: AppBar(leading: AppBackLeading()),
+        appBar: AppBar(leading: const AppBackLeading()),
       ),
     ));
 
@@ -22,7 +22,7 @@ void main() {
             Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (_) => Scaffold(
-                  appBar: AppBar(leading: AppBackLeading()),
+                  appBar: AppBar(leading: const AppBackLeading()),
                 ),
               ),
             );

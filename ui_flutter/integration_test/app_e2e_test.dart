@@ -38,7 +38,8 @@ void main() {
 
     // Verify server is running
     expect(server.port, greaterThan(0));
-    expect(server.address.address, equals(InternetAddress.loopbackIPv4.address));
+    expect(
+        server.address.address, equals(InternetAddress.loopbackIPv4.address));
   });
 
   testWidgets('health endpoint integration', (tester) async {

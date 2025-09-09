@@ -23,11 +23,11 @@ class _OutcomesListScreenState extends State<OutcomesListScreen> {
 
   final TextEditingController _searchController = TextEditingController();
   String _selectedVm = '';
-  List<TriageLeaf> _leaves = [];
+  final List<TriageLeaf> _leaves = [];
   bool _loading = false;
   String? _error;
   int _totalCount = 0;
-  int _pageSize = 20;
+  final int _pageSize = 20;
   int _currentPage = 0;
   bool _hasMore = true;
   final ScrollController _scrollController = ScrollController();
@@ -42,7 +42,7 @@ class _OutcomesListScreenState extends State<OutcomesListScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final base = context.read<SettingsProvider>().baseUrl;
-    final analytics = const String.fromEnvironment('ANALYTICS_ENABLED',
+    const analytics = String.fromEnvironment('ANALYTICS_ENABLED',
             defaultValue: 'false') ==
         'true';
     _dio = Dio();
@@ -114,7 +114,7 @@ class _OutcomesListScreenState extends State<OutcomesListScreen> {
                       style: Theme.of(context).textTheme.labelMedium))),
           Expanded(
             child: _leaves.isEmpty && !_loading
-                ? Center(
+                ? const Center(
                     child: Text(
                         'No leaves found — import a workbook or complete parents first.'))
                 : NotificationListener<ScrollNotification>(
@@ -131,11 +131,12 @@ class _OutcomesListScreenState extends State<OutcomesListScreen> {
                       controller: _scrollController,
                       itemCount: _leaves.length + (_loading ? 1 : 0),
                       itemBuilder: (c, i) {
-                        if (i >= _leaves.length)
+                        if (i >= _leaves.length) {
                           return const Padding(
                               padding: EdgeInsets.all(16),
                               child:
                                   Center(child: CircularProgressIndicator()));
+                        }
                         final it = _leaves[i];
                         return ListTile(
                           title: Text(it.vitalMeasurement),

@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mockito/mockito.dart';
-import '../../../lib/features/edit_tree/ui/edit_tree_screen.dart';
-import '../../../lib/features/edit_tree/data/edit_tree_repository.dart';
-import '../../../lib/features/edit_tree/data/edit_tree_provider.dart';
+import 'package:lorien/features/edit_tree/ui/edit_tree_screen.dart';
+import 'package:lorien/features/edit_tree/data/edit_tree_repository.dart';
+import 'package:lorien/features/edit_tree/data/edit_tree_provider.dart';
 
 class MockEditTreeRepository extends Mock implements EditTreeRepository {
   @override
@@ -24,7 +24,8 @@ class MockEditTreeRepository extends Mock implements EditTreeRepository {
       );
     } else if (offset == 50) {
       return IncompleteParentsPage(
-        List.generate(25, (i) => IncompleteParent(i + 50, 'Parent ${i + 50}', 1, '')),
+        List.generate(
+            25, (i) => IncompleteParent(i + 50, 'Parent ${i + 50}', 1, '')),
         75,
         50,
         50,
@@ -103,7 +104,8 @@ void main() {
     expect(find.text('Parent 74'), findsOneWidget);
   });
 
-  testWidgets('should show loading indicator during infinite scroll', (tester) async {
+  testWidgets('should show loading indicator during infinite scroll',
+      (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -218,7 +220,8 @@ void main() {
     verify(mockRepo.listIncomplete(depth: 1, offset: 0)).called(1);
   });
 
-  testWidgets('should handle search query changes with debouncing', (tester) async {
+  testWidgets('should handle search query changes with debouncing',
+      (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [

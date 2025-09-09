@@ -7,14 +7,15 @@ class DioApiClient implements ApiClient {
   final Dio _dio;
   final String baseUrl;
 
-  DioApiClient(this.baseUrl) : _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 10),
-    receiveTimeout: const Duration(seconds: 10),
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    },
-  ));
+  DioApiClient(this.baseUrl)
+      : _dio = Dio(BaseOptions(
+          connectTimeout: const Duration(seconds: 10),
+          receiveTimeout: const Duration(seconds: 10),
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+        ));
 
   @override
   Future<Map<String, dynamic>> get(
@@ -84,12 +85,12 @@ class DioApiClient implements ApiClient {
   }) async {
     try {
       final formData = FormData();
-      
+
       // Add fields
       for (final entry in fields.entries) {
         formData.fields.add(MapEntry(entry.key, entry.value.toString()));
       }
-      
+
       // Add files
       if (files != null) {
         for (final file in files) {
@@ -99,7 +100,7 @@ class DioApiClient implements ApiClient {
           ));
         }
       }
-      
+
       final response = await _dio.post(
         '$baseUrl$path',
         data: formData,
@@ -112,15 +113,18 @@ class DioApiClient implements ApiClient {
 
   ApiError _mapDioException(DioException e) {
     final statusCode = e.response?.statusCode ?? 0;
-    final message = e.response?.data?['detail']?.toString() ?? e.message ?? 'Unknown error';
-    
+    final message =
+        e.response?.data?['detail']?.toString() ?? e.message ?? 'Unknown error';
+
     switch (statusCode) {
       case 422:
         final detail = e.response?.data?['detail'];
         if (detail is List) {
           return Validation422(detail.cast<Map<String, dynamic>>());
         }
-        return Validation422([{'msg': message}]);
+        return Validation422([
+          {'msg': message}
+        ]);
       case 409:
         return Conflict409(message);
       case 404:

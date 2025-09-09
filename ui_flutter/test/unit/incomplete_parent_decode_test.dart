@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import '../../lib/data/dto/incomplete_parent_dto.dart';
+import 'package:lorien/data/dto/incomplete_parent_dto.dart';
 
 void main() {
   test('decodes snake_case json from API', () {

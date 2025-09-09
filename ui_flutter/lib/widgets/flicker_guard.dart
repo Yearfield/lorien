@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 class FlickerGuard extends StatelessWidget {
   final Widget child;
   final Key? repaintKey;
-  
+
   const FlickerGuard({
     super.key,
     required this.child,

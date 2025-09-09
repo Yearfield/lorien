@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mockito/mockito.dart';
-import '../../../lib/features/dictionary/ui/dictionary_suggestions_overlay.dart';
-import '../../../lib/features/dictionary/data/dictionary_repository.dart';
+import 'package:lorien/features/dictionary/ui/dictionary_suggestions_overlay.dart';
+import 'package:lorien/features/dictionary/data/dictionary_repository.dart';
 
 class MockDictionaryRepository extends Mock implements DictionaryRepository {
   @override
-  Future<List<String>> getSuggestions(String type, String query, {int limit = 10}) async {
+  Future<List<String>> getSuggestions(String type, String query,
+      {int limit = 10}) async {
     if (query == 'test') {
       return ['test case', 'test scenario', 'testing framework'];
     }
@@ -22,7 +23,8 @@ void main() {
     mockRepo = MockDictionaryRepository();
   });
 
-  testWidgets('should show suggestions overlay when typing >= 2 characters', (tester) async {
+  testWidgets('should show suggestions overlay when typing >= 2 characters',
+      (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -49,7 +51,8 @@ void main() {
     expect(find.text('testing framework'), findsOneWidget);
   });
 
-  testWidgets('should not show suggestions when typing < 2 characters', (tester) async {
+  testWidgets('should not show suggestions when typing < 2 characters',
+      (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -74,7 +77,8 @@ void main() {
     expect(find.text('test case'), findsNothing);
   });
 
-  testWidgets('should call onSuggestionSelected when suggestion is tapped', (tester) async {
+  testWidgets('should call onSuggestionSelected when suggestion is tapped',
+      (tester) async {
     String? selectedSuggestion;
 
     await tester.pumpWidget(
@@ -107,7 +111,8 @@ void main() {
     expect(selectedSuggestion, 'test case');
   });
 
-  testWidgets('should show loading indicator while fetching suggestions', (tester) async {
+  testWidgets('should show loading indicator while fetching suggestions',
+      (tester) async {
     // Create a repository that takes time to respond
     final slowRepo = MockDictionaryRepository();
     when(slowRepo.getSuggestions(any, any, limit: anyNamed('limit')))
@@ -143,7 +148,8 @@ void main() {
     expect(find.text('slow suggestion'), findsOneWidget);
   });
 
-  testWidgets('should show error state when suggestions fail to load', (tester) async {
+  testWidgets('should show error state when suggestions fail to load',
+      (tester) async {
     final failingRepo = MockDictionaryRepository();
     when(failingRepo.getSuggestions(any, any, limit: anyNamed('limit')))
         .thenThrow(Exception('Network error'));
@@ -197,10 +203,12 @@ void main() {
     // Should have proper styling
     expect(find.byIcon(Icons.lightbulb_outline), findsWidgets);
     final container = tester.widget<Container>(
-      find.descendant(
-        of: find.byType(DictionarySuggestionsOverlay),
-        matching: find.byType(Container),
-      ).first,
+      find
+          .descendant(
+            of: find.byType(DictionarySuggestionsOverlay),
+            matching: find.byType(Container),
+          )
+          .first,
     );
     expect(container.decoration, isNotNull);
   });

@@ -2,9 +2,9 @@
 abstract class ApiError implements Exception {
   final int statusCode;
   final String message;
-  
+
   const ApiError(this.statusCode, this.message);
-  
+
   @override
   String toString() => 'ApiError($statusCode): $message';
 }
@@ -12,9 +12,9 @@ abstract class ApiError implements Exception {
 /// 422 Unprocessable Entity - validation errors
 class Validation422 extends ApiError {
   final List<Map<String, dynamic>> detail;
-  
+
   const Validation422(this.detail) : super(422, 'Validation failed');
-  
+
   @override
   String toString() => 'Validation422: $detail';
 }
@@ -36,5 +36,5 @@ class ServiceUnavailable extends ApiError {
 
 /// Generic API error for other non-2xx responses
 class GenericApiError extends ApiError {
-  const GenericApiError(int statusCode, String message) : super(statusCode, message);
+  const GenericApiError(super.statusCode, super.message);
 }

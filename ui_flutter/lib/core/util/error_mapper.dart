@@ -8,7 +8,12 @@ Map<String, String> mapPydanticFieldErrors(dynamic responseData) {
     if (loc.contains('diagnostic_triage')) out['diagnostic_triage'] = msg;
     if (loc.contains('actions')) out['actions'] = msg;
     // Surface special types when helpful
-    if (type.contains('value_error.children_count')) out['children_count'] = msg;
+    if (type.contains('value_error.children_count')) {
+      out['children_count'] = msg;
+    }
+    if (type.contains('value_error.duplicate_child_label')) {
+      out['duplicate_child_label'] = msg;
+    }
   }
   return out;
 }

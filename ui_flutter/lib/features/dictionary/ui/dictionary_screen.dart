@@ -1,10 +1,8 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:file_selector/file_selector.dart';
-import 'package:cross_file/cross_file.dart';
 import '../../../widgets/layout/scroll_scaffold.dart';
 import '../../../widgets/app_back_leading.dart';
 import '../data/dictionary_repository.dart';
@@ -90,8 +88,8 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to load more: $e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Failed to load more: $e')));
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -109,8 +107,8 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
       if (mounted) setState(() => _normPreview = n);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to normalize: $e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Failed to normalize: $e')));
       }
     }
   }
@@ -138,8 +136,8 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Create failed: $e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Create failed: $e')));
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -158,19 +156,20 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
       final url = isCsv
           ? '$baseUrl/api/v1/dictionary/export'
           : '$baseUrl/api/v1/dictionary/export.xlsx';
-      
+
       final r = await http.get(Uri.parse(url));
       if (r.statusCode != 200) {
-        final why = r.statusCode == 404 
-            ? 'Endpoint not found: /api/v1/dictionary/export(.xlsx)' 
+        final why = r.statusCode == 404
+            ? 'Endpoint not found: /api/v1/dictionary/export(.xlsx)'
             : 'HTTP ${r.statusCode}';
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Export failed ($why)')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Export failed ($why)')));
         return;
       }
-      
-      final suggested = isCsv ? 'dictionary_export.csv' : 'dictionary_export.xlsx';
+
+      final suggested =
+          isCsv ? 'dictionary_export.csv' : 'dictionary_export.xlsx';
       final loc = await getSaveLocation(
         suggestedName: suggested,
         acceptedTypeGroups: [
@@ -181,24 +180,24 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
         ],
       );
       if (loc == null) return;
-      
+
       final xf = XFile.fromData(
         r.bodyBytes,
         name: suggested,
-        mimeType: isCsv 
-            ? 'text/csv' 
+        mimeType: isCsv
+            ? 'text/csv'
             : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       );
       final file = File(loc.path);
       await file.writeAsBytes(await xf.readAsBytes());
-      
+
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Dictionary exported')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Dictionary exported')));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Export error: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Export error: $e')));
     } finally {
       if (mounted) setState(() => _exportBusy = false);
     }
@@ -237,12 +236,14 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
               ),
               TextField(
                 controller: hints,
-                decoration: const InputDecoration(labelText: 'Hints (optional)'),
+                decoration:
+                    const InputDecoration(labelText: 'Hints (optional)'),
                 maxLines: 2,
               ),
               const SizedBox(height: 8),
               if (_showNormalizedPreview)
-                Text('Normalized: $norm', style: const TextStyle(fontStyle: FontStyle.italic)),
+                Text('Normalized: $norm',
+                    style: const TextStyle(fontStyle: FontStyle.italic)),
               const SizedBox(height: 8),
               SwitchListTile(
                 title: const Text('Red Flag'),
@@ -262,7 +263,8 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
             onPressed: () async {
               final repo = ref.read(dictionaryRepositoryProvider);
               try {
-                await repo.update(it.id,
+                await repo.update(
+                  it.id,
                   term: term.text,
                   normalized: norm.isEmpty ? null : norm,
                   hints: hints.text.isEmpty ? null : hints.text,
@@ -271,8 +273,8 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
                 await _load();
                 if (context.mounted) {
                   Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Term updated successfully')));
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('Term updated successfully')));
                 }
               } catch (e) {
                 if (context.mounted) {
@@ -315,7 +317,8 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
               await _load();
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Dictionary refreshed from tree')),
+                  const SnackBar(
+                      content: Text('Dictionary refreshed from tree')),
                 );
               }
             } catch (e) {
@@ -337,38 +340,44 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Filters', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const Text('Filters',
+                    style:
+                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 16),
                 Row(
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: _type,
-                        decoration: const InputDecoration(labelText: 'Type'),
-                        items: const [
-                          DropdownMenuItem(value: null, child: Text('All Types')),
-                          DropdownMenuItem(value: "vital_measurement", child: Text('Vital Measurement')),
-                          DropdownMenuItem(value: "node_label", child: Text('Node Label')),
-                          DropdownMenuItem(value: "outcome_template", child: Text('Outcome Template')),
-                        ],
-                        onChanged: (v) {
-                          setState(() => _type = v);
-                          _load();
-                        }
-                      ),
+                          initialValue: _type,
+                          decoration: const InputDecoration(labelText: 'Type'),
+                          items: const [
+                            DropdownMenuItem(
+                                value: null, child: Text('All Types')),
+                            DropdownMenuItem(
+                                value: "vital_measurement",
+                                child: Text('Vital Measurement')),
+                            DropdownMenuItem(
+                                value: "node_label", child: Text('Node Label')),
+                            DropdownMenuItem(
+                                value: "outcome_template",
+                                child: Text('Outcome Template')),
+                          ],
+                          onChanged: (v) {
+                            setState(() => _type = v);
+                            _load();
+                          }),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
                       child: TextField(
-                        decoration: const InputDecoration(
-                          labelText: 'Search terms',
-                          prefixIcon: Icon(Icons.search),
-                        ),
-                        onChanged: (v) {
-                          _query = v;
-                          _load();
-                        }
-                      ),
+                          decoration: const InputDecoration(
+                            labelText: 'Search terms',
+                            prefixIcon: Icon(Icons.search),
+                          ),
+                          onChanged: (v) {
+                            _query = v;
+                            _load();
+                          }),
                     ),
                   ],
                 ),
@@ -386,7 +395,8 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
                     const SizedBox(width: 16),
                     Switch(
                       value: _showNormalizedPreview,
-                      onChanged: (value) => setState(() => _showNormalizedPreview = value),
+                      onChanged: (value) =>
+                          setState(() => _showNormalizedPreview = value),
                     ),
                     const Text('Show Normalized Preview'),
                   ],
@@ -405,7 +415,9 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Add New Term', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const Text('Add New Term',
+                    style:
+                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 16),
                 Row(
                   children: [
@@ -438,7 +450,8 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
                       flex: 2,
                       child: TextField(
                         controller: _hintsCtrl,
-                        decoration: const InputDecoration(labelText: 'Hints (optional)'),
+                        decoration: const InputDecoration(
+                            labelText: 'Hints (optional)'),
                         maxLines: 2,
                       ),
                     ),
@@ -448,7 +461,8 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
                         const Text('Red Flag'),
                         Switch(
                           value: _isRedFlag,
-                          onChanged: (value) => setState(() => _isRedFlag = value),
+                          onChanged: (value) =>
+                              setState(() => _isRedFlag = value),
                         ),
                       ],
                     ),
@@ -495,121 +509,143 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
         Expanded(
           child: Card(
             child: _loading && _page == null
-              ? const Center(child: CircularProgressIndicator())
-              : _page == null || _page!.items.isEmpty
-                ? const Center(child: Text('No terms found'))
-                : NotificationListener<ScrollNotification>(
-                    onNotification: (notification) {
-                      if (notification is ScrollEndNotification &&
-                          notification.metrics.extentAfter == 0) {
-                        _loadNextPage();
-                      }
-                      return false;
-                    },
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: DataTable(
-                        sortColumnIndex: _sortBy == "label" ? 0 : _sortBy == "type" ? 1 : 3,
-                        sortAscending: _sortAscending,
-                        columns: [
-                          DataColumn(
-                            label: const Text('Term'),
-                            onSort: (_, __) => _toggleSort("label"),
-                          ),
-                          DataColumn(
-                            label: const Text('Type'),
-                            onSort: (_, __) => _toggleSort("type"),
-                          ),
-                          DataColumn(
-                            label: const Text('Normalized'),
-                            onSort: (_, __) => _toggleSort("normalized"),
-                          ),
-                          DataColumn(
-                            label: const Text('Red Flag'),
-                          ),
-                          DataColumn(
-                            label: const Text('Hints'),
-                          ),
-                          DataColumn(
-                            label: const Text('Actions'),
-                          ),
-                        ],
-                        rows: _page!.items.map((item) {
-                          return DataRow(
-                            cells: [
-                              DataCell(Text(item.term)),
-                              DataCell(Text(item.type.replaceAll('_', ' ').toUpperCase())),
-                              DataCell(Text(item.normalized)),
-                              DataCell(
-                                item.isRedFlag == true
-                                  ? const Icon(Icons.flag, color: Colors.red)
-                                  : const Icon(Icons.flag_outlined, color: Colors.grey),
+                ? const Center(child: CircularProgressIndicator())
+                : _page == null || _page!.items.isEmpty
+                    ? const Center(child: Text('No terms found'))
+                    : NotificationListener<ScrollNotification>(
+                        onNotification: (notification) {
+                          if (notification is ScrollEndNotification &&
+                              notification.metrics.extentAfter == 0) {
+                            _loadNextPage();
+                          }
+                          return false;
+                        },
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: DataTable(
+                            sortColumnIndex: _sortBy == "label"
+                                ? 0
+                                : _sortBy == "type"
+                                    ? 1
+                                    : 3,
+                            sortAscending: _sortAscending,
+                            columns: [
+                              DataColumn(
+                                label: const Text('Term'),
+                                onSort: (_, __) => _toggleSort("label"),
                               ),
-                              DataCell(
-                                Text(
-                                  item.hints ?? '',
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
+                              DataColumn(
+                                label: const Text('Type'),
+                                onSort: (_, __) => _toggleSort("type"),
                               ),
-                              DataCell(
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(Icons.edit),
-                                      onPressed: () => _edit(item),
-                                      tooltip: 'Edit',
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.delete),
-                                      onPressed: () async {
-                                        final confirmed = await showDialog<bool>(
-                                          context: context,
-                                          builder: (context) => AlertDialog(
-                                            title: const Text('Delete Term'),
-                                            content: Text('Delete "${item.term}"? This action cannot be undone.'),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () => Navigator.of(context).pop(false),
-                                                child: const Text('Cancel'),
-                                              ),
-                                              TextButton(
-                                                onPressed: () => Navigator.of(context).pop(true),
-                                                style: TextButton.styleFrom(
-                                                  foregroundColor: Theme.of(context).colorScheme.error,
-                                                ),
-                                                child: const Text('Delete'),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-
-                                        if (confirmed == true) {
-                                          final repo = ref.read(dictionaryRepositoryProvider);
-                                          try {
-                                            await repo.delete(item.id);
-                                            await _load();
-                                          } catch (e) {
-                                            if (mounted) {
-                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                SnackBar(content: Text('Delete failed: $e')),
-                                              );
-                                            }
-                                          }
-                                        }
-                                      },
-                                      tooltip: 'Delete',
-                                    ),
-                                  ],
-                                ),
+                              DataColumn(
+                                label: const Text('Normalized'),
+                                onSort: (_, __) => _toggleSort("normalized"),
+                              ),
+                              const DataColumn(
+                                label: Text('Red Flag'),
+                              ),
+                              const DataColumn(
+                                label: Text('Hints'),
+                              ),
+                              const DataColumn(
+                                label: Text('Actions'),
                               ),
                             ],
-                          );
-                        }).toList(),
+                            rows: _page!.items.map((item) {
+                              return DataRow(
+                                cells: [
+                                  DataCell(Text(item.term)),
+                                  DataCell(Text(item.type
+                                      .replaceAll('_', ' ')
+                                      .toUpperCase())),
+                                  DataCell(Text(item.normalized)),
+                                  DataCell(
+                                    item.isRedFlag == true
+                                        ? const Icon(Icons.flag,
+                                            color: Colors.red)
+                                        : const Icon(Icons.flag_outlined,
+                                            color: Colors.grey),
+                                  ),
+                                  DataCell(
+                                    Text(
+                                      item.hints ?? '',
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  DataCell(
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        IconButton(
+                                          icon: const Icon(Icons.edit),
+                                          onPressed: () => _edit(item),
+                                          tooltip: 'Edit',
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.delete),
+                                          onPressed: () async {
+                                            final confirmed =
+                                                await showDialog<bool>(
+                                              context: context,
+                                              builder: (context) => AlertDialog(
+                                                title:
+                                                    const Text('Delete Term'),
+                                                content: Text(
+                                                    'Delete "${item.term}"? This action cannot be undone.'),
+                                                actions: [
+                                                  TextButton(
+                                                    onPressed: () =>
+                                                        Navigator.of(context)
+                                                            .pop(false),
+                                                    child: const Text('Cancel'),
+                                                  ),
+                                                  TextButton(
+                                                    onPressed: () =>
+                                                        Navigator.of(context)
+                                                            .pop(true),
+                                                    style: TextButton.styleFrom(
+                                                      foregroundColor:
+                                                          Theme.of(context)
+                                                              .colorScheme
+                                                              .error,
+                                                    ),
+                                                    child: const Text('Delete'),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+
+                                            if (confirmed == true) {
+                                              final repo = ref.read(
+                                                  dictionaryRepositoryProvider);
+                                              try {
+                                                await repo.delete(item.id);
+                                                await _load();
+                                              } catch (e) {
+                                                if (mounted) {
+                                                  ScaffoldMessenger.of(context)
+                                                      .showSnackBar(
+                                                    SnackBar(
+                                                        content: Text(
+                                                            'Delete failed: $e')),
+                                                  );
+                                                }
+                                              }
+                                            }
+                                          },
+                                          tooltip: 'Delete',
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              );
+                            }).toList(),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
           ),
         ),
 

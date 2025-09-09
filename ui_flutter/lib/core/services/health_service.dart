@@ -1,7 +1,5 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../http/api_client.dart';
-import '../../api/lorien_api.dart';
 import '../../providers/lorien_api_provider.dart';
 
 final baseUrlProvider =
@@ -46,11 +44,14 @@ class HealthService {
       final data = await api.health();
       final raw = data.toString();
       final body = raw.length <= 100 ? raw : raw.substring(0, 100);
-      final ok = true; // If we get here, the request succeeded
+      const ok = true; // If we get here, the request succeeded
       _ref.read(connectedProvider.notifier).state = ok;
       _ref.read(lastPingProvider.notifier).state = DateTime.now();
       return HealthResult(
-        ok, 200, url, body,
+        ok,
+        200,
+        url,
+        body,
         version: data['version']?.toString(),
         wal: data['db']?['wal'] as bool?,
         foreignKeys: data['db']?['foreign_keys'] as bool?,

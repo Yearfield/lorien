@@ -13,7 +13,7 @@ void main() {
         providers: [
           ChangeNotifierProvider(create: (_) => SettingsProvider()),
         ],
-        child: MaterialApp(
+        child: const MaterialApp(
           home: OutcomesDetailScreen(
             nodeId: 1,
             llmEnabled: false,
@@ -37,7 +37,7 @@ void main() {
         providers: [
           ChangeNotifierProvider(create: (_) => SettingsProvider()),
         ],
-        child: MaterialApp(
+        child: const MaterialApp(
           home: OutcomesDetailScreen(
             nodeId: 1,
             llmEnabled: true,
@@ -61,7 +61,7 @@ void main() {
         providers: [
           ChangeNotifierProvider(create: (_) => SettingsProvider()),
         ],
-        child: MaterialApp(
+        child: const MaterialApp(
           home: OutcomesDetailScreen(
             nodeId: 1,
             llmEnabled: false, // LLM disabled

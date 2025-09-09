@@ -15,29 +15,34 @@ class VmBuilderService {
   }
 
   Future<DuplicateCheckResult> checkForDuplicates(SheetDraft draft) async {
-    final response = await _dio.post('/vm-builder/check-duplicates', data: draft.toJson());
+    final response =
+        await _dio.post('/vm-builder/check-duplicates', data: draft.toJson());
     return DuplicateCheckResult.fromJson(response.data as Map<String, dynamic>);
   }
 
   Future<ValidationResult> validateDraft(SheetDraft draft) async {
-    final response = await _dio.post('/vm-builder/validate', data: draft.toJson());
+    final response =
+        await _dio.post('/vm-builder/validate', data: draft.toJson());
     return ValidationResult.fromJson(response.data as Map<String, dynamic>);
   }
 
-  Future<CreationResult> createSheet(SheetDraft draft, {bool autoMaterialize = true}) async {
+  Future<CreationResult> createSheet(SheetDraft draft,
+      {bool autoMaterialize = true}) async {
     final params = <String, dynamic>{'auto_materialize': autoMaterialize};
     final response = await _dio.post('/vm-builder/create',
         data: draft.toJson(), queryParameters: params);
     return CreationResult.fromJson(response.data as Map<String, dynamic>);
   }
 
-  Future<List<String>> getSuggestedNodeLabels(String type, String prefix) async {
+  Future<List<String>> getSuggestedNodeLabels(
+      String type, String prefix) async {
     final params = <String, dynamic>{
       'type': type,
       'prefix': prefix,
       'limit': 10,
     };
-    final response = await _dio.get('/vm-builder/suggestions', queryParameters: params);
+    final response =
+        await _dio.get('/vm-builder/suggestions', queryParameters: params);
     return List<String>.from(response.data as List<dynamic>);
   }
 

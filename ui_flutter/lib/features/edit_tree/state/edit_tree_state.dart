@@ -8,9 +8,12 @@ class SlotState {
   String? warning;
   bool existing;
 
-  SlotState(this.slot, {this.text = "", this.error, this.warning, this.existing = false});
+  SlotState(this.slot,
+      {this.text = "", this.error, this.warning, this.existing = false});
 
-  SlotState copyWith({String? text, String? error, String? warning, bool? existing}) => SlotState(
+  SlotState copyWith(
+          {String? text, String? error, String? warning, bool? existing}) =>
+      SlotState(
         slot,
         text: text ?? this.text,
         error: error ?? this.error,

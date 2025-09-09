@@ -18,18 +18,26 @@ class HomeScreen extends ConsumerWidget {
             tooltip: 'Next incomplete parent',
             icon: const Icon(Icons.skip_next),
             onPressed: () async {
-              final data = await ref.read(treeApiProvider).nextIncompleteParent();
+              final data =
+                  await ref.read(treeApiProvider).nextIncompleteParent();
               if (data == null) {
                 ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('All parents complete.')));
                 return;
               }
               // Deterministic display for now (we don't have a full tree editor screen here)
-              showDialog(context: context, builder: (_) => AlertDialog(
-                title: const Text('Next incomplete parent'),
-                content: Text('ID: ${data['parent_id']}\nLabel: ${data['label']}\nMissing slots: ${data['missing_slots']}\nDepth: ${data['depth']}'),
-                actions: [TextButton(onPressed: ()=>Navigator.pop(context), child: const Text('OK'))],
-              ));
+              showDialog(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                        title: const Text('Next incomplete parent'),
+                        content: Text(
+                            'ID: ${data['parent_id']}\nLabel: ${data['label']}\nMissing slots: ${data['missing_slots']}\nDepth: ${data['depth']}'),
+                        actions: [
+                          TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('OK'))
+                        ],
+                      ));
             },
           ),
         ],
@@ -46,7 +54,7 @@ class HomeScreen extends ConsumerWidget {
               icon: Icons.calculate,
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (_) => CalculatorScreen(baseUrl: ApiConfig.baseUrl),
+                  builder: (_) => const CalculatorScreen(baseUrl: ApiConfig.baseUrl),
                 ),
               ),
             ),

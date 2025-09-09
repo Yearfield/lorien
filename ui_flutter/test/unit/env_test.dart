@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import '../../lib/utils/env.dart';
+import 'package:lorien/utils/env.dart';
 
 void main() {
   test('resolveApiBaseUrl appends /api/v1/ when missing', () {

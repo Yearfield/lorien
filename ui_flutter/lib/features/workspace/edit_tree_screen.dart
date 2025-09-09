@@ -9,7 +9,8 @@ class EditTreeScreen extends StatefulWidget {
   final http.Client? client;
   const EditTreeScreen({
     super.key,
-    this.baseUrl = const String.fromEnvironment('API_BASE_URL', defaultValue: 'http://127.0.0.1:8000'),
+    this.baseUrl = const String.fromEnvironment('API_BASE_URL',
+        defaultValue: 'http://127.0.0.1:8000'),
     this.client,
   });
 
@@ -28,20 +29,22 @@ class _EditTreeScreenState extends State<EditTreeScreen> {
   int _total = 0, _limit = 20, _offset = 0;
   bool _loadingList = false;
   String? _listError;
-  
+
   // Group by label mode
   bool _groupByLabel = true;
   List<Map<String, dynamic>> _labels = [];
 
   // Right pane state
-  Map<String, dynamic>? _selectedParent; // {parent_id,label,depth,missing_slots}
+  Map<String, dynamic>?
+      _selectedParent; // {parent_id,label,depth,missing_slots}
   List<Map<String, dynamic>> _children = []; // [{id,slot,label}]
   final Map<int, TextEditingController> _slotInputs = {};
   bool _saving = false;
   String? _saveError;
-  
+
   // Aggregate state for group by label
-  Map<String, dynamic>? _aggregate; // {label, occurrences, union:[{label,freq}], by_parent:[...]}
+  Map<String, dynamic>?
+      _aggregate; // {label, occurrences, union:[{label,freq}], by_parent:[...]}
   final Set<String> _chosen = {};
   final TextEditingController _newChildCtl = TextEditingController();
   final List<Map<String, dynamic>> _syntheticChildren = [];
@@ -60,14 +63,19 @@ class _EditTreeScreenState extends State<EditTreeScreen> {
       if (_depthFilter >= 0) "depth": "$_depthFilter",
       if (q.isNotEmpty) "q": q,
     };
-    final uri = Uri.parse('${widget.baseUrl}/api/v1/tree/parents').replace(queryParameters: params);
+    final uri = Uri.parse('${widget.baseUrl}/api/v1/tree/parents')
+        .replace(queryParameters: params);
     try {
       final resp = await _http.get(uri);
       if (resp.statusCode == 200) {
         final body = jsonDecode(resp.body) as Map<String, dynamic>;
         final items = (body["items"] as List?) ?? <dynamic>[];
         setState(() {
-          _parents = items.cast<Map>().map((e) => e.map((k, v) => MapEntry(k.toString(), v))).cast<Map<String, dynamic>>().toList();
+          _parents = items
+              .cast<Map>()
+              .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+              .cast<Map<String, dynamic>>()
+              .toList();
           _total = (body["total"] as num?)?.toInt() ?? 0;
         });
       } else if (resp.statusCode == 204) {
@@ -104,7 +112,11 @@ class _EditTreeScreenState extends State<EditTreeScreen> {
         final body = jsonDecode(resp.body) as Map<String, dynamic>;
         final kids = (body["children"] as List?) ?? const [];
         setState(() {
-          _children = kids.cast<Map>().map((e) => e.map((k, v) => MapEntry(k.toString(), v))).cast<Map<String, dynamic>>().toList();
+          _children = kids
+              .cast<Map>()
+              .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+              .cast<Map<String, dynamic>>()
+              .toList();
         });
       }
     } catch (_) {}
@@ -114,7 +126,8 @@ class _EditTreeScreenState extends State<EditTreeScreen> {
     setState(() {
       _saveError = null;
     });
-    final uri = Uri.parse('${widget.baseUrl}/api/v1/tree/next-incomplete-parent-json');
+    final uri =
+        Uri.parse('${widget.baseUrl}/api/v1/tree/next-incomplete-parent-json');
     try {
       final resp = await _http.get(uri);
       if (resp.statusCode == 204) {
@@ -167,7 +180,9 @@ class _EditTreeScreenState extends State<EditTreeScreen> {
         );
         if (resp.statusCode == 409 || resp.statusCode == 422) {
           final body = jsonDecode(resp.body);
-          final msg = (body["detail"] as List).isNotEmpty ? body["detail"][0]["msg"] : "Error";
+          final msg = (body["detail"] as List).isNotEmpty
+              ? body["detail"][0]["msg"]
+              : "Error";
           setState(() {
             _saveError = 'Slot $slot: $msg';
           });
@@ -206,12 +221,14 @@ class _EditTreeScreenState extends State<EditTreeScreen> {
       if (_depthFilter >= 0) "depth": "$_depthFilter",
       if (_searchCtl.text.isNotEmpty) "q": _searchCtl.text.trim(),
     };
-    final uri = Uri.parse('${widget.baseUrl}/api/v1/tree/labels').replace(queryParameters: params);
+    final uri = Uri.parse('${widget.baseUrl}/api/v1/tree/labels')
+        .replace(queryParameters: params);
     final r = await _http.get(uri);
     if (r.statusCode == 200) {
       final b = jsonDecode(r.body) as Map<String, dynamic>;
       setState(() {
-        _labels = List<Map<String, dynamic>>.from((b["items"] as List).map((e) => Map<String, dynamic>.from(e)));
+        _labels = List<Map<String, dynamic>>.from(
+            (b["items"] as List).map((e) => Map<String, dynamic>.from(e)));
         _total = (b["total"] as num?)?.toInt() ?? _labels.length;
       });
     } else {
@@ -228,12 +245,14 @@ class _EditTreeScreenState extends State<EditTreeScreen> {
       _chosen.clear();
       _syntheticChildren.clear();
     });
-    final r = await _http.get(Uri.parse('${widget.baseUrl}/api/v1/tree/labels/${Uri.encodeComponent(label)}/aggregate'));
+    final r = await _http.get(Uri.parse(
+        '${widget.baseUrl}/api/v1/tree/labels/${Uri.encodeComponent(label)}/aggregate'));
     if (r.statusCode == 200) {
       final m = jsonDecode(r.body) as Map<String, dynamic>;
       setState(() => _aggregate = m);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Aggregate failed: ${r.statusCode}')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Aggregate failed: ${r.statusCode}')));
     }
   }
 
@@ -241,9 +260,12 @@ class _EditTreeScreenState extends State<EditTreeScreen> {
     final txt = _newChildCtl.text.trim();
     if (txt.isEmpty) return;
     if (_aggregate != null) {
-      final union = List<Map<String, dynamic>>.from(_aggregate!["union"] as List);
-      if (union.any((c) => (c["label"] ?? '') == txt) || _syntheticChildren.any((c) => (c["label"] ?? '') == txt)) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Label already present.')));
+      final union =
+          List<Map<String, dynamic>>.from(_aggregate!["union"] as List);
+      if (union.any((c) => (c["label"] ?? '') == txt) ||
+          _syntheticChildren.any((c) => (c["label"] ?? '') == txt)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Label already present.')));
         return;
       }
     }
@@ -256,19 +278,23 @@ class _EditTreeScreenState extends State<EditTreeScreen> {
 
   Future<void> _applyToAllForLabel(String label) async {
     if (_chosen.length != 5) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Choose exactly 5 children')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Choose exactly 5 children')));
       return;
     }
     final r = await _http.post(
-      Uri.parse('${widget.baseUrl}/api/v1/tree/labels/${Uri.encodeComponent(label)}/apply-default'),
+      Uri.parse(
+          '${widget.baseUrl}/api/v1/tree/labels/${Uri.encodeComponent(label)}/apply-default'),
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({"chosen": _chosen.toList()}),
     );
     if (r.statusCode == 200) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Applied to all occurrences')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Applied to all occurrences')));
       await _fetchLabels(); // refresh counts
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Apply failed: ${r.statusCode} ${r.body}')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Apply failed: ${r.statusCode} ${r.body}')));
     }
   }
 
@@ -284,7 +310,9 @@ class _EditTreeScreenState extends State<EditTreeScreen> {
 
   @override
   void dispose() {
-    for (final c in _slotInputs.values) c.dispose();
+    for (final c in _slotInputs.values) {
+      c.dispose();
+    }
     _searchCtl.dispose();
     _newChildCtl.dispose();
     super.dispose();
@@ -295,7 +323,7 @@ class _EditTreeScreenState extends State<EditTreeScreen> {
     final occurrences = _aggregate!["occurrences"] as int;
     final union = List<Map<String, dynamic>>.from(_aggregate!["union"] as List);
     final combined = [...union, ..._syntheticChildren];
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -350,7 +378,8 @@ class _EditTreeScreenState extends State<EditTreeScreen> {
         ),
         const SizedBox(height: 8),
         ElevatedButton.icon(
-          onPressed: _chosen.length == 5 ? () => _applyToAllForLabel(label) : null,
+          onPressed:
+              _chosen.length == 5 ? () => _applyToAllForLabel(label) : null,
           icon: const Icon(Icons.done_all),
           label: const Text('Apply to all'),
         ),
@@ -371,7 +400,9 @@ class _EditTreeScreenState extends State<EditTreeScreen> {
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: _children.map((c) => Chip(label: Text('S${c["slot"]}: ${c["label"]}'))).toList(),
+          children: _children
+              .map((c) => Chip(label: Text('S${c["slot"]}: ${c["label"]}')))
+              .toList(),
         ),
         const SizedBox(height: 12),
         const Text('Fill missing slots (leave blank to skip):'),
@@ -429,37 +460,44 @@ class _EditTreeScreenState extends State<EditTreeScreen> {
             IconButton(
               icon: const Icon(Icons.delete_forever),
               tooltip: 'Delete Parent',
-              onPressed: _selectedParent == null ? null : () async {
-                final pid = (_selectedParent!["parent_id"] as num?)?.toInt();
-                if (pid == null) return;
-                final ok = await showDialog<bool>(
-                  context: context,
-                  builder: (_) => AlertDialog(
-                    title: const Text('Delete parent?'),
-                    content: const Text('This will delete the parent and its subtree. This cannot be undone.'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context, false),
-                        child: const Text('Cancel'),
-                      ),
-                      ElevatedButton(
-                        onPressed: () => Navigator.pop(context, true),
-                        child: const Text('Delete'),
-                      ),
-                    ],
-                  ),
-                );
-                if (ok == true) {
-                  final r = await _http.delete(Uri.parse('${widget.baseUrl}/api/v1/tree/$pid'));
-                  if (r.statusCode == 200) {
-                    setState(() => _selectedParent = null);
-                    await _fetchParents(reset: true);
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Parent deleted')));
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Delete failed: ${r.statusCode}')));
-                  }
-                }
-              },
+              onPressed: _selectedParent == null
+                  ? null
+                  : () async {
+                      final pid =
+                          (_selectedParent!["parent_id"] as num?)?.toInt();
+                      if (pid == null) return;
+                      final ok = await showDialog<bool>(
+                        context: context,
+                        builder: (_) => AlertDialog(
+                          title: const Text('Delete parent?'),
+                          content: const Text(
+                              'This will delete the parent and its subtree. This cannot be undone.'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, false),
+                              child: const Text('Cancel'),
+                            ),
+                            ElevatedButton(
+                              onPressed: () => Navigator.pop(context, true),
+                              child: const Text('Delete'),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (ok == true) {
+                        final r = await _http.delete(
+                            Uri.parse('${widget.baseUrl}/api/v1/tree/$pid'));
+                        if (r.statusCode == 200) {
+                          setState(() => _selectedParent = null);
+                          await _fetchParents(reset: true);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Parent deleted')));
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                              content: Text('Delete failed: ${r.statusCode}')));
+                        }
+                      }
+                    },
             ),
             IconButton(
               icon: const Icon(Icons.home),
@@ -510,7 +548,9 @@ class _EditTreeScreenState extends State<EditTreeScreen> {
                                 controller: _searchCtl,
                                 decoration: InputDecoration(
                                   prefixIcon: const Icon(Icons.search),
-                                  hintText: _groupByLabel ? 'Search labels' : 'Search parents',
+                                  hintText: _groupByLabel
+                                      ? 'Search labels'
+                                      : 'Search parents',
                                 ),
                                 onSubmitted: (_) {
                                   if (_groupByLabel) {
@@ -534,11 +574,16 @@ class _EditTreeScreenState extends State<EditTreeScreen> {
                               },
                               items: const [
                                 DropdownMenuItem(value: -1, child: Text('All')),
-                                DropdownMenuItem(value: 0, child: Text('Depth 0')),
-                                DropdownMenuItem(value: 1, child: Text('Depth 1')),
-                                DropdownMenuItem(value: 2, child: Text('Depth 2')),
-                                DropdownMenuItem(value: 3, child: Text('Depth 3')),
-                                DropdownMenuItem(value: 4, child: Text('Depth 4')),
+                                DropdownMenuItem(
+                                    value: 0, child: Text('Depth 0')),
+                                DropdownMenuItem(
+                                    value: 1, child: Text('Depth 1')),
+                                DropdownMenuItem(
+                                    value: 2, child: Text('Depth 2')),
+                                DropdownMenuItem(
+                                    value: 3, child: Text('Depth 3')),
+                                DropdownMenuItem(
+                                    value: 4, child: Text('Depth 4')),
                               ],
                             ),
                           ],
@@ -561,7 +606,8 @@ class _EditTreeScreenState extends State<EditTreeScreen> {
                             ),
                             const Spacer(),
                             if (_groupByLabel) ...[
-                              Text('${_labels.length} labels • covering ~${_labels.fold<int>(0, (acc, it) => acc + (it["occurrences"] as int? ?? 0))} parents'),
+                              Text(
+                                  '${_labels.length} labels • covering ~${_labels.fold<int>(0, (acc, it) => acc + (it["occurrences"] as int? ?? 0))} parents'),
                             ] else ...[
                               Text('${_parents.length} / $_total'),
                             ],
@@ -576,12 +622,15 @@ class _EditTreeScreenState extends State<EditTreeScreen> {
                   if (_listError != null)
                     Padding(
                       padding: const EdgeInsets.all(8),
-                      child: Text(_listError!, style: const TextStyle(color: Colors.red)),
+                      child: Text(_listError!,
+                          style: const TextStyle(color: Colors.red)),
                     ),
                   Expanded(
                     child: ListView.builder(
-                      key: PageStorageKey(_groupByLabel ? 'edit-labels' : 'edit-parents'),
-                      itemCount: _groupByLabel ? _labels.length : _parents.length,
+                      key: PageStorageKey(
+                          _groupByLabel ? 'edit-labels' : 'edit-parents'),
+                      itemCount:
+                          _groupByLabel ? _labels.length : _parents.length,
                       itemBuilder: (_, i) {
                         if (_groupByLabel) {
                           final label = _labels[i];
@@ -605,11 +654,15 @@ class _EditTreeScreenState extends State<EditTreeScreen> {
                                 'id=${p["parent_id"]} • depth=${p["depth"]} • missing=${(p["missing_slots"] as List).join(",")}',
                               ),
                               onTap: () async {
-                                setState(() => _selectedParent = p.map((k, v) => MapEntry(k.toString(), v)));
-                                await _fetchChildren((p["parent_id"] as num).toInt());
+                                setState(() => _selectedParent =
+                                    p.map((k, v) => MapEntry(k.toString(), v)));
+                                await _fetchChildren(
+                                    (p["parent_id"] as num).toInt());
                                 _slotInputs.clear();
-                                for (final s in (p["missing_slots"] as List? ?? const [])) {
-                                  _slotInputs[(s as num).toInt()] = TextEditingController();
+                                for (final s in (p["missing_slots"] as List? ??
+                                    const [])) {
+                                  _slotInputs[(s as num).toInt()] =
+                                      TextEditingController();
                                 }
                               },
                             ),
@@ -628,12 +681,17 @@ class _EditTreeScreenState extends State<EditTreeScreen> {
                 padding: const EdgeInsets.all(12),
                 child: _groupByLabel
                     ? (_aggregate == null
-                        ? const Center(child: Text('Select a label from the list to see aggregate children.'))
+                        ? const Center(
+                            child: Text(
+                                'Select a label from the list to see aggregate children.'))
                         : _buildAggregateView())
                     : (_selectedParent == null
-                        ? const Center(child: Text('Select a parent from the list or click "Next Incomplete".'))
+                        ? const Center(
+                            child: Text(
+                                'Select a parent from the list or click "Next Incomplete".'))
                         : (_selectedParent!["done"] == true
-                            ? const Center(child: Text('All parents appear complete. 🎉'))
+                            ? const Center(
+                                child: Text('All parents appear complete. 🎉'))
                             : _buildParentView())),
               ),
             ),

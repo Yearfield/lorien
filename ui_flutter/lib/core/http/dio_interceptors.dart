@@ -8,7 +8,8 @@ class BaseUrlInterceptor extends Interceptor {
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
     if (options.path.startsWith('http')) return handler.next(options);
     final base = getBase().replaceAll(RegExp(r'\/$'), '');
-    options.path = '$base${options.path.startsWith('/') ? '' : '/'}${options.path}';
+    options.path =
+        '$base${options.path.startsWith('/') ? '' : '/'}${options.path}';
     handler.next(options);
   }
 }

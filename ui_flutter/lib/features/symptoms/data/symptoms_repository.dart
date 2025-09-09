@@ -39,7 +39,8 @@ class SymptomsRepository {
 
   Future<Map<String, dynamic>?> nextIncompleteParent() async {
     final response = await _dio.get('/tree/next-incomplete-parent',
-        options: Options(validateStatus: (s) => s != null && (s == 200 || s == 204)));
+        options: Options(
+            validateStatus: (s) => s != null && (s == 200 || s == 204)));
     if (response.statusCode == 204) return null;
     final data = response.data as Map<String, dynamic>;
     if (data['parent_id'] == null) return null;
@@ -63,11 +64,14 @@ class SymptomsRepository {
     if (depth != null) params['depth'] = depth;
     if (query != null && query.isNotEmpty) params['query'] = query;
 
-    final response = await _dio.get('/tree/parents/incomplete', queryParameters: params);
+    final response =
+        await _dio.get('/tree/parents/incomplete', queryParameters: params);
     final data = response.data as Map<String, dynamic>;
     final items = data['items'] as List<dynamic>;
 
-    return items.map((item) => IncompleteParent.fromJson(item as Map<String, dynamic>)).toList();
+    return items
+        .map((item) => IncompleteParent.fromJson(item as Map<String, dynamic>))
+        .toList();
   }
 
   Future<ParentChildren> getParentChildren(int parentId) async {
@@ -75,7 +79,9 @@ class SymptomsRepository {
     return ParentChildren.fromJson(response.data as Map<String, dynamic>);
   }
 
-  Future<ParentChildren> updateParentChildren(int parentId, List<ChildSlot> children, {String? version}) async {
+  Future<ParentChildren> updateParentChildren(
+      int parentId, List<ChildSlot> children,
+      {String? version}) async {
     final headers = <String, dynamic>{};
     if (version != null) {
       headers['If-Match'] = version;
@@ -95,7 +101,8 @@ class SymptomsRepository {
     return ParentChildren.fromJson(response.data as Map<String, dynamic>);
   }
 
-  Future<List<DictionarySuggestion>> getDictionarySuggestions(String type, String query) async {
+  Future<List<DictionarySuggestion>> getDictionarySuggestions(
+      String type, String query) async {
     final params = <String, dynamic>{
       'type': type,
       'query': query,
@@ -105,7 +112,10 @@ class SymptomsRepository {
     final response = await _dio.get('/dictionary', queryParameters: params);
     final data = response.data as List<dynamic>;
 
-    return data.map((item) => DictionarySuggestion.fromJson(item as Map<String, dynamic>)).toList();
+    return data
+        .map((item) =>
+            DictionarySuggestion.fromJson(item as Map<String, dynamic>))
+        .toList();
   }
 
   Future<String> normalizeTerm(String type, String term) async {
@@ -114,12 +124,14 @@ class SymptomsRepository {
       'term': term,
     };
 
-    final response = await _dio.get('/dictionary/normalize', queryParameters: params);
+    final response =
+        await _dio.get('/dictionary/normalize', queryParameters: params);
     final data = response.data as Map<String, dynamic>;
     return data['normalized'] as String;
   }
 
-  Future<void> batchAddChildren(int parentId, List<String> labels, {bool replaceExisting = false}) async {
+  Future<void> batchAddChildren(int parentId, List<String> labels,
+      {bool replaceExisting = false}) async {
     final request = BatchAddRequest(
       labels: labels,
       replaceExisting: replaceExisting,
@@ -128,14 +140,17 @@ class SymptomsRepository {
     await _dio.post('/tree/parent/$parentId/batch-add', data: request.toJson());
   }
 
-  Future<MaterializationResult> materializeParent(int parentId, {bool enforceFive = true, bool safePrune = true}) async {
+  Future<MaterializationResult> materializeParent(int parentId,
+      {bool enforceFive = true, bool safePrune = true}) async {
     final params = <String, dynamic>{
       'enforce_five': enforceFive,
       'safe_prune': safePrune,
     };
 
-    final response = await _dio.post('/tree/parent/$parentId/materialize', queryParameters: params);
-    return MaterializationResult.fromJson(response.data as Map<String, dynamic>);
+    final response = await _dio.post('/tree/parent/$parentId/materialize',
+        queryParameters: params);
+    return MaterializationResult.fromJson(
+        response.data as Map<String, dynamic>);
   }
 }
 

@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lorien/features/edit_tree/ui/edit_tree_screen.dart';
-import 'package:lorien/features/edit_tree/data/edit_tree_repository.dart';
-import 'package:lorien/features/edit_tree/data/edit_tree_provider.dart';
 import 'package:lorien/core/di/providers.dart';
 import 'package:lorien/core/network/fake_api_client.dart';
 
@@ -29,7 +27,7 @@ void main() {
       (WidgetTester tester) async {
     // Set up fake data for the test
     fakeApiClient.setToggle('nextIncompleteNone', false);
-    
+
     // Add some test data to the fake API
     final state = fakeApiClient.getState();
     (state['roots'] as List).add({
@@ -63,7 +61,8 @@ void main() {
       // TODO: Verify that navigation occurs to parent with ID 7
       // This will fail if the button handler is not wired
       // The test expects some form of navigation or state change
-      expect(true, isTrue); // Placeholder - will be replaced with actual assertion
+      expect(
+          true, isTrue); // Placeholder - will be replaced with actual assertion
     } else {
       // Button doesn't exist - this is also a failure
       fail('Next Incomplete Parent button not found - feature not implemented');
@@ -74,7 +73,7 @@ void main() {
       (WidgetTester tester) async {
     // Set up fake data for the test
     fakeApiClient.setToggle('nextIncompleteNone', false);
-    
+
     // Add some test data to the fake API
     final state = fakeApiClient.getState();
     (state['roots'] as List).add({
@@ -143,7 +142,7 @@ void main() {
       (WidgetTester tester) async {
     // Set up fake data for the test
     fakeApiClient.setToggle('nextIncompleteNone', false);
-    
+
     // Add some test data to the fake API
     final state = fakeApiClient.getState();
     (state['roots'] as List).add({

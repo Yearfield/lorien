@@ -106,17 +106,21 @@ class _OutcomesDetailScreenState extends State<OutcomesDetailScreen> {
           String? triageMsg, actionsMsg;
           for (final d in det) {
             final loc = (d['loc'] ?? []) as List;
-            if (loc.isNotEmpty && loc.last == 'diagnostic_triage')
+            if (loc.isNotEmpty && loc.last == 'diagnostic_triage') {
               triageMsg = d['msg']?.toString();
-            if (loc.isNotEmpty && loc.last == 'actions')
+            }
+            if (loc.isNotEmpty && loc.last == 'actions') {
               actionsMsg = d['msg']?.toString();
+            }
           }
-          if (triageMsg != null)
+          if (triageMsg != null) {
             ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text('Diagnostic Triage: $triageMsg')));
-          if (actionsMsg != null)
+          }
+          if (actionsMsg != null) {
             ScaffoldMessenger.of(context)
                 .showSnackBar(SnackBar(content: Text('Actions: $actionsMsg')));
+          }
         } else if (data is Map &&
             data.containsKey('diagnostic_triage') &&
             data.containsKey('actions')) {

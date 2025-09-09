@@ -1,8 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dio/dio.dart';
-import '../../../lib/features/edit_tree/state/edit_tree_controller.dart';
-import '../../../lib/features/edit_tree/state/edit_tree_state.dart';
-import '../../../lib/features/edit_tree/data/edit_tree_repository.dart';
+import 'package:lorien/features/edit_tree/state/edit_tree_controller.dart';
+import 'package:lorien/features/edit_tree/data/edit_tree_repository.dart';
 
 class MockBulkUpsertResult extends BulkUpsertResult {
   MockBulkUpsertResult() : super([], '');
@@ -38,7 +37,8 @@ class MockRepo implements EditTreeRepository {
   }
 
   @override
-  Future<BulkUpsertResult> upsertChildren(int parentId, List<dynamic> patches) async {
+  Future<BulkUpsertResult> upsertChildren(
+      int parentId, List<dynamic> patches) async {
     // Mock successful response
     return MockBulkUpsertResult();
   }

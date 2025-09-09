@@ -9,7 +9,11 @@ import 'package:http_parser/http_parser.dart';
 class UploadScreen extends StatefulWidget {
   final String baseUrl;
   final http.Client? client;
-  const UploadScreen({super.key, this.baseUrl = const String.fromEnvironment('API_BASE_URL', defaultValue: 'http://127.0.0.1:8000'), this.client});
+  const UploadScreen(
+      {super.key,
+      this.baseUrl = const String.fromEnvironment('API_BASE_URL',
+          defaultValue: 'http://127.0.0.1:8000'),
+      this.client});
 
   @override
   State<UploadScreen> createState() => _UploadScreenState();
@@ -27,63 +31,85 @@ class _UploadScreenState extends State<UploadScreen> {
 
   Future<void> _previewImport() async {
     if (_filePath == null) return;
-    
-    setState(() { _status = 'previewing'; _error = null; });
-    
+
+    setState(() {
+      _status = 'previewing';
+      _error = null;
+    });
+
     try {
       final uri = Uri.parse('${widget.baseUrl}/api/v1/import/preview');
       final request = http.MultipartRequest('POST', uri);
-      
+
       final file = File(_filePath!);
       final bytes = await file.readAsBytes();
-      final mime = _fileName!.toLowerCase().endsWith('.csv') ? 'text/csv' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-      
+      final mime = _fileName!.toLowerCase().endsWith('.csv')
+          ? 'text/csv'
+          : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
       request.files.add(http.MultipartFile.fromBytes(
-        'file', bytes,
+        'file',
+        bytes,
         filename: _fileName,
         contentType: MediaType.parse(mime),
       ));
-      
+
       final response = await _http.send(request);
       final body = await response.stream.bytesToString();
-      
+
       if (response.statusCode == 200) {
         final data = jsonDecode(body);
         _showPreviewDialog(data);
       } else {
-        setState(() { _error = 'Preview failed: ${response.statusCode}'; });
+        setState(() {
+          _error = 'Preview failed: ${response.statusCode}';
+        });
       }
     } catch (e) {
-      setState(() { _error = 'Preview error: $e'; });
+      setState(() {
+        _error = 'Preview error: $e';
+      });
     } finally {
-      setState(() { _status = 'idle'; });
+      setState(() {
+        _status = 'idle';
+      });
     }
   }
 
   Future<void> _performImport() async {
     if (_filePath == null) return;
-    
-    setState(() { _status = 'processing'; _error = null; });
-    
+
+    setState(() {
+      _status = 'processing';
+      _error = null;
+    });
+
     try {
-      final uri = Uri.parse('${widget.baseUrl}/api/v1/import?mode=${_replace ? 'replace' : 'append'}');
+      final uri = Uri.parse(
+          '${widget.baseUrl}/api/v1/import?mode=${_replace ? 'replace' : 'append'}');
       final request = http.MultipartRequest('POST', uri);
-      
+
       final file = File(_filePath!);
       final bytes = await file.readAsBytes();
-      final mime = _fileName!.toLowerCase().endsWith('.csv') ? 'text/csv' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-      
+      final mime = _fileName!.toLowerCase().endsWith('.csv')
+          ? 'text/csv'
+          : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
       request.files.add(http.MultipartFile.fromBytes(
-        'file', bytes,
+        'file',
+        bytes,
         filename: _fileName,
         contentType: MediaType.parse(mime),
       ));
-      
+
       final response = await _http.send(request);
       final body = await response.stream.bytesToString();
-      
+
       if (response.statusCode == 200) {
-        setState(() { _status = 'done'; _error = null; });
+        setState(() {
+          _status = 'done';
+          _error = null;
+        });
         try {
           final sp = await SharedPreferences.getInstance();
           await sp.setString('workspace_last_uploaded_file', _fileName ?? '');
@@ -91,21 +117,30 @@ class _UploadScreenState extends State<UploadScreen> {
       } else if (response.statusCode == 422) {
         try {
           final data = jsonDecode(body);
-          final first = (data['detail'] as List).isNotEmpty ? data['detail'][0] : null;
+          final first =
+              (data['detail'] as List).isNotEmpty ? data['detail'][0] : null;
           setState(() {
             _error = first?['msg'] ?? 'Validation error';
             _ctx = first?['ctx'];
           });
         } catch (_) {
-          setState(() { _error = 'Validation error'; });
+          setState(() {
+            _error = 'Validation error';
+          });
         }
       } else {
-        setState(() { _error = 'Upload failed: ${response.statusCode}'; });
+        setState(() {
+          _error = 'Upload failed: ${response.statusCode}';
+        });
       }
     } catch (e) {
-      setState(() { _error = 'Upload error: $e'; });
+      setState(() {
+        _error = 'Upload error: $e';
+      });
     } finally {
-      setState(() { _status = 'idle'; });
+      setState(() {
+        _status = 'idle';
+      });
     }
   }
 
@@ -121,7 +156,8 @@ class _UploadScreenState extends State<UploadScreen> {
             Text('Rows: ${data['rows']}'),
             Text('Roots detected: ${data['roots_count']}'),
             const SizedBox(height: 8),
-            const Text('Root labels:', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text('Root labels:',
+                style: TextStyle(fontWeight: FontWeight.bold)),
             ...(data['roots_detected'] as List).map((root) => Text('• $root')),
           ],
         ),
@@ -143,7 +179,11 @@ class _UploadScreenState extends State<UploadScreen> {
   }
 
   Future<void> _pickAndUpload() async {
-    setState(() { _status = 'queued'; _error = null; _ctx = null; });
+    setState(() {
+      _status = 'queued';
+      _error = null;
+      _ctx = null;
+    });
 
     final res = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -151,16 +191,21 @@ class _UploadScreenState extends State<UploadScreen> {
       withData: true,
     );
     if (res == null || res.files.isEmpty) {
-      setState(() { _status = 'idle'; });
+      setState(() {
+        _status = 'idle';
+      });
       return;
     }
     final f = res.files.single;
     _fileName = f.name;
     _filePath = f.path ?? f.name;
 
-    setState(() { _status = 'processing'; });
+    setState(() {
+      _status = 'processing';
+    });
 
-    final uri = Uri.parse('${widget.baseUrl}/api/v1/import?mode=${_replace ? 'replace' : 'append'}');
+    final uri = Uri.parse(
+        '${widget.baseUrl}/api/v1/import?mode=${_replace ? 'replace' : 'append'}');
     final request = http.MultipartRequest('POST', uri);
 
     final bytes = f.bytes ?? await File(f.path!).readAsBytes();
@@ -168,7 +213,9 @@ class _UploadScreenState extends State<UploadScreen> {
         ? 'text/csv'
         : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
-    request.files.add(http.MultipartFile.fromBytes('file', bytes, filename: _fileName, contentType: MediaType('application', 'octet-stream')));
+    request.files.add(http.MultipartFile.fromBytes('file', bytes,
+        filename: _fileName,
+        contentType: MediaType('application', 'octet-stream')));
     // Workaround: some servers inspect the actual filename to infer type; we also set contentType above.
 
     try {
@@ -176,7 +223,11 @@ class _UploadScreenState extends State<UploadScreen> {
       final resp = await http.Response.fromStream(streamed);
 
       if (resp.statusCode == 200) {
-        setState(() { _status = 'done'; _error = null; _ctx = null; });
+        setState(() {
+          _status = 'done';
+          _error = null;
+          _ctx = null;
+        });
         try {
           final sp = await SharedPreferences.getInstance();
           await sp.setString('workspace_last_uploaded_file', _fileName ?? '');
@@ -184,20 +235,31 @@ class _UploadScreenState extends State<UploadScreen> {
       } else if (resp.statusCode == 422) {
         try {
           final body = jsonDecode(resp.body);
-          final first = (body['detail'] as List).isNotEmpty ? body['detail'][0] : null;
+          final first =
+              (body['detail'] as List).isNotEmpty ? body['detail'][0] : null;
           setState(() {
             _status = 'error';
             _error = first?['msg'] ?? 'Unprocessable Entity';
-            _ctx = (first?['ctx'] as Map?)?.map((k, v) => MapEntry(k.toString(), v));
+            _ctx = (first?['ctx'] as Map?)
+                ?.map((k, v) => MapEntry(k.toString(), v));
           });
         } catch (_) {
-          setState(() { _status = 'error'; _error = '422 (invalid header)'; });
+          setState(() {
+            _status = 'error';
+            _error = '422 (invalid header)';
+          });
         }
       } else {
-        setState(() { _status = 'error'; _error = 'HTTP ${resp.statusCode}'; });
+        setState(() {
+          _status = 'error';
+          _error = 'HTTP ${resp.statusCode}';
+        });
       }
     } catch (e) {
-      setState(() { _status = 'error'; _error = 'Upload failed: $e'; });
+      setState(() {
+        _status = 'error';
+        _error = 'Upload failed: $e';
+      });
     }
   }
 
@@ -251,7 +313,8 @@ class _UploadScreenState extends State<UploadScreen> {
             ],
             if (_ctx != null) ...[
               const SizedBox(height: 8),
-              Text('Header diff:', style: const TextStyle(fontWeight: FontWeight.bold)),
+              const Text('Header diff:',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
               Text('row=${_ctx!['row']} col_index=${_ctx!['col_index']}'),
               const SizedBox(height: 4),
               const Text('expected:'),

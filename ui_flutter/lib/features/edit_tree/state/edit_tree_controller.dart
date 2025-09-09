@@ -33,7 +33,8 @@ class EditTreeController extends StateNotifier<EditTreeState> {
         final slot = i + 1;
         final child = data.children.firstWhere(
           (c) => c.slot == slot,
-          orElse: () => ChildInfo(0, '', slot, data.children.first.depth, false),
+          orElse: () =>
+              ChildInfo(0, '', slot, data.children.first.depth, false),
         );
         final text = child.label;
         final existing = child.id != 0;
@@ -56,15 +57,19 @@ class EditTreeController extends StateNotifier<EditTreeState> {
         banner: EditBanner(
           message: 'Failed to load parent data: $e',
           actionLabel: 'Retry',
-          action: () => loadParent(parentId, label: label, depth: depth, missing: missing),
+          action: () => loadParent(parentId,
+              label: label, depth: depth, missing: missing),
         ),
       );
     }
   }
 
   void putSlot(int slot, String text) {
-    final slots = state.slots.map((s) =>
-        s.slot == slot ? s.copyWith(text: text, error: null, warning: null) : s).toList();
+    final slots = state.slots
+        .map((s) => s.slot == slot
+            ? s.copyWith(text: text, error: null, warning: null)
+            : s)
+        .toList();
     state = state.copyWith(slots: slots, dirty: true);
     _computeDuplicateWarnings();
   }
@@ -82,7 +87,8 @@ class EditTreeController extends StateNotifier<EditTreeState> {
     map.forEach((label, slots) {
       if (slots.length > 1) {
         for (final slot in slots) {
-          warnings[slot] = 'Duplicate label under same parent (will fail on save)';
+          warnings[slot] =
+              'Duplicate label under same parent (will fail on save)';
         }
       }
     });
@@ -92,7 +98,8 @@ class EditTreeController extends StateNotifier<EditTreeState> {
       if (warning != null) {
         return s.copyWith(warning: warning);
       } else {
-        return SlotState(s.slot, text: s.text, error: s.error, warning: null, existing: s.existing);
+        return SlotState(s.slot,
+            text: s.text, error: s.error, warning: null, existing: s.existing);
       }
     }).toList();
 
@@ -104,7 +111,9 @@ class EditTreeController extends StateNotifier<EditTreeState> {
 
     state = state.copyWith(saving: true);
 
-    final slots = state.slots.map((s) => ChildSlotDTO(slot: s.slot, label: s.text)).toList();
+    final slots = state.slots
+        .map((s) => ChildSlotDTO(slot: s.slot, label: s.text))
+        .toList();
 
     try {
       final res = await repo.updateParentChildren(state.parentId!, slots);
@@ -112,7 +121,8 @@ class EditTreeController extends StateNotifier<EditTreeState> {
       // Update state with response
       final missingSlots = List<int>.from(res['missing_slots'] as List? ?? []);
       final updatedSlots = state.slots.map((s) {
-        return s.copyWith(error: null, warning: null); // Clear errors on success
+        return s.copyWith(
+            error: null, warning: null); // Clear errors on success
       }).toList();
 
       state = state.copyWith(
@@ -141,13 +151,15 @@ class EditTreeController extends StateNotifier<EditTreeState> {
           final slot = ctx?['slot'] as int?;
 
           if (slot != null) {
-            slots = slots.map((s) =>
-                s.slot == slot ? s.copyWith(error: msg) : s).toList();
+            slots = slots
+                .map((s) => s.slot == slot ? s.copyWith(error: msg) : s)
+                .toList();
           }
         }
 
         final banner = EditBanner(
-          message: 'Validation errors found. Please fix the highlighted fields.',
+          message:
+              'Validation errors found. Please fix the highlighted fields.',
           actionLabel: 'Dismiss',
           action: () => state = state.copyWith(banner: null),
         );
@@ -183,9 +195,8 @@ class EditTreeController extends StateNotifier<EditTreeState> {
 
     try {
       // Keep user's current input for ghost values
-      final userInput = Map.fromEntries(
-        state.slots.map((s) => MapEntry(s.slot, s.text))
-      );
+      final userInput =
+          Map.fromEntries(state.slots.map((s) => MapEntry(s.slot, s.text)));
 
       // Reload fresh data from server
       await loadParent(state.parentId!);

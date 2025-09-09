@@ -1,7 +1,7 @@
 name: lorien
 description: "Cross-platform decision tree management with AI-powered insights"
 publish_to: 'none'
-version: 0.9.0-beta.1+1
+version: 0.7.0+1
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -45,6 +45,7 @@ dev_dependencies:
   integration_test:
     sdk: flutter
   shelf: ^1.4.1
+  http_mock_adapter: ^0.6.1
 
 flutter:
   uses-material-design: true

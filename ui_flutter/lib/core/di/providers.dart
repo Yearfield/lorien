@@ -16,7 +16,7 @@ final useFakeBackendProvider = StateProvider<bool>((_) => false);
 final apiClientProvider = Provider<ApiClient>((ref) {
   final useFake = ref.watch(useFakeBackendProvider);
   final baseUrl = ref.watch(baseUrlProvider);
-  
+
   if (useFake) {
     return FakeApiClient();
   } else {

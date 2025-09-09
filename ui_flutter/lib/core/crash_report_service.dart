@@ -28,11 +28,8 @@ class CrashReportService {
 
   static Future<void> _postRemote(String kind, String msg, String? st) async {
     try {
-      await ApiClient.I().postJson('telemetry/crash', body: {
-        'kind': kind,
-        'msg': msg,
-        'stack': st
-      });
+      await ApiClient.I().postJson('telemetry/crash',
+          body: {'kind': kind, 'msg': msg, 'stack': st});
     } catch (_) {
       // swallow 404/ network errors silently
     }

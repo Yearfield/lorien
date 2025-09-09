@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import '../../lib/features/dictionary/data/dictionary_repository.dart';
+import 'package:lorien/features/dictionary/data/dictionary_repository.dart';
 
 void main() {
   test('DictionaryEntry.fromJson creates correct object', () {

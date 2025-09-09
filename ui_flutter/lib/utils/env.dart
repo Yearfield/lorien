@@ -7,8 +7,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 ///  - in: http://localhost:8000/api/v1/    -> http://localhost:8000/api/v1/
 ///  - in: (missing/empty)                  -> http://127.0.0.1:8000/api/v1/
 String resolveApiBaseUrl() {
-  final defined =
-      const String.fromEnvironment('API_BASE_URL', defaultValue: '');
+  const defined =
+      String.fromEnvironment('API_BASE_URL', defaultValue: '');
   var base = defined.trim().isEmpty ? 'http://127.0.0.1:8000' : defined.trim();
   // Strip any existing /api/v1[/] and re-append exactly once with trailing slash.
   base = base.replaceFirst(RegExp(r'/api/v1/?$'), '');

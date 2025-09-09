@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:go_router/go_router.dart';
 import 'stats_details_screen.dart';
 
 class CompletenessScreen extends StatefulWidget {
@@ -9,7 +8,8 @@ class CompletenessScreen extends StatefulWidget {
   final http.Client? client;
   const CompletenessScreen({
     super.key,
-    this.baseUrl = const String.fromEnvironment('API_BASE_URL', defaultValue: 'http://127.0.0.1:8000'),
+    this.baseUrl = const String.fromEnvironment('API_BASE_URL',
+        defaultValue: 'http://127.0.0.1:8000'),
     this.client,
   });
 
@@ -17,10 +17,17 @@ class CompletenessScreen extends StatefulWidget {
   State<CompletenessScreen> createState() => _CompletenessScreenState();
 }
 
-class _CompletenessScreenState extends State<CompletenessScreen> with AutomaticKeepAliveClientMixin<CompletenessScreen> {
+class _CompletenessScreenState extends State<CompletenessScreen>
+    with AutomaticKeepAliveClientMixin<CompletenessScreen> {
   bool _loading = false;
   String? _error;
-  Map<String, int> _stats = {"nodes":0,"roots":0,"leaves":0,"complete_paths":0,"incomplete_parents":0};
+  Map<String, int> _stats = {
+    "nodes": 0,
+    "roots": 0,
+    "leaves": 0,
+    "complete_paths": 0,
+    "incomplete_parents": 0
+  };
 
   // table
   static const _pageSize = 10;
@@ -53,11 +60,16 @@ class _CompletenessScreenState extends State<CompletenessScreen> with AutomaticK
 
   Future<void> _loadMissingSlots() async {
     try {
-      final uri = Uri.parse('${widget.baseUrl}/api/v1/tree/missing-slots-json?limit=$_pageSize&offset=$_offset');
+      final uri = Uri.parse(
+          '${widget.baseUrl}/api/v1/tree/missing-slots-json?limit=$_pageSize&offset=$_offset');
       final resp = await _http.get(uri);
       if (resp.statusCode == 200) {
         final body = jsonDecode(resp.body) as Map<String, dynamic>;
-        _items = (body["items"] as List).cast<Map>().map((e) => e.map((k, v) => MapEntry(k.toString(), v))).toList().cast<Map<String, dynamic>>();
+        _items = (body["items"] as List)
+            .cast<Map>()
+            .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+            .toList()
+            .cast<Map<String, dynamic>>();
         _total = (body["total"] as num).toInt();
       } else {
         _error = 'HTTP ${resp.statusCode}';
@@ -68,10 +80,15 @@ class _CompletenessScreenState extends State<CompletenessScreen> with AutomaticK
   }
 
   Future<void> _refresh() async {
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     await _loadStats();
     await _loadMissingSlots();
-    setState(() { _loading = false; });
+    setState(() {
+      _loading = false;
+    });
   }
 
   @override
@@ -115,36 +132,46 @@ class _CompletenessScreenState extends State<CompletenessScreen> with AutomaticK
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (_loading) const LinearProgressIndicator(),
-            if (_error != null) Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Text(_error!, style: const TextStyle(color: Colors.red)),
-            ),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(_error!, style: const TextStyle(color: Colors.red)),
+              ),
             Wrap(
-              spacing: 16, runSpacing: 8,
+              spacing: 16,
+              runSpacing: 8,
               children: [
                 InkWell(
                   onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => StatsDetailsScreen(baseUrl: widget.baseUrl, kind: 'roots'),
+                    builder: (_) => StatsDetailsScreen(
+                        baseUrl: widget.baseUrl, kind: 'roots'),
                   )),
                   child: Chip(label: Text('Roots: ${_stats["roots"]}')),
                 ),
                 InkWell(
                   onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => StatsDetailsScreen(baseUrl: widget.baseUrl, kind: 'leaves'),
+                    builder: (_) => StatsDetailsScreen(
+                        baseUrl: widget.baseUrl, kind: 'leaves'),
                   )),
                   child: Chip(label: Text('Leaves: ${_stats["leaves"]}')),
                 ),
                 InkWell(
                   onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => StatsDetailsScreen(baseUrl: widget.baseUrl, kind: 'leaves'),
+                    builder: (_) => StatsDetailsScreen(
+                        baseUrl: widget.baseUrl, kind: 'leaves'),
                   )),
-                  child: Chip(label: Text('Complete paths (depth=5): ${_stats["complete_paths"]}')),
+                  child: Chip(
+                      label: Text(
+                          'Complete paths (depth=5): ${_stats["complete_paths"]}')),
                 ),
                 InkWell(
                   onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => StatsDetailsScreen(baseUrl: widget.baseUrl, kind: 'incomplete'),
+                    builder: (_) => StatsDetailsScreen(
+                        baseUrl: widget.baseUrl, kind: 'incomplete'),
                   )),
-                  child: Chip(label: Text('Incomplete parents: ${_stats["incomplete_parents"]}')),
+                  child: Chip(
+                      label: Text(
+                          'Incomplete parents: ${_stats["incomplete_parents"]}')),
                 ),
                 Chip(label: Text('Nodes: ${_stats["nodes"]}')),
               ],
@@ -186,7 +213,8 @@ class _CompletenessScreenState extends State<CompletenessScreen> with AutomaticK
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Rows: ${_items.length} / Total: $_total  •  Offset: $_offset'),
+                Text(
+                    'Rows: ${_items.length} / Total: $_total  •  Offset: $_offset'),
                 Row(children: [
                   OutlinedButton(onPressed: _prev, child: const Text('Prev')),
                   const SizedBox(width: 8),

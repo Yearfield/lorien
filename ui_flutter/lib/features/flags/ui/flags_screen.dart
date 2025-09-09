@@ -18,7 +18,7 @@ class _FlagsScreenState extends ConsumerState<FlagsScreen> {
   List<dynamic> _flags = [];
   bool _loading = false;
   String _query = '';
-  int _limit = 20;
+  final int _limit = 20;
   int _offset = 0;
   int _total = 0;
   String? _lastAffected;
@@ -35,12 +35,15 @@ class _FlagsScreenState extends ConsumerState<FlagsScreen> {
     setState(() => _loading = true);
     try {
       final api = ref.read(flagsApiProvider);
-      final flags = await api.list(query: _query, limit: _limit, offset: _offset);
+      final flags =
+          await api.list(query: _query, limit: _limit, offset: _offset);
       setState(() {
         _flags = flags;
         _loading = false;
         // Assume total count from response if available, otherwise estimate
-        _total = flags.length >= _limit ? (_offset + _limit + 1).toInt() : (_offset + flags.length).toInt();
+        _total = flags.length >= _limit
+            ? (_offset + _limit + 1).toInt()
+            : (_offset + flags.length).toInt();
       });
     } catch (e) {
       setState(() => _loading = false);
@@ -74,7 +77,8 @@ class _FlagsScreenState extends ConsumerState<FlagsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Assign Flag to Selected Symptoms'),
-        content: const Text('Choose a flag to assign to all selected symptoms.'),
+        content:
+            const Text('Choose a flag to assign to all selected symptoms.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -103,7 +107,8 @@ class _FlagsScreenState extends ConsumerState<FlagsScreen> {
 
   void _prevPage() {
     if (_offset > 0) {
-      setState(() => _offset = (_offset - _limit).clamp(0, double.infinity).toInt());
+      setState(
+          () => _offset = (_offset - _limit).clamp(0, double.infinity).toInt());
       _loadFlags();
     }
   }
@@ -112,11 +117,45 @@ class _FlagsScreenState extends ConsumerState<FlagsScreen> {
   Widget build(BuildContext context) {
     final start = _offset + 1;
     final end = (_offset + _flags.length).clamp(0, _total);
-    final showingText = _total > 0 ? 'Showing $start–$end of $_total' : 'No flags found';
+    final showingText =
+        _total > 0 ? 'Showing $start–$end of $_total' : 'No flags found';
 
     return ScrollScaffold(
       title: 'Flags',
       leading: const AppBackLeading(),
+      actions: [
+        if (_bulkMode && _selectedSymptoms.isNotEmpty) ...[
+          ElevatedButton.icon(
+            onPressed: () => _showBulkAssignDialog(),
+            icon: const Icon(Icons.flag),
+            label: Text('Assign to ${_selectedSymptoms.length} Selected'),
+          ),
+          const SizedBox(width: 8),
+        ],
+        OutlinedButton.icon(
+          onPressed: _toggleBulkMode,
+          icon:
+              Icon(_bulkMode ? Icons.check_box_outline_blank : Icons.check_box),
+          label: Text(_bulkMode ? 'Cancel Bulk' : 'Bulk Select'),
+        ),
+        if (!_bulkMode) ...[
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            onPressed: () {
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                builder: (context) => FlagAssignerSheet(
+                  onAssign: (flagId, nodeId, cascade) =>
+                      _assignFlag(flagId, nodeId, cascade),
+                ),
+              );
+            },
+            icon: const Icon(Icons.flag),
+            label: const Text('Assign Single'),
+          ),
+        ],
+      ],
       children: [
         TextField(
           controller: _searchController,
@@ -135,7 +174,8 @@ class _FlagsScreenState extends ConsumerState<FlagsScreen> {
               children: [
                 Icon(Icons.info, color: Theme.of(context).colorScheme.primary),
                 const SizedBox(width: 8),
-                Text(_lastAffected!, style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text(_lastAffected!,
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
               ],
             ),
           ),
@@ -167,55 +207,29 @@ class _FlagsScreenState extends ConsumerState<FlagsScreen> {
         else
           ..._flags.map((flag) {
             final flagMap = flag as Map<String, dynamic>;
-            final symptomId = (flagMap['id'] ?? _flags.indexOf(flag)).toString();
+            final symptomId =
+                (flagMap['id'] ?? _flags.indexOf(flag)).toString();
             return _FlagListItem(
               id: flagMap['id'] ?? _flags.indexOf(flag),
               label: flagMap['label'] ?? 'Unknown Flag',
-              onAudit: _bulkMode ? null : () => _showAudit(flagMap['id'] ?? _flags.indexOf(flag)),
+              onAudit: _bulkMode
+                  ? null
+                  : () => _showAudit(flagMap['id'] ?? _flags.indexOf(flag)),
               bulkMode: _bulkMode,
               isSelected: _selectedSymptoms.contains(symptomId),
-              onSelectionChanged: _bulkMode ? (selected) {
-                setState(() {
-                  if (selected) {
-                    _selectedSymptoms.add(symptomId);
-                  } else {
-                    _selectedSymptoms.remove(symptomId);
-                  }
-                });
-              } : null,
+              onSelectionChanged: _bulkMode
+                  ? (selected) {
+                      setState(() {
+                        if (selected) {
+                          _selectedSymptoms.add(symptomId);
+                        } else {
+                          _selectedSymptoms.remove(symptomId);
+                        }
+                      });
+                    }
+                  : null,
             );
           }),
-      ],
-      actions: [
-        if (_bulkMode && _selectedSymptoms.isNotEmpty) ...[
-          ElevatedButton.icon(
-            onPressed: () => _showBulkAssignDialog(),
-            icon: const Icon(Icons.flag),
-            label: Text('Assign to ${_selectedSymptoms.length} Selected'),
-          ),
-          const SizedBox(width: 8),
-        ],
-        OutlinedButton.icon(
-          onPressed: _toggleBulkMode,
-          icon: Icon(_bulkMode ? Icons.check_box_outline_blank : Icons.check_box),
-          label: Text(_bulkMode ? 'Cancel Bulk' : 'Bulk Select'),
-        ),
-        if (!_bulkMode) ...[
-          const SizedBox(width: 8),
-          ElevatedButton.icon(
-            onPressed: () {
-              showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                builder: (context) => FlagAssignerSheet(
-                  onAssign: (flagId, nodeId, cascade) => _assignFlag(flagId, nodeId, cascade),
-                ),
-              );
-            },
-            icon: const Icon(Icons.flag),
-            label: const Text('Assign Single'),
-          ),
-        ],
       ],
     );
   }
@@ -223,7 +237,8 @@ class _FlagsScreenState extends ConsumerState<FlagsScreen> {
   Future<void> _assignFlag(int flagId, int nodeId, bool cascade) async {
     try {
       final api = ref.read(flagsApiProvider);
-      final result = await api.assign(nodeId: nodeId, flagId: flagId, cascade: cascade);
+      final result =
+          await api.assign(nodeId: nodeId, flagId: flagId, cascade: cascade);
       final affected = result['affected'] ?? 0;
       setState(() => _lastAffected = 'Assigned flag to $affected nodes');
 
@@ -264,7 +279,9 @@ class _FlagsScreenState extends ConsumerState<FlagsScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Successfully assigned flag to ${symptomIds.length} symptoms')),
+          SnackBar(
+              content: Text(
+                  'Successfully assigned flag to ${symptomIds.length} symptoms')),
         );
       }
 
@@ -296,19 +313,20 @@ class _FlagsScreenState extends ConsumerState<FlagsScreen> {
             content: SizedBox(
               width: double.maxFinite,
               child: auditData.isEmpty
-                ? const Text('No audit data available')
-                : ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: auditData.length,
-                    itemBuilder: (context, index) {
-                      final item = auditData[index] as Map<String, dynamic>;
-                      return ListTile(
-                        title: Text(item['action'] ?? 'Unknown action'),
-                        subtitle: Text('At: ${item['timestamp'] ?? 'Unknown time'}'),
-                        trailing: Text(item['details'] ?? ''),
-                      );
-                    },
-                  ),
+                  ? const Text('No audit data available')
+                  : ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: auditData.length,
+                      itemBuilder: (context, index) {
+                        final item = auditData[index] as Map<String, dynamic>;
+                        return ListTile(
+                          title: Text(item['action'] ?? 'Unknown action'),
+                          subtitle: Text(
+                              'At: ${item['timestamp'] ?? 'Unknown time'}'),
+                          trailing: Text(item['details'] ?? ''),
+                        );
+                      },
+                    ),
             ),
             actions: [
               TextButton(
@@ -351,17 +369,21 @@ class _FlagListItem extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: ListTile(
-        leading: bulkMode ? Checkbox(
-          value: isSelected,
-          onChanged: (value) => onSelectionChanged?.call(value ?? false),
-        ) : null,
+        leading: bulkMode
+            ? Checkbox(
+                value: isSelected,
+                onChanged: (value) => onSelectionChanged?.call(value ?? false),
+              )
+            : null,
         title: Text(label),
         subtitle: Text('ID: $id'),
-        trailing: !bulkMode && onAudit != null ? IconButton(
-          icon: const Icon(Icons.history),
-          tooltip: 'View audit',
-          onPressed: onAudit,
-        ) : null,
+        trailing: !bulkMode && onAudit != null
+            ? IconButton(
+                icon: const Icon(Icons.history),
+                tooltip: 'View audit',
+                onPressed: onAudit,
+              )
+            : null,
         onTap: bulkMode ? () => onSelectionChanged?.call(!isSelected) : null,
       ),
     );

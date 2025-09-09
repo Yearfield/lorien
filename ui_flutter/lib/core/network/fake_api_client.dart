@@ -1,4 +1,3 @@
-import 'dart:math';
 import '../http/api_client.dart';
 import 'http_errors.dart';
 
@@ -10,23 +9,24 @@ class FakeApiClient implements ApiClient {
   FakeApiClient({
     Map<String, dynamic>? initialState,
     Map<String, bool>? toggles,
-  }) : _state = initialState ?? _defaultState(),
+  })  : _state = initialState ?? _defaultState(),
         _toggles = toggles ?? {};
 
   static Map<String, dynamic> _defaultState() => {
-    'nodes': <Map<String, dynamic>>[],
-    'roots': <Map<String, dynamic>>[],
-    'dictionary': <Map<String, dynamic>>[],
-    'triage': <Map<String, dynamic>>[],
-    'nextId': 1,
-  };
+        'nodes': <Map<String, dynamic>>[],
+        'roots': <Map<String, dynamic>>[],
+        'dictionary': <Map<String, dynamic>>[],
+        'triage': <Map<String, dynamic>>[],
+        'nextId': 1,
+      };
 
   @override
   Future<Map<String, dynamic>> get(
     String path, {
     Map<String, dynamic>? query,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 100)); // Simulate network delay
+    await Future.delayed(
+        const Duration(milliseconds: 100)); // Simulate network delay
 
     switch (path) {
       case '/health':
@@ -58,11 +58,11 @@ class FakeApiClient implements ApiClient {
 
       case '/tree/next-incomplete-parent':
         if (_toggles['nextIncompleteNone'] == true) {
-          throw NotFound404('No incomplete parents found');
+          throw const NotFound404('No incomplete parents found');
         }
         final roots = _state['roots'] as List<Map<String, dynamic>>;
         if (roots.isEmpty) {
-          throw NotFound404('No roots found');
+          throw const NotFound404('No roots found');
         }
         return {
           'parent_id': roots.first['id'],
@@ -83,9 +83,12 @@ class FakeApiClient implements ApiClient {
           filtered = filtered.where((item) => item['type'] == type).toList();
         }
         if (searchQuery != null && searchQuery.isNotEmpty) {
-          filtered = filtered.where((item) => 
-            item['term'].toString().toLowerCase().contains(searchQuery.toLowerCase())
-          ).toList();
+          filtered = filtered
+              .where((item) => item['term']
+                  .toString()
+                  .toLowerCase()
+                  .contains(searchQuery.toLowerCase()))
+              .toList();
         }
 
         final paginated = filtered.skip(offset).take(limit).toList();
@@ -123,11 +126,12 @@ class FakeApiClient implements ApiClient {
       case '/tree/roots':
         final data = body as Map<String, dynamic>;
         final label = data['label'] as String;
-        
+
         // Check for duplicates
         final roots = _state['roots'] as List<Map<String, dynamic>>;
-        if (roots.any((r) => r['label'].toString().toLowerCase() == label.toLowerCase())) {
-          throw Validation422([
+        if (roots.any((r) =>
+            r['label'].toString().toLowerCase() == label.toLowerCase())) {
+          throw const Validation422([
             {
               'loc': ['body', 'label'],
               'msg': 'Vital Measurement with this label already exists',
@@ -171,12 +175,13 @@ class FakeApiClient implements ApiClient {
         final data = body as Map<String, dynamic>;
         final term = data['term'] as String;
         final type = data['type'] as String;
-        
+
         // Check for duplicates
         final dictionary = _state['dictionary'] as List<Map<String, dynamic>>;
-        if (dictionary.any((d) => 
-            d['type'] == type && d['term'].toString().toLowerCase() == term.toLowerCase())) {
-          throw Validation422([
+        if (dictionary.any((d) =>
+            d['type'] == type &&
+            d['term'].toString().toLowerCase() == term.toLowerCase())) {
+          throw const Validation422([
             {
               'loc': ['body', 'term'],
               'msg': 'Term already exists for this type',
@@ -201,7 +206,7 @@ class FakeApiClient implements ApiClient {
 
       case '/import':
         if (_toggles['importHeaderMismatch'] == true) {
-          throw Validation422([
+          throw const Validation422([
             {
               'loc': ['body', 'file'],
               'msg': 'CSV header mismatch',
@@ -209,7 +214,16 @@ class FakeApiClient implements ApiClient {
               'ctx': {
                 'first_offending_row': 0,
                 'col_index': 0,
-                'expected': ['Vital Measurement', 'Node 1', 'Node 2', 'Node 3', 'Node 4', 'Node 5', 'Diagnostic Triage', 'Actions'],
+                'expected': [
+                  'Vital Measurement',
+                  'Node 1',
+                  'Node 2',
+                  'Node 3',
+                  'Node 4',
+                  'Node 5',
+                  'Diagnostic Triage',
+                  'Actions'
+                ],
                 'received': ['Wrong', 'Header'],
                 'error_counts': {'header': 1}
               }
@@ -245,13 +259,13 @@ class FakeApiClient implements ApiClient {
     if (path.startsWith('/triage/')) {
       final nodeId = int.parse(path.split('/')[2]);
       final data = body as Map<String, dynamic>;
-      
+
       // Validate word count (≤7 words per field)
       final diagnosis = data['diagnostic_triage'] as String? ?? '';
       final actions = data['actions'] as String? ?? '';
-      
+
       if (diagnosis.split(' ').length > 7) {
-        throw Validation422([
+        throw const Validation422([
           {
             'loc': ['body', 'diagnostic_triage'],
             'msg': 'Diagnostic triage must be 7 words or less',
@@ -259,9 +273,9 @@ class FakeApiClient implements ApiClient {
           }
         ]);
       }
-      
+
       if (actions.split(' ').length > 7) {
-        throw Validation422([
+        throw const Validation422([
           {
             'loc': ['body', 'actions'],
             'msg': 'Actions must be 7 words or less',
@@ -273,10 +287,11 @@ class FakeApiClient implements ApiClient {
       // Validate regex pattern
       final regex = RegExp(r'^[A-Za-z0-9 ,\-]+$');
       if (!regex.hasMatch(diagnosis) || !regex.hasMatch(actions)) {
-        throw Validation422([
+        throw const Validation422([
           {
             'loc': ['body'],
-            'msg': 'Fields must contain only alphanumeric characters, spaces, commas, and hyphens',
+            'msg':
+                'Fields must contain only alphanumeric characters, spaces, commas, and hyphens',
             'type': 'value_error.invalid_characters'
           }
         ]);
@@ -284,7 +299,7 @@ class FakeApiClient implements ApiClient {
 
       final triage = _state['triage'] as List<Map<String, dynamic>>;
       final existingIndex = triage.indexWhere((t) => t['node_id'] == nodeId);
-      
+
       final triageData = {
         'node_id': nodeId,
         'diagnostic_triage': diagnosis,
@@ -307,7 +322,7 @@ class FakeApiClient implements ApiClient {
   @override
   Future<Map<String, dynamic>> delete(String path) async {
     await Future.delayed(const Duration(milliseconds: 100));
-    
+
     if (path.startsWith('/dictionary/')) {
       final id = int.parse(path.split('/')[2]);
       final dictionary = _state['dictionary'] as List<Map<String, dynamic>>;

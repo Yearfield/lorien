@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../lib/features/edit_tree/ui/edit_tree_screen.dart';
+import 'package:lorien/features/edit_tree/ui/edit_tree_screen.dart';
 
 void main() {
-  testWidgets('controllers persist and caret stays during rebuild', (tester) async {
+  testWidgets('controllers persist and caret stays during rebuild',
+      (tester) async {
     await tester.pumpWidget(
       const ProviderScope(
         child: MaterialApp(home: EditTreeScreen()),

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import '../lib/data/export_api.dart';
+import 'package:lorien/data/export_api.dart';
 
 void main() {
   test('v1 joiner avoids double prefix', () async {
@@ -7,7 +7,8 @@ void main() {
     final a2 = ExportApi('http://h:8000/api/v1'); // already v1
 
     // Access private via method behavior (won't call network)
-    final csv1 = a1.downloadCsv(); // will throw if executed; we only inspect toString
+    final csv1 =
+        a1.downloadCsv(); // will throw if executed; we only inspect toString
     final csv2 = a2.downloadCsv();
 
     expect(a1.baseUrl.endsWith('/api/v1'), isFalse);

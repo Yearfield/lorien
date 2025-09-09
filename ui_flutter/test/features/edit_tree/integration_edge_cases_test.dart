@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mockito/mockito.dart';
 import 'package:dio/dio.dart';
-import '../../../lib/features/edit_tree/ui/edit_tree_screen.dart';
-import '../../../lib/features/edit_tree/data/edit_tree_repository.dart';
-import '../../../lib/features/edit_tree/data/edit_tree_provider.dart';
-import '../../../lib/features/dictionary/data/dictionary_repository.dart';
+import 'package:lorien/features/edit_tree/ui/edit_tree_screen.dart';
+import 'package:lorien/features/edit_tree/data/edit_tree_repository.dart';
+import 'package:lorien/features/edit_tree/data/edit_tree_provider.dart';
+import 'package:lorien/features/dictionary/data/dictionary_repository.dart';
 
 class MockEditTreeRepository extends Mock implements EditTreeRepository {
   @override
@@ -54,12 +55,14 @@ class MockEditTreeRepository extends Mock implements EditTreeRepository {
           {'slot': 5, 'label': 'Slot 5 Label', 'id': 205},
         ];
       default:
-        return List.generate(5, (i) => {'slot': i + 1, 'label': '', 'id': null});
+        return List.generate(
+            5, (i) => {'slot': i + 1, 'label': '', 'id': null});
     }
   }
 
   @override
-  Future<Map<String, dynamic>> upsertChildren(int parentId, List<dynamic> patches) async {
+  Future<Map<String, dynamic>> upsertChildren(
+      int parentId, List<dynamic> patches) async {
     // Simulate various save scenarios
     if (parentId == 999) {
       throw DioException(
@@ -80,8 +83,14 @@ class MockEditTreeRepository extends Mock implements EditTreeRepository {
           statusCode: 422,
           data: {
             'detail': [
-              {'msg': 'Invalid label format', 'ctx': {'slot': 2}},
-              {'msg': 'Label too long', 'ctx': {'slot': 4}},
+              {
+                'msg': 'Invalid label format',
+                'ctx': {'slot': 2}
+              },
+              {
+                'msg': 'Label too long',
+                'ctx': {'slot': 4}
+              },
             ]
           },
         ),
@@ -99,7 +108,9 @@ class MockEditTreeRepository extends Mock implements EditTreeRepository {
     }
 
     return {
-      'updated': patches.map((p) => {'slot': p['slot'], 'id': 1000 + p['slot']}).toList(),
+      'updated': patches
+          .map((p) => {'slot': p['slot'], 'id': 1000 + p['slot']})
+          .toList(),
       'missing_slots': '',
     };
   }
@@ -117,7 +128,8 @@ class MockEditTreeRepository extends Mock implements EditTreeRepository {
 
 class MockDictionaryRepository extends Mock implements DictionaryRepository {
   @override
-  Future<List<String>> getSuggestions(String type, String query, {int limit = 10}) async {
+  Future<List<String>> getSuggestions(String type, String query,
+      {int limit = 10}) async {
     if (query.toLowerCase().contains('error')) {
       throw Exception('Dictionary service unavailable');
     }
@@ -164,7 +176,8 @@ void main() {
 
     // Should show empty state gracefully
     expect(find.text('Cardiac Assessment'), findsNothing);
-    expect(find.byType(ListView), findsOneWidget); // ListView should still exist
+    expect(
+        find.byType(ListView), findsOneWidget); // ListView should still exist
   });
 
   testWidgets('handles single item results', (tester) async {
@@ -193,12 +206,12 @@ void main() {
   testWidgets('handles 409 conflict errors with reload option', (tester) async {
     final conflictRepo = MockEditTreeRepository();
     when(conflictRepo.getChildren(any)).thenAnswer((_) async => [
-      {'slot': 1, 'label': '', 'id': null},
-      {'slot': 2, 'label': '', 'id': null},
-      {'slot': 3, 'label': 'Server Label', 'id': 1},
-      {'slot': 4, 'label': '', 'id': null},
-      {'slot': 5, 'label': '', 'id': null},
-    ]);
+          {'slot': 1, 'label': '', 'id': null},
+          {'slot': 2, 'label': '', 'id': null},
+          {'slot': 3, 'label': 'Server Label', 'id': 1},
+          {'slot': 4, 'label': '', 'id': null},
+          {'slot': 5, 'label': '', 'id': null},
+        ]);
 
     await tester.pumpWidget(
       ProviderScope(
@@ -224,7 +237,8 @@ void main() {
     await tester.pumpAndSettle();
 
     // Trigger save that will conflict
-    final state = tester.state<EditTreeScreenState>(find.byType(EditTreeScreen));
+    final state =
+        tester.state<EditTreeScreenState>(find.byType(EditTreeScreen));
     state.setState(() => state._dirty = true);
 
     // Try to switch parents (should show guard dialog)
@@ -243,7 +257,8 @@ void main() {
     expect(find.text('Reload Latest'), findsOneWidget);
   });
 
-  testWidgets('handles 422 validation errors with field mapping', (tester) async {
+  testWidgets('handles 422 validation errors with field mapping',
+      (tester) async {
     final validationRepo = MockEditTreeRepository();
 
     await tester.pumpWidget(
@@ -269,7 +284,8 @@ void main() {
     final fourthField = find.byType(TextField).at(4);
 
     await tester.enterText(secondField, 'invalid format');
-    await tester.enterText(fourthField, 'this label is way too long for validation purposes');
+    await tester.enterText(
+        fourthField, 'this label is way too long for validation purposes');
     await tester.pumpAndSettle();
 
     // This test would require setting up the 422 error scenario
@@ -298,7 +314,8 @@ void main() {
     expect(find.textContaining('Failed to load'), findsOneWidget);
   });
 
-  testWidgets('handles dictionary suggestion errors gracefully', (tester) async {
+  testWidgets('handles dictionary suggestion errors gracefully',
+      (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -329,7 +346,8 @@ void main() {
     // The overlay should show error message instead of suggestions
   });
 
-  testWidgets('handles rapid parent switching with proper cleanup', (tester) async {
+  testWidgets('handles rapid parent switching with proper cleanup',
+      (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -428,7 +446,8 @@ void main() {
     expect(find.byType(EditTreeScreen), findsOneWidget);
   });
 
-  testWidgets('handles complete workflow with all features integrated', (tester) async {
+  testWidgets('handles complete workflow with all features integrated',
+      (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [

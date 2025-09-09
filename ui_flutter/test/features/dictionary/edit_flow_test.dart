@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lorien/features/dictionary/ui/dictionary_screen.dart';
-import 'package:lorien/features/dictionary/data/dictionary_repository.dart';
 // import 'package:lorien/features/dictionary/data/dictionary_provider.dart';
 import 'package:lorien/core/di/providers.dart';
 import 'package:lorien/core/network/fake_api_client.dart';
@@ -51,7 +50,7 @@ void main() {
 
     // Verify the dictionary screen is displayed
     expect(find.byType(DictionaryScreen), findsOneWidget);
-    
+
     // TODO: Add more specific tests for edit flow behavior
     expect(true, isTrue); // Placeholder
   });
@@ -59,7 +58,8 @@ void main() {
   testWidgets('Dictionary edit flow shows inline error on failed fetch',
       (WidgetTester tester) async {
     // Set up fake data to simulate an error
-    fakeApiClient.setToggle('nextIncompleteNone', true); // This will cause 404 errors
+    fakeApiClient.setToggle(
+        'nextIncompleteNone', true); // This will cause 404 errors
 
     await tester.pumpWidget(
       UncontrolledProviderScope(
@@ -74,7 +74,7 @@ void main() {
 
     // Verify the dictionary screen is still displayed (no redirect to Home)
     expect(find.byType(DictionaryScreen), findsOneWidget);
-    
+
     // TODO: Verify that inline error is shown instead of redirecting
     expect(true, isTrue); // Placeholder
   });
@@ -126,7 +126,7 @@ void main() {
 
     // Verify the dictionary screen is still displayed
     expect(find.byType(DictionaryScreen), findsOneWidget);
-    
+
     // TODO: Verify that network errors are handled gracefully
     expect(true, isTrue); // Placeholder
   });

@@ -16,7 +16,8 @@ class TestHealthController extends HealthController {
 }
 
 void main() {
-  testWidgets('Workspace screen renders correctly with offline mock', (tester) async {
+  testWidgets('Workspace screen renders correctly with offline mock',
+      (tester) async {
     // Create mock health state indicating API is offline
     final mockHealth = HealthStatus(
       ok: false, // API is offline
@@ -29,7 +30,8 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          healthControllerProvider.overrideWith(() => TestHealthController(mockHealth)),
+          healthControllerProvider
+              .overrideWith(() => TestHealthController(mockHealth)),
         ],
         child: const MaterialApp(
           home: WorkspaceScreen(),
@@ -47,7 +49,8 @@ void main() {
     expect(find.text('Select CSV'), findsOneWidget);
   });
 
-  testWidgets('Workspace screen renders correctly with online mock', (tester) async {
+  testWidgets('Workspace screen renders correctly with online mock',
+      (tester) async {
     // Create mock health state indicating API is online
     final mockHealth = HealthStatus(
       ok: true, // API is online
@@ -60,7 +63,8 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          healthControllerProvider.overrideWith(() => TestHealthController(mockHealth)),
+          healthControllerProvider
+              .overrideWith(() => TestHealthController(mockHealth)),
         ],
         child: const MaterialApp(
           home: WorkspaceScreen(),

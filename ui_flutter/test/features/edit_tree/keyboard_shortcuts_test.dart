@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../lib/features/edit_tree/ui/edit_tree_screen.dart';
+import 'package:lorien/features/edit_tree/ui/edit_tree_screen.dart';
 
 void main() {
   testWidgets('Ctrl+S saves the form', (tester) async {

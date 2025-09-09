@@ -6,7 +6,7 @@ import '../../../shared/widgets/app_scaffold.dart';
 class AboutStatusPage extends ConsumerWidget {
   const AboutStatusPage({super.key});
 
-    @override
+  @override
   Widget build(BuildContext context, WidgetRef ref) {
     final base = ref.watch(baseUrlProvider);
     final last = ref.watch(lastPingProvider);
@@ -35,7 +35,8 @@ class AboutStatusPage extends ConsumerWidget {
             const Text('• LLM OFF by default'),
             const SizedBox(height: 12),
             // TODO: Display version, WAL, FK, LLM enabled from health result
-            const Text('Backend Info:', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text('Backend Info:',
+                style: TextStyle(fontWeight: FontWeight.bold)),
             const Text('• Version: (from /health)'),
             const Text('• WAL: (from /health)'),
             const Text('• Foreign Keys: (from /health)'),

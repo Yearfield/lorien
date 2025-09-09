@@ -4,10 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http_mock_adapter/http_mock_adapter.dart';
 import 'package:dio/dio.dart';
 import 'package:go_router/go_router.dart';
-import '../../../lib/features/symptoms/ui/symptoms_screen.dart';
-import '../../../lib/features/symptoms/data/symptoms_repository.dart';
-import '../../../lib/core/http/api_client.dart';
-import '../../../lib/state/app_settings_provider.dart';
+import 'package:lorien/features/symptoms/ui/symptoms_screen.dart';
+import 'package:lorien/core/http/api_client.dart';
+import 'package:lorien/state/app_settings_provider.dart';
 
 void main() {
   late DioAdapter dioAdapter;

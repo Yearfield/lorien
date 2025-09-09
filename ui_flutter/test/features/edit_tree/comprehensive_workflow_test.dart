@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mockito/mockito.dart';
-import '../../../lib/features/edit_tree/ui/edit_tree_screen.dart';
-import '../../../lib/features/edit_tree/data/edit_tree_repository.dart';
-import '../../../lib/features/edit_tree/data/edit_tree_provider.dart';
-import '../../../lib/features/dictionary/data/dictionary_repository.dart';
+import 'package:lorien/features/edit_tree/ui/edit_tree_screen.dart';
+import 'package:lorien/features/edit_tree/data/edit_tree_repository.dart';
+import 'package:lorien/features/edit_tree/data/edit_tree_provider.dart';
+import 'package:lorien/features/dictionary/data/dictionary_repository.dart';
 
 class MockEditTreeRepository extends Mock implements EditTreeRepository {
   @override
@@ -45,14 +46,18 @@ class MockEditTreeRepository extends Mock implements EditTreeRepository {
           {'slot': 5, 'label': '', 'id': null},
         ];
       default:
-        return List.generate(5, (i) => {'slot': i + 1, 'label': '', 'id': null});
+        return List.generate(
+            5, (i) => {'slot': i + 1, 'label': '', 'id': null});
     }
   }
 
   @override
-  Future<Map<String, dynamic>> upsertChildren(int parentId, List<dynamic> patches) async {
+  Future<Map<String, dynamic>> upsertChildren(
+      int parentId, List<dynamic> patches) async {
     return {
-      'updated': patches.map((p) => {'slot': p['slot'], 'id': 1000 + p['slot']}).toList(),
+      'updated': patches
+          .map((p) => {'slot': p['slot'], 'id': 1000 + p['slot']})
+          .toList(),
       'missing_slots': '',
     };
   }
@@ -70,13 +75,18 @@ class MockEditTreeRepository extends Mock implements EditTreeRepository {
 
 class MockDictionaryRepository extends Mock implements DictionaryRepository {
   @override
-  Future<List<String>> getSuggestions(String type, String query, {int limit = 10}) async {
+  Future<List<String>> getSuggestions(String type, String query,
+      {int limit = 10}) async {
     if (type == 'node_label' && query.length >= 2) {
       if (query.toLowerCase().contains('pain')) {
         return ['Chest pain', 'Abdominal pain', 'Headache', 'Back pain'];
       }
       if (query.toLowerCase().contains('breath')) {
-        return ['Shortness of breath', 'Difficulty breathing', 'Rapid breathing'];
+        return [
+          'Shortness of breath',
+          'Difficulty breathing',
+          'Rapid breathing'
+        ];
       }
       if (query.toLowerCase().contains('oxygen')) {
         return ['Oxygen saturation', 'Oxygen therapy', 'Oxygen mask'];
@@ -95,7 +105,9 @@ void main() {
     mockDictionaryRepo = MockDictionaryRepository();
   });
 
-  testWidgets('complete user workflow: load, edit, save, navigate with all features', (tester) async {
+  testWidgets(
+      'complete user workflow: load, edit, save, navigate with all features',
+      (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -135,7 +147,8 @@ void main() {
     expect(find.text('Parent: Cardiac Assessment (Depth 1)'), findsOneWidget);
 
     // P0.1: Verify persistent controllers are set up
-    expect(find.byType(TextField), findsNWidgets(6)); // 1 search + 5 slot fields
+    expect(
+        find.byType(TextField), findsNWidgets(6)); // 1 search + 5 slot fields
 
     // P0.1: Test keyboard navigation (Tab)
     final firstField = find.byType(TextField).at(1); // First slot field
@@ -203,7 +216,8 @@ void main() {
     await tester.pumpAndSettle();
 
     // Should switch to new parent
-    expect(find.text('Parent: Respiratory Evaluation (Depth 1)'), findsOneWidget);
+    expect(
+        find.text('Parent: Respiratory Evaluation (Depth 1)'), findsOneWidget);
 
     // P0.2: Test Next Incomplete functionality
     await tester.tap(find.byIcon(Icons.skip_next).first);
@@ -327,15 +341,14 @@ void main() {
 
     // P0.4: Test 409 conflict scenario
     final conflictRepo = MockEditTreeRepository();
-    when(conflictRepo.upsertChildren(any, any))
-        .thenThrow(DioException(
-          requestOptions: RequestOptions(path: ''),
-          response: Response(
-            requestOptions: RequestOptions(path: ''),
-            statusCode: 409,
-            data: {'slot': 1},
-          ),
-        ));
+    when(conflictRepo.upsertChildren(any, any)).thenThrow(DioException(
+      requestOptions: RequestOptions(path: ''),
+      response: Response(
+        requestOptions: RequestOptions(path: ''),
+        statusCode: 409,
+        data: {'slot': 1},
+      ),
+    ));
 
     // This would test conflict resolution, but requires more complex setup
     // The basic error handling is tested above

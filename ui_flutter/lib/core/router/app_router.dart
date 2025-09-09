@@ -19,11 +19,10 @@ final appRouter = GoRouter(
     GoRoute(path: '/outcomes', builder: (_, __) => const OutcomesListScreen()),
     GoRoute(
       path: '/outcomes/:id',
-      builder: (ctx, st) =>
-          OutcomesDetailScreen(
-            outcomeId: st.pathParameters['id']!,
-            vm: st.uri.queryParameters['vm'],
-          ),
+      builder: (ctx, st) => OutcomesDetailScreen(
+        outcomeId: st.pathParameters['id']!,
+        vm: st.uri.queryParameters['vm'],
+      ),
     ),
     GoRoute(path: '/dictionary', builder: (_, __) => const DictionaryScreen()),
     GoRoute(path: '/flags', builder: (_, __) => const FlagsScreen()),

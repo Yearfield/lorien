@@ -57,9 +57,12 @@ class ConflictsService {
       params['query'] = query;
     }
 
-    final response = await _dio.get('/tree/conflicts/${type.name}', queryParameters: params);
+    final response =
+        await _dio.get('/tree/conflicts/${type.name}', queryParameters: params);
     final data = response.data as List<dynamic>;
-    return data.map((item) => ConflictItem.fromJson(item as Map<String, dynamic>)).toList();
+    return data
+        .map((item) => ConflictItem.fromJson(item as Map<String, dynamic>))
+        .toList();
   }
 
   Future<void> resolveConflict(ConflictResolution resolution) async {
@@ -67,7 +70,8 @@ class ConflictsService {
         data: resolution.toJson());
   }
 
-  Future<void> resolveMultipleConflicts(List<ConflictResolution> resolutions) async {
+  Future<void> resolveMultipleConflicts(
+      List<ConflictResolution> resolutions) async {
     final data = resolutions.map((r) => r.toJson()).toList();
     await _dio.post('/tree/conflicts/batch-resolve', data: data);
   }

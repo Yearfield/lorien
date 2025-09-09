@@ -2,11 +2,10 @@ final RegExp allowedChars = RegExp(r'^[A-Za-z0-9 ,\-]+$');
 
 // Prohibited tokens: dosing/route/time patterns
 final RegExp prohibitedTokens = RegExp(
-  r'\b(\d+(\.\d+)?\s*(mg|g|mcg|ml|kg|iu)|'
-  r'(iv|im|sc|po|pr|sl|inh|top|ophth|otic|nas|rect|vag|epid|transd|subq)|'
-  r'(q\d*h|q\d+|bid|tid|qid|prn|stat|od|hs|ac|pc|qam|qpm|qhs|qod))\b',
-  caseSensitive: false
-);
+    r'\b(\d+(\.\d+)?\s*(mg|g|mcg|ml|kg|iu)|'
+    r'(iv|im|sc|po|pr|sl|inh|top|ophth|otic|nas|rect|vag|epid|transd|subq)|'
+    r'(q\d*h|q\d+|bid|tid|qid|prn|stat|od|hs|ac|pc|qam|qpm|qhs|qod))\b',
+    caseSensitive: false);
 
 String? maxSevenWordsAndAllowed(String? v, {required String field}) {
   final s = (v ?? '').trim();

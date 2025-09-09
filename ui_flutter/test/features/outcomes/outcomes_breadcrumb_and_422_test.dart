@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import '../../../lib/core/validators/field_validators.dart';
+import 'package:lorien/core/validators/field_validators.dart';
 
 void main() {
   test('Field validators prohibit dosing tokens', () {
@@ -19,18 +19,22 @@ void main() {
 
   test('Field validators allow valid content', () {
     expect(
-      maxSevenWordsAndAllowed('Suspected pneumonia requires chest X-ray', field: 'Test'),
+      maxSevenWordsAndAllowed('Suspected pneumonia requires chest X-ray',
+          field: 'Test'),
       isNull,
     );
     expect(
-      maxSevenWordsAndAllowed('Administer oxygen and monitor vital signs', field: 'Test'),
+      maxSevenWordsAndAllowed('Administer oxygen and monitor vital signs',
+          field: 'Test'),
       isNull,
     );
   });
 
   test('Field validators enforce 7 word limit', () {
     expect(
-      maxSevenWordsAndAllowed('This is a very long sentence with more than seven words in it', field: 'Test'),
+      maxSevenWordsAndAllowed(
+          'This is a very long sentence with more than seven words in it',
+          field: 'Test'),
       contains('≤7 words'),
     );
   });

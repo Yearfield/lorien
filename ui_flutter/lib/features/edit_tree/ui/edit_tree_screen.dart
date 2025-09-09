@@ -23,10 +23,10 @@ class _EditTreeScreenState extends ConsumerState<EditTreeScreen> {
   final _searchController = TextEditingController();
   int? _depth;
   int _offset = 0;
-  bool _onlyIncomplete = true;
+  final bool _onlyIncomplete = true;
   List<IncompleteParent> _items = [];
   int _total = 0;
-  int _limit = 50;
+  final int _limit = 50;
   bool _loadingList = false;
 
   // NEW: Persistent controllers & focus nodes by slot (1..5)
@@ -245,7 +245,8 @@ class _EditTreeScreenState extends ConsumerState<EditTreeScreen> {
           final children = <ChildSlotDTO>[];
 
           for (final child in parentData.children) {
-            final label = child.label?.trim().isEmpty ?? true ? 'Other' : child.label!;
+            final label =
+                child.label.trim().isEmpty ?? true ? 'Other' : child.label;
             children.add(ChildSlotDTO(slot: child.slot, label: label));
           }
 
@@ -258,7 +259,9 @@ class _EditTreeScreenState extends ConsumerState<EditTreeScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Batch operation completed: $successCount/${_selectedParents.length} parents updated')),
+          SnackBar(
+              content: Text(
+                  'Batch operation completed: $successCount/${_selectedParents.length} parents updated')),
         );
         _loadList();
         _clearSelection();
@@ -324,7 +327,8 @@ class _EditTreeScreenState extends ConsumerState<EditTreeScreen> {
                 Text('Kept: ${result.kept}'),
                 if (result.log != null) ...[
                   const SizedBox(height: 8),
-                  const Text('Log:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const Text('Log:',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
                   Text(result.log!),
                 ],
               ],
@@ -404,7 +408,8 @@ class _EditTreeScreenState extends ConsumerState<EditTreeScreen> {
     if (parentInList) {
       // Find the parent in the list and open it
       final parent = _items.firstWhere((item) => item.parentId == parentId);
-      await _openParent(parentId, parent.label, parent.depth, parent.missingSlots);
+      await _openParent(
+          parentId, parent.label, parent.depth, parent.missingSlots);
     } else {
       // Parent not in current list, try to load it directly
       try {
@@ -520,12 +525,14 @@ class _EditTreeScreenState extends ConsumerState<EditTreeScreen> {
                     });
                     _loadList();
                   },
-                  items: const [null, 0, 1, 2, 3, 4, 5].map((d) =>
-                      DropdownMenuItem(
-                        value: d,
-                        child: Text(d == null ? 'All' : d.toString()),
-                      ),
-                  ).toList(),
+                  items: const [null, 0, 1, 2, 3, 4, 5]
+                      .map(
+                        (d) => DropdownMenuItem(
+                          value: d,
+                          child: Text(d == null ? 'All' : d.toString()),
+                        ),
+                      )
+                      .toList(),
                 ),
               ],
             ),
@@ -544,13 +551,16 @@ class _EditTreeScreenState extends ConsumerState<EditTreeScreen> {
                     const SizedBox(width: 8),
                     if (_batchMode) ...[
                       ElevatedButton.icon(
-                        onPressed: _selectedParents.isEmpty ? null : _batchFillWithOther,
+                        onPressed: _selectedParents.isEmpty
+                            ? null
+                            : _batchFillWithOther,
                         icon: const Icon(Icons.edit),
                         label: const Text('Fill with Other'),
                       ),
                       const SizedBox(width: 8),
                       ElevatedButton.icon(
-                        onPressed: _selectedParents.isEmpty ? null : _batchMaterialize,
+                        onPressed:
+                            _selectedParents.isEmpty ? null : _batchMaterialize,
                         icon: const Icon(Icons.build),
                         label: const Text('Materialize'),
                       ),
@@ -612,27 +622,34 @@ class _EditTreeScreenState extends ConsumerState<EditTreeScreen> {
                           }
 
                           final it = _items[i];
-                          final isSelected = _selectedParents.contains(it.parentId);
+                          final isSelected =
+                              _selectedParents.contains(it.parentId);
                           return ListTile(
                             leading: _batchMode
                                 ? Checkbox(
                                     value: isSelected,
-                                    onChanged: (value) => _toggleParentSelection(it.parentId),
+                                    onChanged: (value) =>
+                                        _toggleParentSelection(it.parentId),
                                   )
                                 : null,
                             title: Text(it.label),
                             subtitle: Text(
                               'Depth ${it.depth} • Missing: ${it.missingSlots.isEmpty ? "—" : it.missingSlots}',
                             ),
-                            tileColor: isSelected ? Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3) : null,
+                            tileColor: isSelected
+                                ? Theme.of(context)
+                                    .colorScheme
+                                    .primaryContainer
+                                    .withOpacity(0.3)
+                                : null,
                             onTap: _batchMode
                                 ? () => _toggleParentSelection(it.parentId)
                                 : () => _openParent(
-                                    it.parentId,
-                                    it.label,
-                                    it.depth,
-                                    it.missingSlots,
-                                  ),
+                                      it.parentId,
+                                      it.label,
+                                      it.depth,
+                                      it.missingSlots,
+                                    ),
                           );
                         },
                       ),
@@ -649,8 +666,8 @@ class _EditTreeScreenState extends ConsumerState<EditTreeScreen> {
                           curve: Curves.easeInOut,
                         );
                       },
-                      child: const Icon(Icons.arrow_upward),
                       tooltip: 'Scroll to top',
+                      child: const Icon(Icons.arrow_upward),
                     ),
                   ),
               ],
@@ -668,12 +685,14 @@ class _EditTreeScreenState extends ConsumerState<EditTreeScreen> {
         padding: const EdgeInsets.all(12),
         child: st.parentId == null
             ? const Center(
-                child: Text('Select a parent from the list or click "Next Incomplete".'),
+                child: Text(
+                    'Select a parent from the list or click "Next Incomplete".'),
               )
             : _EditorPane(
                 state: st,
-                onChange: (slot, txt) =>
-                    ref.read(editTreeControllerProvider.notifier).putSlot(slot, txt),
+                onChange: (slot, txt) => ref
+                    .read(editTreeControllerProvider.notifier)
+                    .putSlot(slot, txt),
                 onSave: () =>
                     ref.read(editTreeControllerProvider.notifier).save(),
                 onReset: () =>
@@ -721,7 +740,8 @@ class _EditTreeScreenState extends ConsumerState<EditTreeScreen> {
       child: Actions(
         actions: <Type, Action<Intent>>{
           ActivateIntent: CallbackAction(
-            onInvoke: (_) => ref.read(editTreeControllerProvider.notifier).save(),
+            onInvoke: (_) =>
+                ref.read(editTreeControllerProvider.notifier).save(),
           ),
         },
         child: FocusTraversalGroup(
@@ -735,7 +755,10 @@ class _EditTreeScreenState extends ConsumerState<EditTreeScreen> {
                   return Row(
                     children: [
                       _buildListPane(),
-                      VerticalDivider(width: 1, thickness: 1, color: Theme.of(context).dividerColor),
+                      VerticalDivider(
+                          width: 1,
+                          thickness: 1,
+                          color: Theme.of(context).dividerColor),
                       _buildEditorPane(st),
                     ],
                   );
@@ -748,8 +771,10 @@ class _EditTreeScreenState extends ConsumerState<EditTreeScreen> {
                 ? null
                 : _Footer(
                     state: st,
-                    onSave: () => ref.read(editTreeControllerProvider.notifier).save(),
-                    onReset: () => ref.read(editTreeControllerProvider.notifier).reset(),
+                    onSave: () =>
+                        ref.read(editTreeControllerProvider.notifier).save(),
+                    onReset: () =>
+                        ref.read(editTreeControllerProvider.notifier).reset(),
                   ),
           ),
         ),
@@ -777,7 +802,6 @@ class _EditorPane extends StatefulWidget {
     required this.focusNodes,
     required this.dirty,
     required this.onDirtyChanged,
-    super.key,
   });
 
   @override
@@ -785,7 +809,6 @@ class _EditorPane extends StatefulWidget {
 }
 
 class _EditorPaneState extends State<_EditorPane> {
-
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -814,15 +837,18 @@ class _EditorPaneState extends State<_EditorPane> {
             widget.state.missingSlots.isEmpty
                 ? Chip(
                     label: const Text('Complete ✓'),
-                    backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                    backgroundColor:
+                        Theme.of(context).colorScheme.primaryContainer,
                   )
                 : Chip(
                     label: Text('Missing: ${widget.state.missingSlots}'),
-                    backgroundColor: Theme.of(context).colorScheme.errorContainer,
+                    backgroundColor:
+                        Theme.of(context).colorScheme.errorContainer,
                   ),
             const SizedBox(width: 8),
             OutlinedButton.icon(
-              onPressed: () {}, // TODO: Wire to parent widget's next incomplete handler
+              onPressed:
+                  () {}, // TODO: Wire to parent widget's next incomplete handler
               icon: const Icon(Icons.skip_next),
               label: const Text('Next Incomplete'),
             ),
@@ -888,7 +914,8 @@ class _EditorPaneState extends State<_EditorPane> {
                                   key: ValueKey('slot_${s.slot}'),
                                   decoration: InputDecoration(
                                     labelText: 'Label',
-                                    helperText: s.existing ? 'Existing' : 'Empty',
+                                    helperText:
+                                        s.existing ? 'Existing' : 'Empty',
                                     errorText: s.error,
                                   ),
                                   controller: widget.controllers[s.slot]!,
@@ -897,25 +924,33 @@ class _EditorPaneState extends State<_EditorPane> {
                                   onChanged: (v) {
                                     widget.onChange(s.slot, v);
                                     widget.onDirtyChanged(true);
-                                    setState(() {}); // updates counters/dup warnings
+                                    setState(
+                                        () {}); // updates counters/dup warnings
                                   },
                                 ),
                                 if (widget.focusNodes[s.slot]!.hasFocus &&
-                                    widget.controllers[s.slot]!.text.trim().length >= 2)
+                                    widget.controllers[s.slot]!.text
+                                            .trim()
+                                            .length >=
+                                        2)
                                   Positioned(
                                     left: 0,
                                     right: 0,
                                     top: 56, // Position below the TextField
                                     child: DictionarySuggestionsOverlay(
                                       type: 'node_label',
-                                      currentText: widget.controllers[s.slot]!.text,
+                                      currentText:
+                                          widget.controllers[s.slot]!.text,
                                       onSuggestionSelected: (suggestion) {
-                                        widget.controllers[s.slot]!.text = suggestion;
+                                        widget.controllers[s.slot]!.text =
+                                            suggestion;
                                         widget.controllers[s.slot]!.selection =
-                                            TextSelection.collapsed(offset: suggestion.length);
+                                            TextSelection.collapsed(
+                                                offset: suggestion.length);
                                         widget.onChange(s.slot, suggestion);
                                         widget.onDirtyChanged(true);
-                                        widget.focusNodes[s.slot]!.unfocus(); // Hide overlay
+                                        widget.focusNodes[s.slot]!
+                                            .unfocus(); // Hide overlay
                                       },
                                       onDismiss: () {
                                         widget.focusNodes[s.slot]!.unfocus();
@@ -940,14 +975,17 @@ class _EditorPaneState extends State<_EditorPane> {
                                   Icon(
                                     Icons.warning_amber,
                                     size: 14,
-                                    color: Theme.of(context).colorScheme.secondary,
+                                    color:
+                                        Theme.of(context).colorScheme.secondary,
                                   ),
                                   const SizedBox(width: 4),
                                   Expanded(
                                     child: Text(
                                       s.warning!,
                                       style: TextStyle(
-                                        color: Theme.of(context).colorScheme.secondary,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .secondary,
                                         fontSize: 12,
                                       ),
                                     ),
@@ -980,10 +1018,11 @@ class _EditorPaneState extends State<_EditorPane> {
               label: const Text('Reset'),
             ),
             const SizedBox(width: 12),
-            if (widget.state.missingSlots.isEmpty) const Chip(
-              avatar: Icon(Icons.check, size: 16),
-              label: Text('Complete'),
-            ),
+            if (widget.state.missingSlots.isEmpty)
+              const Chip(
+                avatar: Icon(Icons.check, size: 16),
+                label: Text('Complete'),
+              ),
           ],
         ),
       ],
@@ -1000,7 +1039,6 @@ class _Footer extends StatelessWidget {
     required this.state,
     required this.onSave,
     required this.onReset,
-    super.key,
   });
 
   @override
@@ -1016,14 +1054,22 @@ class _Footer extends StatelessWidget {
         children: [
           Text('Filled: $filled / 5'),
           const SizedBox(width: 12),
-          if (state.saving) const Padding(
-            padding: EdgeInsets.only(right: 12),
-            child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
-          ),
+          if (state.saving)
+            const Padding(
+              padding: EdgeInsets.only(right: 12),
+              child: SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2)),
+            ),
           const Spacer(),
-          OutlinedButton(onPressed: state.saving ? null : onReset, child: const Text('Reset')),
+          OutlinedButton(
+              onPressed: state.saving ? null : onReset,
+              child: const Text('Reset')),
           const SizedBox(width: 8),
-          ElevatedButton(onPressed: state.saving ? null : onSave, child: const Text('Save All')),
+          ElevatedButton(
+              onPressed: state.saving ? null : onSave,
+              child: const Text('Save All')),
         ],
       ),
     );
