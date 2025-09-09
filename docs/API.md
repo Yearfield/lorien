@@ -127,7 +127,7 @@ GET `/api/v1/llm/health`
 - **503** (Unavailable): `{"detail": "LLM service unavailable"}`
 
 ## Health
-`GET /health` (+ `/api/v1/health`) → `{ status|ok, version, db:{ path, wal, foreign_keys }, features:{ llm }, metrics?: {...} }`
+`GET /health` (+ `/api/v1/health`) → `{ status|ok, version, db:{ path, wal, foreign_keys, page_size }, features:{ llm }, metrics?: {...} }`
 
 ### Health Metrics
 GET `/api/v1/health/metrics`
@@ -424,8 +424,15 @@ UI (Streamlit + Flutter) must call API; no CSV construction in UI.
       "missing_slots": [3, 5]
     }
   ],
-  "total_count": 1
+"total_count": 1
 }
+```
+
+### GET /tree/missing-slots-json
+Machine-readable summary of parents with missing slots.
+
+```bash
+curl "$BASE/tree/missing-slots-json" | jq '.'
 ```
 
 ### Next Incomplete Parent
@@ -504,42 +511,36 @@ Export tree data as Excel workbook.
 
 **Headers:**
 - `Content-Disposition: attachment; filename=tree_export.xlsx`
+
+### GET /tree/export-json
+Return the entire decision tree as JSON.
+
+**Example:**
+```bash
+curl "$BASE/tree/export-json" | jq '.'
+```
 - `Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`
 
 **Sheet:** TreeExport
 
 ## Root Management
 
-### POST /tree/roots
-Create a new root (vital measurement) with 5 preseeded child slots.
+### GET /tree/roots
+List all root vital measurements.
 
-**Request Body:**
-```json
-{
-  "label": "Blood Pressure",
-  "children": ["High", "Normal", "Low"]
-}
+**Example:**
+```bash
+curl "$BASE/tree/roots" | jq '.'
 ```
 
-**Response:**
-```json
-{
-  "root_id": 123,
-  "children": [
-    {"id": 124, "slot": 1, "label": "High"},
-    {"id": 125, "slot": 2, "label": "Normal"},
-    {"id": 126, "slot": 3, "label": "Low"},
-    {"id": 127, "slot": 4, "label": ""},
-    {"id": 128, "slot": 5, "label": ""}
-  ],
-  "message": "Created root 'Blood Pressure' with 5 child slots"
-}
+### GET /tree/leaves
+List all leaf nodes in the tree.
+
+```bash
+curl "$BASE/tree/leaves" | jq '.'
 ```
 
-**Validation:**
-- `label` cannot be empty
-- `children` array cannot exceed 5 items
-- Creates exactly 5 child slots (empty labels for unused slots)
+**Response:** Array of root or leaf nodes with `id`, `label`, and `depth` fields.
 
 ## Tree Statistics
 
