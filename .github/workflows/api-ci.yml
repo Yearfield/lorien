@@ -1,0 +1,135 @@
+name: API CI
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths: [ 'api/**', 'core/**', 'storage/**', 'tests/**', 'pyproject.toml', 'requirements.txt' ]
+  pull_request:
+    branches: [ main, develop ]
+    paths: [ 'api/**', 'core/**', 'storage/**', 'tests/**', 'pyproject.toml', 'requirements.txt' ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.10, 3.11, 3.12]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Cache pip dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt', '**/pyproject.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .[dev,test]
+
+    - name: Set up test database
+      run: |
+        export LORIEN_DB_PATH=/tmp/test_lorien_${{ matrix.python-version }}.db
+        python -c "
+        from storage.database import init_db
+        init_db()
+        print('Test database initialized')
+        "
+
+    - name: Run linting
+      run: |
+        ruff check .
+        ruff format --check .
+
+    - name: Run type checking
+      run: mypy api/ core/ storage/
+
+    - name: Run tests
+      env:
+        LORIEN_DB_PATH: /tmp/test_lorien_${{ matrix.python-version }}.db
+      run: |
+        pytest -q --junitxml=junit-${{ matrix.python-version }}.xml --cov=api --cov=core --cov=storage --cov-report=xml
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-results-${{ matrix.python-version }}
+        path: |
+          junit-${{ matrix.python-version }}.xml
+          coverage.xml
+
+  wiring-audit:
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .[dev,test]
+
+    - name: Run wiring audit
+      env:
+        ANALYTICS_ENABLED: "true"
+        LORIEN_DB_PATH: /tmp/test_audit.db
+      run: |
+        python tools/audit/wiring_audit.py > audit_report.json
+        python tools/audit/scan_backend.py > backend_routes.json
+        python tools/audit/scan_flutter.py > flutter_scan.json
+
+    - name: Check dual-mount coverage
+      run: |
+        python -c "
+        import json
+        with open('audit_report.json') as f:
+            report = json.load(f)
+        
+        # Check that all required endpoints have dual mount
+        missing_dual = []
+        for route, info in report.get('dual_mount_analysis', {}).items():
+            if not (info.get('bare', False) and info.get('v1', False)):
+                missing_dual.append(route)
+        
+        if missing_dual:
+            print(f'ERROR: Missing dual mount for routes: {missing_dual}')
+            exit(1)
+        else:
+            print('SUCCESS: All routes have dual mount coverage')
+        "
+
+    - name: Check header SoT (Single Source of Truth)
+      run: |
+        # Check that the frozen 8-column header appears exactly once as canonical
+        header_count=$(grep -r "Vital Measurement,Node 1,Node 2,Node 3,Node 4,Node 5,Diagnostic Triage,Actions" . --include="*.py" --include="*.md" | wc -l)
+        if [ "$header_count" -ne 1 ]; then
+          echo "ERROR: Frozen header should appear exactly once as canonical (found $header_count times)"
+          exit 1
+        else
+          echo "SUCCESS: Frozen header appears exactly once as canonical"
+        fi
+
+    - name: Upload audit artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: audit-artifacts
+        path: |
+          audit_report.json
+          backend_routes.json
+          flutter_scan.json

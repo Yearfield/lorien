@@ -3,14 +3,14 @@ Outcomes router for leaf-only triage and actions.
 """
 
 from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional
 import sqlite3
 import logging
 
 from ..dependencies import get_db_connection
 from core.services.triage_service import upsert_triage
-from core.validation.outcomes import trim_words, validate_phrase
+from ..core.validators import ensure_short_phrase
 
 router = APIRouter(prefix="/outcomes", tags=["outcomes"])
 logger = logging.getLogger(__name__)
@@ -19,6 +19,16 @@ logger = logging.getLogger(__name__)
 class OutcomesRequest(BaseModel):
     diagnostic_triage: str = Field(..., min_length=1)
     actions: str = Field(..., min_length=1)
+    
+    @field_validator("diagnostic_triage")
+    @classmethod
+    def _v_triage(cls, v):
+        return ensure_short_phrase(v, "Diagnostic Triage")
+    
+    @field_validator("actions")
+    @classmethod
+    def _v_actions(cls, v):
+        return ensure_short_phrase(v, "Actions")
 
 
 class OutcomesResponse(BaseModel):

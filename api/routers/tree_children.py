@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path
 from pydantic import BaseModel, Field, field_validator
 from typing import List
 from ..dependencies import get_db_connection
+from ..core.validators import ensure_label
 
 router = APIRouter(prefix="/tree", tags=["tree-children"])
 
@@ -16,17 +17,9 @@ class SlotUpdate(BaseModel):
     @field_validator("label")
     @classmethod
     def v_label(cls, v: str):
-        # Allow empty to mean "ignore" for Phase-6 (no deletes), else enforce non-empty printable
-        if v == "":
+        if v == "":  # Allow empty to mean "ignore" for Phase-6
             return v
-        txt = v.strip()
-        if not txt:
-            raise ValueError("label cannot be empty")
-        # Simple allowlist mirroring Outcomes (letters/digits/space/comma/hyphen)
-        import re
-        if not re.fullmatch(r"[A-Za-z0-9 ,\-]+", txt):
-            raise ValueError("label must be alnum/comma/hyphen/space")
-        return txt
+        return ensure_label(v)
 
 class ChildUpdate(BaseModel):
     slot: int = Field(..., ge=1, le=5)
@@ -36,10 +29,7 @@ class ChildUpdate(BaseModel):
     @classmethod
     def validate_label(cls, v: str):
         """Validate label format (alnum/comma/hyphen/space only)."""
-        import re
-        if not re.fullmatch(r"[A-Za-z0-9 ,\-]+", v.strip()):
-            raise ValueError("label must be alnum/comma/hyphen/space")
-        return v.strip()
+        return ensure_label(v)
 
 
 class BulkChildrenRequest(BaseModel):

@@ -2,7 +2,7 @@
 Tree slots router for individual slot upsert and delete operations.
 """
 
-from fastapi import APIRouter, HTTPException, Path, Depends
+from fastapi import APIRouter, HTTPException, Path, Depends, Response
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional
 import sqlite3
@@ -45,7 +45,8 @@ def upsert_slot(
     parent_id: int = Path(..., ge=1, description="Parent node ID"),
     slot: int = Path(..., ge=1, le=5, description="Slot number (1-5)"),
     request: SlotUpdateRequest = ...,
-    conn: sqlite3.Connection = Depends(get_db_connection)
+    conn: sqlite3.Connection = Depends(get_db_connection),
+    response: Response = None
 ):
     """
     Upsert a child node in a specific slot.
@@ -53,7 +54,14 @@ def upsert_slot(
     Creates new child if slot is empty, updates existing if occupied.
     Returns 409 if concurrent modification detected.
     Performance target: <40ms.
+    
+    DEPRECATED: Use /api/v1/tree/parents/{parent_id}/children instead.
     """
+    # Add deprecation headers for legacy route
+    if response is not None:
+        response.headers["Deprecation"] = "true"
+        response.headers["Sunset"] = "v7.0"
+    
     start_time = time.time()
 
     try:
@@ -151,13 +159,21 @@ def upsert_slot(
 def delete_slot(
     parent_id: int = Path(..., ge=1, description="Parent node ID"),
     slot: int = Path(..., ge=1, le=5, description="Slot number (1-5)"),
-    conn: sqlite3.Connection = Depends(get_db_connection)
+    conn: sqlite3.Connection = Depends(get_db_connection),
+    response: Response = None
 ):
     """
     Delete a child node from a specific slot.
 
     Frees the slot for future use. Safe to call on empty slots.
+    
+    DEPRECATED: Use /api/v1/tree/parents/{parent_id}/children instead.
     """
+    # Add deprecation headers for legacy route
+    if response is not None:
+        response.headers["Deprecation"] = "true"
+        response.headers["Sunset"] = "v7.0"
+    
     try:
         cursor = conn.cursor()
 

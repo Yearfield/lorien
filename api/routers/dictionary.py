@@ -11,6 +11,7 @@ import re
 from datetime import datetime, timezone
 
 from api.db import get_conn, ensure_schema
+from ..core.validators import validate_dictionary_term, normalize_term
 
 router = APIRouter(prefix="/dictionary", tags=["dictionary"])
 logger = logging.getLogger(__name__)
@@ -148,8 +149,9 @@ def create_term(body: TermIn):
         ensure_schema(conn)
         cursor = conn.cursor()
 
-        # Normalize term
-        normalized = _normalize(body.term)
+        # Validate and normalize term using central validators
+        validated_term = validate_dictionary_term(body.term, "term")
+        normalized = normalize_term(body.term)
 
         # Check for duplicate (type, normalized)
         cursor.execute(

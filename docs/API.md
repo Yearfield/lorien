@@ -7,12 +7,52 @@ The Lorien API provides endpoints for managing decision trees, red flags, and tr
 All endpoints are available at both root (`/`) and versioned (`/api/v1`).
 
 ## CSV / XLSX Export (Contract Frozen)
-Header (exact order; case-sensitive; comma-separated):
-`Vital Measurement,Node 1,Node 2,Node 3,Node 4,Node 5,Diagnostic Triage,Actions`
 
-Endpoints: `GET /calc/export`, `GET /tree/export`, and XLSX variants `/calc/export.xlsx`, `/tree/export.xlsx`.
+**CANONICAL 8-COLUMN HEADER (Single Source of Truth):**
+```
+Vital Measurement,Node 1,Node 2,Node 3,Node 4,Node 5,Diagnostic Triage,Actions
+```
 
-UI (Flutter/Streamlit) must not construct CSV/XLSX; always call the API.
+**Column Details:**
+- **Vital Measurement**: Root node label (depth=0)
+- **Node 1-5**: Child node labels (depth=1-5)  
+- **Diagnostic Triage**: Clinical assessment for leaf nodes
+- **Actions**: Recommended actions for leaf nodes
+
+**Endpoints:** `GET /calc/export`, `GET /tree/export`, and XLSX variants `/calc/export.xlsx`, `/tree/export.xlsx`.
+
+**Contract:** UI (Flutter/Streamlit) must not construct CSV/XLSX; always call the API.
+
+## Error Response Examples
+
+### 422 Validation Errors
+```json
+{
+  "detail": [
+    {
+      "loc": ["body", "label"],
+      "msg": "field required",
+      "type": "value_error.missing"
+    },
+    {
+      "loc": ["body", "category"],
+      "msg": "ensure this value has at most 50 characters",
+      "type": "value_error.any_str.max_length",
+      "ctx": {"limit_value": 50}
+    }
+  ]
+}
+```
+
+### 409 Conflict Errors
+```json
+{
+  "error": "slot_conflict",
+  "slot": 2,
+  "hint": "Concurrent edit detected. Slot 2 already has a child.",
+  "parent_id": 123
+}
+```
 
 ## Dictionary
 
@@ -363,16 +403,7 @@ GET `/api/v1/calc/export`
 
 - **200** CSV (content-disposition suggests filename)
 
-**Canonical 8-Column Header:**
-```
-Vital Measurement,Node 1,Node 2,Node 3,Node 4,Node 5,Diagnostic Triage,Actions
-```
-
-**Column Details:**
-- **Vital Measurement**: Root node label (depth=0)
-- **Node 1-5**: Child node labels (depth=1-5)
-- **Diagnostic Triage**: Clinical assessment for leaf nodes
-- **Actions**: Recommended actions for leaf nodes
+**Note:** See canonical header definition in "CSV / XLSX Export (Contract Frozen)" section above.
 
 ---
 
@@ -404,8 +435,7 @@ POST `/llm/fill-triage-actions`
 
 ## CSV Export (Contract Frozen)
 
-**Header (exact order):**
-`Vital Measurement,Node 1,Node 2,Node 3,Node 4,Node 5,Diagnostic Triage,Actions`
+**Note:** See canonical header definition in "CSV / XLSX Export (Contract Frozen)" section above.
 
 `GET /calc/export` and `GET /tree/export` must return CSV with the exact header above.
 UI (Streamlit + Flutter) must call API; no CSV construction in UI.

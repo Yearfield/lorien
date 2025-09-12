@@ -1,0 +1,120 @@
+name: UI CI
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths: [ 'ui_flutter/**' ]
+  pull_request:
+    branches: [ main, develop ]
+    paths: [ 'ui_flutter/**' ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ui_flutter
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        channel: stable
+        flutter-version: '3.16.0'
+
+    - name: Install dependencies
+      run: flutter pub get
+
+    - name: Analyze code
+      run: flutter analyze
+
+    - name: Run tests
+      run: flutter test --coverage
+
+    - name: Check test coverage
+      run: |
+        # Check if lcov.info exists and has reasonable coverage
+        if [ -f "coverage/lcov.info" ]; then
+          coverage_percent=$(lcov --summary coverage/lcov.info | grep "lines.*:" | awk '{print $2}' | sed 's/%//')
+          echo "Current coverage: ${coverage_percent}%"
+          # Start with 20% threshold, can be raised later
+          if (( $(echo "$coverage_percent < 20" | bc -l) )); then
+            echo "ERROR: Test coverage below 20% threshold"
+            exit 1
+          else
+            echo "SUCCESS: Test coverage meets threshold"
+          fi
+        else
+          echo "WARNING: No coverage file found"
+        fi
+
+    - name: Install Linux build dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
+
+    - name: Build Linux bundle
+      run: flutter build linux --release
+
+    - name: Upload Linux bundle
+      uses: actions/upload-artifact@v4
+      with:
+        name: lorien-linux-bundle
+        path: ui_flutter/build/linux/x64/release/bundle
+
+    - name: Upload coverage reports
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: coverage-report
+        path: ui_flutter/coverage/lcov.info
+
+  wiring-audit:
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .[dev,test]
+
+    - name: Run Flutter API usage audit
+      run: |
+        python tools/audit/scan_flutter.py > flutter_api_usage.json
+        python tools/audit/scan_dart_api_calls.py > dart_api_calls.json
+
+    - name: Check API usage consistency
+      run: |
+        python -c "
+        import json
+        with open('flutter_api_usage.json') as f:
+            flutter_scan = json.load(f)
+        
+        # Check that all API calls use the correct base URL pattern
+        api_calls = flutter_scan.get('urls', [])
+        invalid_calls = [call for call in api_calls if not call.startswith('/api/v1/') and call != '/api/v1']
+        
+        if invalid_calls:
+            print(f'ERROR: Found API calls not using /api/v1 prefix: {invalid_calls}')
+            exit(1)
+        else:
+            print('SUCCESS: All API calls use correct /api/v1 prefix')
+        "
+
+    - name: Upload Flutter audit artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: flutter-audit-artifacts
+        path: |
+          flutter_api_usage.json
+          dart_api_calls.json

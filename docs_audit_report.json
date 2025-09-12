@@ -1,0 +1,56 @@
+{
+  "timestamp": "2025-09-11T20:48:16.096291",
+  "audit_version": "1.0",
+  "header_consistency": {
+    "canonical_header": "Vital Measurement, Node 1, Node 2, Node 3, Node 4, Node 5, Diagnostic Triage, Actions",
+    "files_checked": [
+      "docs/API_HEADER_SOT.md",
+      "docs/API_ROUTES_REGISTRY.md",
+      "tests/fixtures/csv_contract.csv",
+      "tests/fixtures/generate_fixtures.py",
+      "tools/audit/gen_full_wiring_report.py",
+      "tools/audit/gen_audit_report.py",
+      "tools/audit/scan_backend.py",
+      "tools/audit/comprehensive_audit.py",
+      "tools/audit/archive_stale_docs.py",
+      "tools/audit/wiring_audit.py",
+      "tools/audit/find_seed_labels.py",
+      "tools/audit/scan_flutter.py",
+      "tools/audit/check_dual_mount.py",
+      "tools/audit/__init__.py",
+      "tools/audit/README.md",
+      "tools/audit/_util.py",
+      "tools/audit/scan_routes.py",
+      "tools/audit/scan_dart_api_calls.py",
+      "tools/audit/check_feature_matrix.py"
+    ],
+    "inconsistencies": [],
+    "total_occurrences": 8
+  },
+  "required_docs": {
+    "required_docs": [
+      "docs/API_HEADER_SOT.md",
+      "docs/API_ROUTES_REGISTRY.md",
+      "docs/README.md",
+      "docs/DEVELOPMENT.md",
+      "docs/DEPLOYMENT.md"
+    ],
+    "missing_docs": [],
+    "existing_docs": [
+      "docs/API_HEADER_SOT.md",
+      "docs/API_ROUTES_REGISTRY.md",
+      "docs/README.md",
+      "docs/DEVELOPMENT.md",
+      "docs/DEPLOYMENT.md"
+    ]
+  },
+  "stale_docs": {
+    "stale_files": [],
+    "threshold_days": 30
+  },
+  "docs_vs_code": {
+    "endpoints_documented": [],
+    "endpoints_missing_docs": [],
+    "outdated_docs": []
+  }
+}
