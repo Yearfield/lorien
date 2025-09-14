@@ -26,12 +26,11 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Get database path from environment or default location
-DB_PATH = os.getenv("LORIEN_DB_PATH", os.path.expanduser("~/.local/share/lorien/app.db"))
+from api.settings import get_db_path
 
 def _open_conn() -> sqlite3.Connection:
     """Open a new database connection with proper configuration."""
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False, isolation_level=None)
+    conn = sqlite3.connect(get_db_path(), check_same_thread=False, isolation_level=None)
     conn.row_factory = sqlite3.Row
     # Pragmas (idempotent)
     conn.execute("PRAGMA foreign_keys=ON;")

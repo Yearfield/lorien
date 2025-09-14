@@ -1,6 +1,6 @@
 import os, sqlite3
 from contextlib import contextmanager
-from .settings import get_db_path
+from api.settings import get_db_path
 from api.db.migrate import apply_migrations
 
 SCHEMA_SQL = """

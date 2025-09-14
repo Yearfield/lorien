@@ -62,8 +62,8 @@ def _persist_import_data(df: pd.DataFrame, repo: SQLiteRepository) -> Dict[str, 
                 root_id = root_result[0]
             else:
                 cursor.execute("""
-                    INSERT INTO nodes (parent_id, depth, slot, label, is_leaf)
-                    VALUES (NULL, 0, 0, ?, 0)
+                    INSERT INTO nodes (parent_id, depth, slot, label)
+                    VALUES (NULL, 0, 0, ?)
                 """, (vm_label,))
                 root_id = cursor.lastrowid
                 created_roots += 1
@@ -90,8 +90,8 @@ def _persist_import_data(df: pd.DataFrame, repo: SQLiteRepository) -> Dict[str, 
                 else:
                     # Create new node
                     cursor.execute("""
-                        INSERT INTO nodes (parent_id, depth, slot, label, is_leaf)
-                        VALUES (?, 1, ?, ?, 0)
+                        INSERT INTO nodes (parent_id, depth, slot, label)
+                        VALUES (?, 1, ?, ?)
                     """, (root_id, slot, node_label))
                     created_nodes += 1
             
@@ -147,11 +147,10 @@ def _ensure_leaf_path(cursor: sqlite3.Cursor, root_id: int, node_labels: list) -
             current_id = child_result[0]
         else:
             # Create child node
-            is_leaf = 1 if current_depth == 5 else 0
             cursor.execute("""
-                INSERT INTO nodes (parent_id, depth, slot, label, is_leaf)
-                VALUES (?, ?, ?, ?, ?)
-            """, (current_id, current_depth, slot, node_label, is_leaf))
+                INSERT INTO nodes (parent_id, depth, slot, label)
+                VALUES (?, ?, ?, ?)
+            """, (current_id, current_depth, slot, node_label))
             current_id = cursor.lastrowid
     
     return current_id

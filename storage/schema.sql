@@ -15,8 +15,9 @@ CREATE TABLE IF NOT EXISTS nodes (
     id         INTEGER PRIMARY KEY,
     parent_id  INTEGER NULL REFERENCES nodes(id) ON DELETE CASCADE,
     depth      INTEGER NOT NULL CHECK (depth BETWEEN 0 AND 5),   -- 0=root (Vital Measurement)
-    slot       INTEGER NOT NULL CHECK (
-                   (depth = 0 AND slot = 0) OR                   -- root must be slot 0
+    slot       INTEGER CHECK (
+                   (depth = 0 AND slot IS NULL) OR               -- root can have NULL slot
+                   (depth = 0 AND slot = 0) OR                   -- root can be slot 0
                    (depth BETWEEN 1 AND 5 AND slot BETWEEN 1 AND 5)
                ),
     label      TEXT    NOT NULL,                                 -- display text

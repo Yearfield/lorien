@@ -61,6 +61,27 @@ def get_or_create_root(conn: sqlite3.Connection, label: str) -> int:
     )
     return cur.lastrowid
 
+def create_parent_under_root(conn: sqlite3.Connection, root_id: int, label: str) -> Optional[int]:
+    """
+    Create a new parent node under the root with the given label.
+    Always creates a new node (allows duplicates for conflicts detection).
+    Returns the parent node ID, or None if root is overfull.
+    """
+    label = _norm(label)
+    
+    # Check if root already has 5 children (parents)
+    slot = _first_free_slot(conn, root_id)
+    if slot is None:
+        # root already has 5 children — never create >5
+        return None
+    
+    # Always create new parent under root (allow duplicates)
+    cur = conn.execute(
+        "INSERT INTO nodes (parent_id, label, depth, slot) VALUES (?, ?, ?, ?)",
+        (root_id, label, 1, slot)
+    )
+    return cur.lastrowid
+
 def get_or_create_child(conn: sqlite3.Connection, parent_id: int, label: str, depth: int) -> Tuple[Optional[int], bool, bool]:
     """
     Returns (node_id, created, skipped_overfull)
@@ -151,38 +172,52 @@ def import_dataframe(conn: sqlite3.Connection, df) -> Dict[str, Any]:
     rows_processed = 0
 
     with tx(conn):
+        # Ensure we have a root node first
+        root_id = create_root_if_missing(conn, "Root")
+        
         for _, row in df.iterrows():
-            # Sanitize root label
-            root_label = sanitize_label(row.get("Vital Measurement"))
-            if not root_label:
-                continue  # skip row if no valid root
-            parent_id = create_root_if_missing(conn, root_label)
-            # Count root creation by checking immediate existence delta is tricky; we tolerate approximate:
-            # treat as creation if no prior path existed at this moment (optional). We skip root count accuracy here.
-            # (We'll count nodes via stats for acceptance instead.)
+            # Sanitize parent label
+            parent_label = sanitize_label(row.get("Vital Measurement"))
+            if not parent_label:
+                continue  # skip row if no valid parent label
+            
+            # Skip the "Root" row as we already created it
+            if parent_label == "Root":
+                continue
+            
+            # Create parent node under root (depth=1)
+            parent_id = create_parent_under_root(conn, root_id, parent_label)
+            if parent_id is None:
+                skipped_overfull += 1
+                continue  # cannot create more if root is overfull
 
-            # Walk levels
-            last_node_id = parent_id
-            depth = 0
+            # Create five direct siblings under the parent (not a chain)
+            parent_depth = 1  # Parent nodes are at depth 1
+            child_depth = parent_depth + 1  # Children are at depth 2
             child_count = 0
+            
             for i, col in enumerate(["Node 1","Node 2","Node 3","Node 4","Node 5"], start=1):
                 lab = sanitize_label(row.get(col))
                 if not lab:
-                    break  # stop deeper creation at first blank
-                node_id, created, skipped = get_or_create_child(conn, last_node_id, lab, i)
+                    break  # stop at first blank
+                
+                # Create child directly under parent at slot i, depth = parent_depth + 1
+                node_id, created, skipped = get_or_create_child(conn, parent_id, lab, child_depth)
                 if skipped:
                     skipped_overfull += 1
-                    break  # cannot go deeper if parent is overfull
-                last_node_id = node_id
-                depth = i
+                    break  # cannot create more if parent is overfull
+                
+                # Update the slot to be the correct slot number (1, 2, 3, 4, 5)
+                conn.execute("UPDATE nodes SET slot=? WHERE id=?", (i, node_id))
+                
                 child_count += 1
                 if created: created_nodes += 1
 
-            # Outcomes at the last realized node in path (if any outcome present)
+            # Outcomes at the parent node (if any outcome present)
             triage = sanitize_label(row.get("Diagnostic Triage"))
             actions = sanitize_label(row.get("Actions"))
-            if last_node_id is not None and (triage or actions):
-                c, u = upsert_outcome(conn, last_node_id, triage, actions)
+            if parent_id is not None and (triage or actions):
+                c, u = upsert_outcome(conn, parent_id, triage, actions)
                 if c: created_outcomes += 1
                 if u: updated_outcomes += 1
 
@@ -485,12 +520,67 @@ def put_slot_label(conn: sqlite3.Connection, parent_id: int, slot: int, label: s
         return {"action": "created", "node_id": int(node_id), "parent_id": parent_id, "slot": slot, "label": label}
 
 
-def detect_conflicts(conn: sqlite3.Connection, limit: int, offset: int, q: Optional[str] = None) -> Dict[str, Any]:
+def children_signature(children: List[str]) -> str:
+    """Compute normalized signature for a set of children labels."""
+    norm = [c.strip().lower() for c in children if c and c.strip()]
+    return "|".join(sorted(set(norm)))  # set, order-insensitive
+
+
+def list_parents_with_exact_five(conn: sqlite3.Connection, limit: int, offset: int) -> List[Dict[str, Any]]:
+    """
+    List parents that have exactly 5 children.
+    
+    Returns:
+        List of dicts with {id, depth, label}
+    """
+    sql = """
+    SELECT p.id, p.depth, p.label
+    FROM nodes p
+    JOIN nodes c ON c.parent_id = p.id
+    GROUP BY p.id, p.depth, p.label
+    HAVING COUNT(c.id) = 5
+    ORDER BY p.depth ASC, p.label ASC
+    LIMIT ? OFFSET ?
+    """
+    cur = conn.execute(sql, (limit, offset))
+    return [dict(row) for row in cur.fetchall()]
+
+
+def list_children_for_parents(conn: sqlite3.Connection, parent_ids: List[int]) -> List[Dict[str, Any]]:
+    """
+    List children for the given parent IDs.
+    
+    Args:
+        parent_ids: List of parent node IDs
+        
+    Returns:
+        List of dicts with {parent_id, slot, label, id}
+    """
+    if not parent_ids:
+        return []
+    
+    placeholders = ",".join("?" * len(parent_ids))
+    sql = f"""
+    SELECT id, parent_id, slot, label
+    FROM nodes
+    WHERE parent_id IN ({placeholders})
+    ORDER BY parent_id, (slot IS NULL), slot, id
+    """
+    cur = conn.execute(sql, parent_ids)
+    return [dict(row) for row in cur.fetchall()]
+
+
+def detect_conflicts(conn: sqlite3.Connection, limit: int, offset: int, q: Optional[str] = None, only_exact_five: bool = True, only_duplicate_parents: bool = True, require_variant_sets: bool = True) -> Dict[str, Any]:
     """
     Returns parents with potential issues:
       - overfilled (>5 children) OR slot conflicts OR null-slot kids
       - underfilled (<5)
       - duplicate parent nodes with same (parent_id,label) (legacy)
+    
+    When only_exact_five=True and only_duplicate_parents=True, only returns true merge conflicts:
+      - parents with exactly 5 children AND duplicate parent conflicts
+    
+    When require_variant_sets=True, only returns groups where child sets differ across duplicates.
     """
     params = []
     where = ""
@@ -498,6 +588,25 @@ def detect_conflicts(conn: sqlite3.Connection, limit: int, offset: int, q: Optio
         where = "WHERE LOWER(p.label) LIKE ?"
         params.append(f"%{q.lower()}%")
 
+    # Build filtering conditions based on parameters
+    conflict_conditions = []
+    if not only_exact_five and not only_duplicate_parents:
+        # Show all conflicts (original behavior)
+        conflict_conditions.append("(k.child_count > 5 OR k.child_count < 5 OR COALESCE(sd.dup_slots,0) > 0 OR COALESCE(k.null_slots,0) > 0 OR COALESCE(pd.cnt,0) > 1)")
+    else:
+        # Apply specific filters
+        if only_exact_five:
+            conflict_conditions.append("k.child_count = 5")
+        if only_duplicate_parents:
+            conflict_conditions.append("COALESCE(pd.cnt,0) > 1")
+        
+        # If both filters are applied, we need at least one condition
+        if not conflict_conditions:
+            conflict_conditions.append("1=0")  # No results
+    
+    conflict_where = " OR ".join(conflict_conditions) if conflict_conditions else "1=1"
+
+    # First, get all potential conflicts
     sql = f"""
     WITH kids AS (
       SELECT p.id AS parent_id, p.label, p.depth,
@@ -517,13 +626,11 @@ def detect_conflicts(conn: sqlite3.Connection, limit: int, offset: int, q: Optio
         HAVING COUNT(*) > 1
       )
     ), parent_dups AS (
-      SELECT parent_id, label, COUNT(*) AS cnt
-      FROM (
-        SELECT parent_id, label, COUNT(*) AS c
-        FROM nodes
-        GROUP BY parent_id, label
-        HAVING COUNT(*) > 1
-      ) t
+      SELECT label, depth, COUNT(*) AS cnt
+      FROM nodes
+      WHERE parent_id IS NOT NULL
+      GROUP BY label, depth
+      HAVING COUNT(*) > 1
     )
     SELECT k.parent_id, k.label, k.depth, k.child_count,
            COALESCE(sd.dup_slots,0) AS slot_dup_count,
@@ -533,23 +640,73 @@ def detect_conflicts(conn: sqlite3.Connection, limit: int, offset: int, q: Optio
            COALESCE(pd.cnt,0) AS duplicate_parents
     FROM kids k
     LEFT JOIN slot_dups sd ON sd.parent_id = k.parent_id
-    LEFT JOIN parent_dups pd ON pd.parent_id = k.parent_id AND pd.label = k.label
-    WHERE (k.child_count > 5 OR k.child_count < 5 OR COALESCE(sd.dup_slots,0) > 0 OR COALESCE(k.null_slots,0) > 0 OR COALESCE(pd.cnt,0) > 1)
+    LEFT JOIN parent_dups pd ON pd.label = k.label AND pd.depth = k.depth
+    WHERE {conflict_where}
     ORDER BY k.depth ASC, k.label ASC
     LIMIT ? OFFSET ?;
     """
     cur = conn.execute(sql, params + [int(limit), int(offset)])
     items = []
+    
     for r in cur.fetchall():
-        items.append({
+        item = {
             "parent_id": r["parent_id"], "label": r["label"], "depth": int(r["depth"]),
             "child_count": int(r["child_count"]),
             "slot_dup_count": int(r["slot_dup_count"]),
             "null_slot_count": int(r["null_slot_count"]),
             "overfilled": bool(r["overfilled"]),
             "underfilled": bool(r["underfilled"]),
-            "duplicate_parents": int(r["duplicate_parents"])
-        })
+            "duplicate_parents": int(r["duplicate_parents"]),
+            "variant_sets": 1  # Default to 1, will be updated below
+        }
+        items.append(item)
+    
+    # If require_variant_sets is True, filter out items without variant sets
+    if require_variant_sets and only_exact_five and only_duplicate_parents:
+        # For each item, check if there are variant sets in the same group
+        filtered_items = []
+        for item in items:
+            if item["duplicate_parents"] > 0:
+                # Get all parents in the same group (same depth, label)
+                group_sql = """
+                SELECT p.id, p.label, p.depth
+                FROM nodes p
+                WHERE p.depth = ? AND p.label = ?
+                """
+                group_cur = conn.execute(group_sql, (item["depth"], item["label"]))
+                group_parents = group_cur.fetchall()
+                
+                if len(group_parents) > 1:  # Multiple parents in group
+                    # Get children for each parent in the group
+                    signatures = set()
+                    for parent in group_parents:
+                        children_sql = """
+                        SELECT c.label
+                        FROM nodes c
+                        WHERE c.parent_id = ?
+                        ORDER BY c.slot
+                        """
+                        children_cur = conn.execute(children_sql, (parent["id"],))
+                        children = [row["label"] for row in children_cur.fetchall()]
+                        if len(children) == 5:  # Only consider parents with exactly 5 children
+                            signature = children_signature(children)
+                            signatures.add(signature)
+                    
+                    # Include if there are variant sets (different signatures)
+                    if len(signatures) >= 2:
+                        item["variant_sets"] = len(signatures)
+                        filtered_items.append(item)
+                    elif not require_variant_sets:
+                        # Include identical sets when variant requirement is disabled
+                        item["variant_sets"] = 1
+                        filtered_items.append(item)
+                    # Note: We exclude identical sets when require_variant_sets=True
+            else:
+                # Single parent, no variants
+                pass
+        
+        items = filtered_items
+    
     total = len(items)  # lightweight; acceptable for MVP
     return {"items": items, "total": total, "limit": int(limit), "offset": int(offset)}
 
@@ -649,14 +806,19 @@ def navigate_path(conn: sqlite3.Connection, path: List[str]) -> Dict[str, Any]:
 
 def get_conflict_group(conn: sqlite3.Connection, parent_id: int, label: str) -> Dict[str, Any]:
     """
-    A 'conflict group' = all nodes N such that N.parent_id = parent_id AND N.label = label.
+    A 'conflict group' = all nodes N such that N.label = label AND N.depth = depth_of_parent_id.
     Returns:
       { group: [{id}], children: [{child_id, from_id, slot, label}], summary:{unique_children:int, total_children:int} }
     If there is only one node in the group, we still return its children to allow normalization.
     """
     ensure_schema(conn)
+    # Get the depth of the parent_id to find all nodes with same label and depth
+    parent_depth = conn.execute("SELECT depth FROM nodes WHERE id=?", (parent_id,)).fetchone()
+    if not parent_depth:
+        raise LookupError("parent_id_not_found")
+    
     group_ids = [r["id"] for r in conn.execute(
-        "SELECT id FROM nodes WHERE parent_id=? AND label=? ORDER BY id", (parent_id, label)
+        "SELECT id FROM nodes WHERE label=? AND depth=? ORDER BY id", (label, parent_depth["depth"])
     ).fetchall()]
     children: List[Dict[str, Any]] = []
     for gid in group_ids:

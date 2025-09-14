@@ -8,7 +8,7 @@ import '../../features/settings/ui/settings_screen.dart';
 import '../../features/settings/ui/about_status_page.dart';
 import '../../features/workspace/ui/workspace_screen.dart';
 import '../../features/workspace/edit_tree_screen.dart';
-import '../../features/workspace/conflicts_screen.dart';
+import '../../features/conflicts/ui/conflicts_screen.dart';
 import '../../features/workspace/stats_details_screen.dart';
 import '../../features/workspace/vm_builder_screen.dart';
 

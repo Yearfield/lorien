@@ -1,10 +1,11 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, Query
+from fastapi import APIRouter, UploadFile, File, HTTPException, Query, Depends
 from fastapi.responses import JSONResponse
 import pandas as pd
 import io
 import numpy as np
 
 from api.db import get_conn, ensure_schema, tx
+from api.dependencies import get_db_connection
 from api.repositories.tree_repo import import_dataframe, CANON_HEADERS, sanitize_label
 from api.repositories.admin_repo import clear_nodes_only, hard_reset_nodes
 
@@ -70,7 +71,11 @@ async def import_preview(file: UploadFile = File(...)):
     return JSONResponse({"ok": True, "rows": int(df.shape[0]), "roots_detected": uniq, "roots_count": len(uniq)})
 
 @router.post("/import")
-async def import_file(file: UploadFile = File(...), mode: str = Query("append", pattern="^(append|replace|hard_replace)$")):
+async def import_file(
+    file: UploadFile = File(...), 
+    mode: str = Query("append", pattern="^(append|replace|hard_replace)$"), 
+    conn = Depends(get_db_connection)
+):
     # Parse file into DataFrame
     try:
         df = _read_table_like(file.file, file.filename)
@@ -99,7 +104,6 @@ async def import_file(file: UploadFile = File(...), mode: str = Query("append", 
         raise HTTPException(status_code=422, detail=[{"loc":["header"], "msg":"Header mismatch", "type":"value_error.header_mismatch", "ctx": ctx}])
 
     # Persist transactionally
-    conn = get_conn()
     ensure_schema(conn)
     # Normalize column order (in case DataFrame has extra hidden metadata)
     df = df[CANON_HEADERS].copy()

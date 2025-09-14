@@ -8,6 +8,8 @@ from fastapi.responses import JSONResponse
 import sqlite3
 import logging
 import os
+from api.settings import get_db_path
+from api.db.migrate import apply_migrations
 
 from .middleware.metrics_middleware import MetricsMiddleware
 
@@ -132,6 +134,15 @@ async def global_exception_handler(request: Request, exc: Exception):
             "code": "INTERNAL_ERROR"
         }
     )
+
+# Apply migrations on startup using the current DB path (env-driven)
+@app.on_event("startup")
+def _apply_migrations_startup():
+    try:
+        db = get_db_path()
+        apply_migrations(db)
+    except Exception as e:
+        logging.getLogger(__name__).error(f"Migration on startup failed: {e}")
 
 # Mount all under versioned prefix
 API_PREFIX = "/api/v1"

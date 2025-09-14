@@ -12,6 +12,7 @@ import logging
 from ..dependencies import get_db_connection
 from api.db import get_conn, ensure_schema
 from api.repositories.tree_repo import detect_conflicts, normalize_parent, merge_duplicate_parents, get_conflict_group, resolve_conflict_group
+from api.services.conflicts_service import get_variant_conflicts, get_conflict_group as get_conflict_group_service
 
 router = APIRouter(prefix="/tree/conflicts", tags=["tree-conflicts"])
 logger = logging.getLogger(__name__)
@@ -272,10 +273,23 @@ def get_depth_anomalies(
 
 
 @router.get("/conflicts")
-def get_conflicts(limit: int = Query(50, ge=1, le=500), offset: int = Query(0, ge=0), q: Optional[str] = Query(None)):
-    conn = get_conn()
+def get_conflicts(
+    limit: int = Query(50, ge=1, le=500), 
+    offset: int = Query(0, ge=0), 
+    q: Optional[str] = Query(None),
+    only_exact_five: bool = Query(True, description="Only show parents with exactly 5 children"),
+    only_duplicate_parents: bool = Query(True, description="Only show parents with duplicate parent conflicts"),
+    require_variant_sets: bool = Query(True, description="Only show groups where child sets differ across duplicates"),
+    conn: sqlite3.Connection = Depends(get_db_connection)
+):
     ensure_schema(conn)
-    return JSONResponse(detect_conflicts(conn, limit, offset, q))
+    
+    # Use the new engine-based service for variant sets detection
+    if only_exact_five and only_duplicate_parents and require_variant_sets:
+        return JSONResponse(get_variant_conflicts(conn, limit, offset))
+    else:
+        # Fall back to legacy detection for backward compatibility
+        return JSONResponse(detect_conflicts(conn, limit, offset, q, only_exact_five, only_duplicate_parents, require_variant_sets))
 
 
 @router.post("/parent/{parent_id}/normalize")
@@ -334,7 +348,7 @@ def conflicts_group(
 
     # Standard duplicate-group case (same parent_id, label)
     try:
-        out = get_conflict_group(conn, int(parent_id), str(label))
+        out = get_conflict_group_service(conn, int(parent_id), str(label))
         # If group empty (shouldn't happen), return children of node_id itself as a fallback
         if not out["group"] and node_id is not None:
             from api.repositories.tree_repo import list_children
@@ -357,7 +371,7 @@ def conflicts_group_resolve(req: ResolveReq):
         if not parent_row or not label_row:
             raise HTTPException(status_code=422, detail=[{"loc":["body","keep_id"], "msg":"Keeper not found", "type":"value_error.keep_id"}])
         
-        out = resolve_conflict_group(conn, parent_id=int(parent_row[0]), label=str(label_row[0]), keep_id=req.keep_id, chosen=req.chosen)
+        out = resolve_conflict_group(conn, parent_id=int(parent_row[0]), label=str(label_row[0]), keep_id=req.keep_id, chosen_labels=req.chosen)
         return JSONResponse(out)
     except LookupError:
         raise HTTPException(status_code=422, detail=[{"loc":["body","keep_id"], "msg":"Keeper not part of duplicate group", "type":"value_error.keep_id"}])

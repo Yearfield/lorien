@@ -1,13 +1,23 @@
-"""
-Pytest configuration for Lorien tests.
-"""
-
-import pytest
 import os
-from unittest.mock import patch
+import tempfile
+import shutil
+import pytest
+from fastapi.testclient import TestClient
+from api.db.migrate import apply_migrations
 
-@pytest.fixture(autouse=True)
-def enable_llm_for_tests():
-    """Enable LLM for all tests by default."""
-    with patch.dict(os.environ, {"LLM_ENABLED": "true"}):
-        yield
+@pytest.fixture(scope="session")
+def _test_db():
+    """Create a temporary database for testing using migrations"""
+    d = tempfile.mkdtemp(prefix="lorien_testdb_")
+    path = os.path.join(d, "app.db")
+    os.environ["LORIEN_DB_PATH"] = path
+    apply_migrations(path)
+    yield path
+    shutil.rmtree(d, ignore_errors=True)
+
+@pytest.fixture
+def client(_test_db):
+    """FastAPI test client"""
+    # Import app after setting the environment variable
+    from api.main import app
+    return TestClient(app)
