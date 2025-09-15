@@ -551,36 +551,7 @@ async def export_calculator_csv(
         )
 
 
-@router.get("/tree/export")
-async def export_tree_csv(
-    repo: SQLiteRepository = Depends(get_repository)
-):
-    """Export tree data to CSV with streaming response."""
-    try:
-        # Get tree data from database with exactly 5 children per parent
-        tree_data = repo.get_tree_data_for_csv()
-        
-        if not tree_data:
-            # Return empty CSV with headers if no data
-            csv_content = format_csv_export([])
-        else:
-            csv_content = format_csv_export(tree_data)
-        
-        # Create streaming response
-        return StreamingResponse(
-            io.StringIO(csv_content),
-            media_type="text/csv",
-            headers={
-                "Content-Disposition": "attachment; filename=tree_export.csv",
-                "Content-Type": "text/csv; charset=utf-8"
-            }
-        )
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to export CSV: {str(e)}"
-        )
+# Export endpoint moved to api/routers/tree_export_router.py
 
 
 @router.get("/calc/export.xlsx")

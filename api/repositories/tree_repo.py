@@ -529,14 +529,18 @@ def children_signature(children: List[str]) -> str:
 def list_parents_with_exact_five(conn: sqlite3.Connection, limit: int, offset: int) -> List[Dict[str, Any]]:
     """
     List parents that have exactly 5 children.
+    Works with both old sibling structure and new EngineLongBow path structure.
     
     Returns:
         List of dicts with {id, depth, label}
     """
+    # For EngineLongBow path structure, we need to find nodes at depth 1 (parents under root)
+    # that have exactly 5 children at depth 2
     sql = """
     SELECT p.id, p.depth, p.label
     FROM nodes p
     JOIN nodes c ON c.parent_id = p.id
+    WHERE p.depth = 1  -- Parents are at depth 1 in EngineLongBow
     GROUP BY p.id, p.depth, p.label
     HAVING COUNT(c.id) = 5
     ORDER BY p.depth ASC, p.label ASC
@@ -568,6 +572,78 @@ def list_children_for_parents(conn: sqlite3.Connection, parent_ids: List[int]) -
     """
     cur = conn.execute(sql, parent_ids)
     return [dict(row) for row in cur.fetchall()]
+
+
+def list_candidate_parents(limit: int, offset: int):
+    """
+    Parents that have at least 5 direct children (we'll filter to exact 5 in engine).
+    """
+    from api.settings import get_db_path
+    conn = sqlite3.connect(get_db_path())
+    cur = conn.execute("""
+      SELECT p.id, p.depth, p.label
+      FROM nodes p
+      JOIN nodes c ON c.parent_id = p.id
+      GROUP BY p.id
+      HAVING COUNT(c.id) >= 5
+      LIMIT ? OFFSET ?;
+    """, (limit, offset))
+    rows = [{"id": r[0], "depth": r[1], "label": r[2]} for r in cur.fetchall()]
+    conn.close()
+    return rows
+
+
+def list_direct_children_for_parents(parent_ids: list[int]):
+    """Get direct children for given parent IDs"""
+    if not parent_ids: 
+        return []
+    from api.settings import get_db_path
+    q = ",".join(["?"] * len(parent_ids))
+    conn = sqlite3.connect(get_db_path())
+    cur = conn.execute(f"""
+      SELECT parent_id, label FROM nodes
+      WHERE parent_id IN ({q});
+    """, parent_ids)
+    rows = [{"parent_id": r[0], "label": r[1]} for r in cur.fetchall()]
+    conn.close()
+    return rows
+
+
+def detect_conflicts_enginelongbow(conn: sqlite3.Connection, limit: int, offset: int, q: Optional[str] = None, only_exact_five: bool = True, only_duplicate_parents: bool = True, require_variant_sets: bool = True) -> Dict[str, Any]:
+    """
+    EngineLongBow-specific conflicts detection using new conflicts engine.
+    """
+    from api.core.conflicts_engine import compute_variant_conflicts
+    
+    # Get candidate parents
+    parents = list_candidate_parents(limit, offset)
+    if not parents:
+        return {"items": [], "total": 0, "limit": int(limit), "offset": int(offset)}
+    
+    # Get children for these parents
+    children = list_direct_children_for_parents([p["id"] for p in parents])
+    
+    # Compute conflicts using engine
+    items = compute_variant_conflicts(parents, children)
+    
+    # Filter based on requirements
+    filtered_items = []
+    for item in items:
+        include = True
+        
+        if only_exact_five and item["child_count"] != 5:
+            include = False
+        
+        if only_duplicate_parents and item["duplicate_parents"] <= 1:
+            include = False
+            
+        if require_variant_sets and item["variant_sets"] < 2:
+            include = False
+            
+        if include:
+            filtered_items.append(item)
+    
+    return {"items": filtered_items, "total": len(filtered_items), "limit": int(limit), "offset": int(offset)}
 
 
 def detect_conflicts(conn: sqlite3.Connection, limit: int, offset: int, q: Optional[str] = None, only_exact_five: bool = True, only_duplicate_parents: bool = True, require_variant_sets: bool = True) -> Dict[str, Any]:

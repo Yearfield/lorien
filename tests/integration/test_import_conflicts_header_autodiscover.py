@@ -19,7 +19,7 @@ UPLOAD_CANDIDATES = [
 
 def _export_header(client: TestClient):
     """Fetch 0-row CSV to get the canonical header row/order"""
-    r = client.get("/api/v1/tree/export?format=csv&limit=0")
+    r = client.get("/api/v1/tree/export")
     assert r.status_code == 200, r.text
     text = r.text
     reader = csv.reader(io.StringIO(text))
@@ -29,44 +29,51 @@ def _export_header(client: TestClient):
 
 def _make_rows_for_conflict(header):
     """
-    Build two duplicate parents with different 5-sets (Alpha => conflict),
-    and two duplicate parents with identical 5-sets (Beta => NOT a conflict).
-    We fill only the columns we know; unknown columns remain empty.
-    Header order is preserved exactly from export.
+    Build duplicate parents with different 5-sets (Alpha => conflict),
+    and duplicate parents with identical 5-sets (Beta => NOT a conflict).
+    Uses EngineLongBow path-based format: D0->D1->D2->D3->D4->D5->D6
+    
+    Creates two different parent contexts for the same label to produce conflicts.
     """
-    # Try to infer column names used for parent label/depth/slots 1..5.
-    # We support common names but honor exact match if present.
-    def col(name, fallbacks):
-        for n in [name] + fallbacks:
-            if n in header: 
-                return n
-        raise AssertionError(f"Required column missing: {name} / {fallbacks}")
+    # EngineLongBow expects frozen header: ["D0","D1","D2","D3","D4","D5","D6","Notes"]
+    assert header == ["D0","D1","D2","D3","D4","D5","D6","Notes"], f"Expected frozen header, got: {header}"
 
-    c_label = col("Vital Measurement", ["parent_label", "Parent Label", "label", "Label"])
-    c_nodes = [col(f"Node {i}", [f"s{i}", f"S{i}", f"slot{i}", f"Slot {i}"]) for i in range(1, 6)]
-    c_triage = col("Diagnostic Triage", ["triage", "Triage", "diagnostic_triage"])
-    c_actions = col("Actions", ["actions", "Actions"])
-
-    def row(plabel, slots, triage="", actions=""):
-        d = {h: "" for h in header}
-        d[c_label] = plabel
-        for i, val in enumerate(slots, start=1):
-            if i <= 5:  # Only fill up to Node 5
-                d[c_nodes[i-1]] = val
-        d[c_triage] = triage
-        d[c_actions] = actions
-        return [d[h] for h in header]
+    def row(d0, d1, d2, d3, d4, d5, d6, notes=""):
+        """Create a path row for EngineLongBow"""
+        return [d0, d1, d2, d3, d4, d5, d6, notes]
 
     rows = []
-    # Create a root node first, then create parent nodes under it
-    # This matches the structure expected by the conflicts detection logic
-    rows.append(row("Root", []))  # Root node
-    # Alpha => true conflict - create two different parent nodes with same label but different children
-    rows.append(row("Alpha", ["A", "B", "C", "D", "E"]))
-    rows.append(row("Alpha", ["A", "B", "C", "D", "X"]))
-    # Beta => identical 5-set (no conflict)
-    rows.append(row("Beta", ["K", "L", "M", "N", "O"]))
-    rows.append(row("Beta", ["K", "L", "M", "N", "O"]))
+    
+    # Alpha => true conflict - create two different parent contexts with same label at depth 1
+    # Context 1: Root1 -> Alpha -> {A,B,C,D,E} (5 direct children)
+    rows.append(row("Root1", "Alpha", "A", "", "", "", ""))
+    rows.append(row("Root1", "Alpha", "B", "", "", "", ""))
+    rows.append(row("Root1", "Alpha", "C", "", "", "", ""))
+    rows.append(row("Root1", "Alpha", "D", "", "", "", ""))
+    rows.append(row("Root1", "Alpha", "E", "", "", "", ""))
+    
+    # Context 2: Root2 -> Alpha -> {A,B,C,D,X} (5 direct children, differs by X vs E)
+    rows.append(row("Root2", "Alpha", "A", "", "", "", ""))
+    rows.append(row("Root2", "Alpha", "B", "", "", "", ""))
+    rows.append(row("Root2", "Alpha", "C", "", "", "", ""))
+    rows.append(row("Root2", "Alpha", "D", "", "", "", ""))
+    rows.append(row("Root2", "Alpha", "X", "", "", "", ""))
+    
+    # Beta => identical 5-sets (no conflict)
+    # Context 1: Root1 -> Beta -> {K,L,M,N,O} (5 direct children)
+    rows.append(row("Root1", "Beta", "K", "", "", "", ""))
+    rows.append(row("Root1", "Beta", "L", "", "", "", ""))
+    rows.append(row("Root1", "Beta", "M", "", "", "", ""))
+    rows.append(row("Root1", "Beta", "N", "", "", "", ""))
+    rows.append(row("Root1", "Beta", "O", "", "", "", ""))
+    
+    # Context 2: Root2 -> Beta -> {K,L,M,N,O} (identical 5-set)
+    rows.append(row("Root2", "Beta", "K", "", "", "", ""))
+    rows.append(row("Root2", "Beta", "L", "", "", "", ""))
+    rows.append(row("Root2", "Beta", "M", "", "", "", ""))
+    rows.append(row("Root2", "Beta", "N", "", "", "", ""))
+    rows.append(row("Root2", "Beta", "O", "", "", "", ""))
+    
     return rows
 
 def _build_csv_bytes(header, rows):

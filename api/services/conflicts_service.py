@@ -1,98 +1,80 @@
 """
-Conflicts service using the core conflicts engine.
+Conflicts service using the new conflicts engine.
 """
-from typing import List, Dict, Any
-import sqlite3
-import os
-import logging
-from api.core.conflicts_engine import find_variant_set_conflicts, get_conflict_group_data, norm
-from api.repositories.tree_repo import list_parents_with_exact_five, list_children_for_parents
+
+from api.core.conflicts_engine import compute_variant_conflicts
+from api.repositories.tree_repo import list_candidate_parents, list_direct_children_for_parents
 
 
-def get_variant_conflicts(conn: sqlite3.Connection, limit: int, offset: int) -> Dict[str, Any]:
+def list_conflicts(limit: int = 50, offset: int = 0):
+    """List conflicts: duplicate parents with variant 5-sets"""
+    parents = list_candidate_parents(limit, offset)
+    children = list_direct_children_for_parents([p["id"] for p in parents])
+    items = compute_variant_conflicts(parents, children)
+    
+    # Ensure ints are non-null + shape
+    for it in items:
+        it["child_count"] = int(it.get("child_count") or 0)
+        it["duplicate_parents"] = int(it.get("duplicate_parents") or 0)
+        it["variant_sets"] = int(it.get("variant_sets") or 0)
+    
+    return {"items": items, "total": len(items), "limit": limit, "offset": offset}
+
+
+def load_group(node_id: int):
     """
-    Get conflicts using the variant-sets engine.
-    
-    Args:
-        conn: Database connection
-        limit: Maximum number of results
-        offset: Offset for pagination
-        
-    Returns:
-        Dict with items, total, limit, offset
+    Given a parent id, return the group of all parents with same (depth, norm(label)) 
+    and union of their direct children.
     """
-    # Get parents with exactly 5 children
-    parents = list_parents_with_exact_five(conn, limit, offset)
+    import sqlite3
+    import unicodedata
+    from api.settings import get_db_path
+
+    def _norm(s):
+        if not s: 
+            return ""
+        s = unicodedata.normalize("NFKC", s)
+        s = " ".join(s.strip().split())
+        return s.casefold()
+
+    conn = sqlite3.connect(get_db_path())
+    cur = conn.execute("SELECT label, depth FROM nodes WHERE id=?", (node_id,))
+    row = cur.fetchone()
+    if not row:
+        conn.close()
+        return {"group": [], "children": [], "summary": {"unique_children": 0, "total_children": 0}}
     
-    if not parents:
-        return {"items": [], "total": 0, "limit": limit, "offset": offset}
+    label_raw, depth = row
+    key_norm = _norm(label_raw)
+
+    # Find all parent ids with same (depth, norm(label))
+    cur = conn.execute("SELECT id, label FROM nodes WHERE depth=? AND parent_id IS NOT NULL", (depth,))
+    group_ids = []
+    label_display = None
+    for pid, lbl in cur.fetchall():
+        if _norm(lbl) == key_norm:
+            group_ids.append(pid)
+            if label_display is None:
+                label_display = lbl
+
+    # Union of their direct children
+    q = ",".join(["?"] * len(group_ids)) if group_ids else None
+    children = []
+    if q:
+        cur = conn.execute(f"""
+          SELECT id, parent_id, slot, label
+          FROM nodes
+          WHERE parent_id IN ({q})
+          ORDER BY parent_id, slot NULLS LAST, id
+        """, group_ids)
+        children = [{"child_id": r[0], "from_id": r[1], "slot": r[2], "label": r[3]} for r in cur.fetchall()]
     
-    # Get children for these parents
-    parent_ids = [p["id"] for p in parents]
-    children = list_children_for_parents(conn, parent_ids)
-    
-    # Use the engine to find conflicts
-    conflicts = find_variant_set_conflicts(parents, children)
-    
-    # Ensure all integer fields are present and non-null
-    for conflict in conflicts:
-        conflict["parent_id"] = int(conflict.get("parent_id", 0))
-        conflict["depth"] = int(conflict.get("depth", 0))
-        conflict["child_count"] = int(conflict.get("child_count", 0))
-        conflict["duplicate_parents"] = int(conflict.get("duplicate_parents", 0))
-        conflict["variant_sets"] = int(conflict.get("variant_sets", 0))
-        conflict["label"] = str(conflict.get("label", ""))
-        conflict["signatures"] = conflict.get("signatures", {})
-    
-    out = {
-        "items": conflicts,
-        "total": len(conflicts),
-        "limit": limit,
-        "offset": offset
+    conn.close()
+    return {
+        "group": [{"id": gid, "label": label_display, "depth": depth} for gid in group_ids],
+        "children": children,
+        "summary": {
+            "unique_children": len(set((c["from_id"], c["label"]) for c in children)),
+            "total_children": len(children)
+        }
     }
-
-    # Optional diagnostic: dump group -> signatures when enabled
-    if os.getenv("LORIEN_DEBUG_CONFLICTS") == "1":
-        logger = logging.getLogger(__name__)
-        summary = {}
-        for c in conflicts:
-            key = (int(c.get("depth", 0)), norm(str(c.get("label", ""))))
-            sigs = set(c.get("signatures", {}).values())
-            if key in summary:
-                summary[key].update(sigs)
-            else:
-                summary[key] = set(sigs)
-        for (depth, nlabel), sigs in summary.items():
-            logger.debug(f"conflicts group depth={depth} label='{nlabel}' signatures={len(sigs)}")
-
-    return out
-
-
-def get_conflict_group(conn: sqlite3.Connection, parent_id: int, label: str) -> Dict[str, Any]:
-    """
-    Get conflict group data using the engine.
-    
-    Args:
-        conn: Database connection
-        parent_id: ID of the parent to find group for
-        label: Label of the parent to find group for
-        
-    Returns:
-        Group data with all parents and children
-    """
-    # Get all parents (we need to find the group)
-    parents = list_parents_with_exact_five(conn, 1000, 0)  # Large limit to get all
-    
-    # Get all children for these parents
-    parent_ids = [p["id"] for p in parents]
-    children = list_children_for_parents(conn, parent_ids)
-    
-    # Use the engine to get group data
-    group_data = get_conflict_group_data(parents, children, parent_id, label)
-    
-    # Ensure integer fields are non-null
-    if "summary" in group_data:
-        group_data["summary"]["unique_children"] = int(group_data["summary"].get("unique_children", 0))
-        group_data["summary"]["total_children"] = int(group_data["summary"].get("total_children", 0))
-    
-    return group_data

@@ -11,8 +11,8 @@ import logging
 
 from ..dependencies import get_db_connection
 from api.db import get_conn, ensure_schema
-from api.repositories.tree_repo import detect_conflicts, normalize_parent, merge_duplicate_parents, get_conflict_group, resolve_conflict_group
-from api.services.conflicts_service import get_variant_conflicts, get_conflict_group as get_conflict_group_service
+from api.repositories.tree_repo import detect_conflicts, detect_conflicts_enginelongbow, normalize_parent, merge_duplicate_parents, get_conflict_group, resolve_conflict_group
+from api.services.conflicts_service import list_conflicts, load_group
 
 router = APIRouter(prefix="/tree/conflicts", tags=["tree-conflicts"])
 logger = logging.getLogger(__name__)
@@ -284,12 +284,8 @@ def get_conflicts(
 ):
     ensure_schema(conn)
     
-    # Use the new engine-based service for variant sets detection
-    if only_exact_five and only_duplicate_parents and require_variant_sets:
-        return JSONResponse(get_variant_conflicts(conn, limit, offset))
-    else:
-        # Fall back to legacy detection for backward compatibility
-        return JSONResponse(detect_conflicts(conn, limit, offset, q, only_exact_five, only_duplicate_parents, require_variant_sets))
+    # Use the new conflicts service
+    return JSONResponse(list_conflicts(limit, offset))
 
 
 @router.post("/parent/{parent_id}/normalize")
@@ -327,36 +323,15 @@ def conflicts_group(
     label: Optional[str] = Query(None),
 ):
     """
-    Prefer node_id; fall back to (parent_id,label).
-    node_id route ensures left list can pass what it has (the parent node's id).
+    Get conflict group for a given node_id.
     """
-    conn = get_conn()
-    ensure_schema(conn)
+    if node_id is None:
+        raise HTTPException(status_code=422, detail=[{"loc":["query","node_id"],"msg":"node_id is required","type":"value_error.node_id"}])
     
-    # Resolve keys
-    if node_id is not None:
-        row = conn.execute("SELECT parent_id, label FROM nodes WHERE id=?", (node_id,)).fetchone()
-        if not row:
-            raise HTTPException(status_code=422, detail=[{"loc":["query","node_id"],"msg":"Node not found","type":"value_error.node"}])
-        parent_id = int(row["parent_id"]) if row["parent_id"] is not None else None
-        label = str(row["label"])
-        # If this is a root (parent_id is NULL), treat all roots with this label as a group (usually one)
-        if parent_id is None:
-            parent_id = -1  # sentinel; will not match; handle roots specially below
-    if parent_id is None or label is None:
-        raise HTTPException(status_code=422, detail=[{"loc":["query"],"msg":"Provide node_id or (parent_id & label)","type":"value_error.keys"}])
-
-    # Standard duplicate-group case (same parent_id, label)
     try:
-        out = get_conflict_group_service(conn, int(parent_id), str(label))
-        # If group empty (shouldn't happen), return children of node_id itself as a fallback
-        if not out["group"] and node_id is not None:
-            from api.repositories.tree_repo import list_children
-            lc = list_children(conn, node_id)
-            kids = [{"child_id": c["id"], "from_id": node_id, "slot": c["slot"], "label": c["label"]} for c in lc["children"]]
-            out = {"group":[{"id": node_id}], "children": kids, "summary":{"unique_children": len({k["label"] for k in kids}), "total_children": len(kids)}}
+        out = load_group(node_id)
         return JSONResponse(out)
-    except sqlite3.DatabaseError as e:
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
