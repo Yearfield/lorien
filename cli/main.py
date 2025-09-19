@@ -14,7 +14,7 @@ from core.constants import (
     EXIT_EXPORT_ERROR, EXIT_SYSTEM_ERROR, APP_VERSION, APP_NAME
 )
 from core.engine import DecisionTreeEngine
-from core.import_export import ImportExportEngine
+# Legacy ImportExportEngine removed - using EngineLongBow only
 from .commands import (
     validate_tree, import_excel, import_gsheet, 
     export_excel, export_csv, fix_tree

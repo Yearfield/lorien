@@ -28,11 +28,11 @@ def _get_or_create_node(conn: sqlite3.Connection, parent_id: int | None, depth: 
     cur = conn.cursor()
     
     if parent_id is None:
-        # Root node
+        # Root node - compare column label to normalized param
         cur.execute("""
           SELECT id FROM nodes
-          WHERE parent_id IS NULL AND depth=? AND lower(trim(?)) = lower(trim(?))
-        """, (depth, nlabel, nlabel))
+          WHERE parent_id IS NULL AND depth=? AND lower(trim(label)) = ?
+        """, (depth, nlabel))
         row = cur.fetchone()
         if row:
             nid = row[0]
@@ -41,25 +41,35 @@ def _get_or_create_node(conn: sqlite3.Connection, parent_id: int | None, depth: 
                         (depth, raw_label))
             nid = cur.lastrowid
     else:
-        # Child node
+        # Child node - contextual by parent, compare column label to normalized param
         cur.execute("""
           SELECT id FROM nodes
-          WHERE parent_id=? AND depth=? AND lower(trim(?)) = lower(trim(?))
-        """, (parent_id, depth, nlabel, nlabel))
+          WHERE parent_id=? AND depth=? AND lower(trim(label)) = ?
+        """, (parent_id, depth, nlabel))
         row = cur.fetchone()
         if row:
             nid = row[0]
         else:
-            cur.execute("INSERT INTO nodes (parent_id, depth, slot, label) VALUES (?, ?, NULL, ?)",
-                        (parent_id, depth, raw_label))
+            # Assign slot before inserting to satisfy constraint
+            slot = _get_next_slot(conn, parent_id)
+            cur.execute("INSERT INTO nodes (parent_id, depth, slot, label) VALUES (?, ?, ?, ?)",
+                        (parent_id, depth, slot, raw_label))
             nid = cur.lastrowid
-            _assign_slot_if_needed(conn, parent_id, nid)
     
     return nid
 
 
+def _get_next_slot(conn: sqlite3.Connection, parent_id: int) -> int:
+    """Get the next available slot for a child under parent_id"""
+    cur = conn.cursor()
+    # Deterministic: next available slot = max(slot)+1 for this parent, gaps allowed
+    cur.execute("SELECT COALESCE(MAX(slot), 0) FROM nodes WHERE parent_id=?", (parent_id,))
+    next_slot = (cur.fetchone()[0] or 0) + 1
+    return next_slot
+
+
 def _assign_slot_if_needed(conn: sqlite3.Connection, parent_id: int, child_id: int) -> None:
-    """Assign deterministic slot for child node"""
+    """Assign deterministic slot for child node (legacy function)"""
     cur = conn.cursor()
     # If slot already set, do nothing
     cur.execute("SELECT slot FROM nodes WHERE id=?", (child_id,))
@@ -71,37 +81,28 @@ def _assign_slot_if_needed(conn: sqlite3.Connection, parent_id: int, child_id: i
     cur.execute("UPDATE nodes SET slot=? WHERE id=?", (next_slot, child_id))
 
 
+def _ensure_indexes(conn: sqlite3.Connection) -> None:
+    """Ensure required indexes exist for EngineLongBow operations."""
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_parent_slot_unique
+        ON nodes(parent_id, slot) WHERE parent_id IS NOT NULL;
+    """)
+    cur.execute("""
+        CREATE INDEX IF NOT EXISTS idx_nodes_parent_depth
+        ON nodes(parent_id, depth);
+    """)
+    cur.execute("""
+        CREATE INDEX IF NOT EXISTS idx_nodes_label_depth
+        ON nodes(label, depth);
+    """)
+    conn.commit()
+
+
 def _ensure_schema(conn: sqlite3.Connection) -> None:
-    """Ensure database schema exists."""
-    # Create nodes table
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS nodes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            parent_id INTEGER,
-            label TEXT NOT NULL,
-            depth INTEGER NOT NULL,
-            slot INTEGER,
-            is_leaf INTEGER DEFAULT 0,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (parent_id) REFERENCES nodes(id) ON DELETE CASCADE
-        )
-    """)
-    
-    # Create outcomes table
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS outcomes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            node_id INTEGER NOT NULL,
-            outcome TEXT NOT NULL,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (node_id) REFERENCES nodes(id) ON DELETE CASCADE
-        )
-    """)
-    
-    # Create indexes
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_nodes_parent_depth ON nodes(parent_id, depth)")
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_nodes_label_depth ON nodes(label, depth)")
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_outcomes_node_id ON outcomes(node_id)")
+    """Ensure database schema exists - relies on migrations for schema creation."""
+    # Just ensure indexes exist - schema should be created by migrations
+    _ensure_indexes(conn)
 
 
 class ImportResult:
@@ -261,13 +262,17 @@ def apply_import(paths: List[List[str]], mode: Literal["replace", "append", "pre
         # Use environment variable or default path
         db_path = os.environ.get("LORIEN_DB_PATH", os.path.expanduser("~/.local/share/lorien/app.db"))
     
+    # Apply migrations first
+    from api.db.migrate import apply_migrations
+    apply_migrations(db_path)
+    
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys=ON")
     conn.execute("PRAGMA journal_mode=WAL")
     
     try:
-        # Ensure schema exists
+        # Ensure indexes exist
         _ensure_schema(conn)
         
         if mode == "replace":

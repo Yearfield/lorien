@@ -5,12 +5,32 @@ import csv
 import io
 from api.db import get_conn, ensure_schema, tx
 from collections import defaultdict
-from api.repositories.validators import ensure_unique_5
+# Simple validator for exactly 5 unique labels
+def ensure_unique_5(labels: List[str]) -> List[str]:
+    """Ensure exactly 5 unique labels."""
+    unique = []
+    seen = set()
+    for label in labels:
+        if label and label not in seen:
+            unique.append(label)
+            seen.add(label)
+    if len(unique) != 5:
+        raise ValueError(f"Expected exactly 5 unique labels, got {len(unique)}")
+    return unique
 
 try:
     import openpyxl  # ensure dependency exists
 except Exception:
     openpyxl = None
+
+# Legacy importer guard
+class LegacyImporterDisabled(RuntimeError):
+    pass
+
+def _legacy_guard(name: str) -> None:
+    raise LegacyImporterDisabled(
+        f"{name} is disabled. Use Engines.EngineLongBow.ingest/store/present instead."
+    )
 
 CANON_HEADERS = [
     "Vital Measurement","Node 1","Node 2","Node 3","Node 4","Node 5",
@@ -83,31 +103,8 @@ def create_parent_under_root(conn: sqlite3.Connection, root_id: int, label: str)
     return cur.lastrowid
 
 def get_or_create_child(conn: sqlite3.Connection, parent_id: int, label: str, depth: int) -> Tuple[Optional[int], bool, bool]:
-    """
-    Returns (node_id, created, skipped_overfull)
-    """
-    label = _norm(label)
-    cur = conn.execute("SELECT id FROM nodes WHERE parent_id=? AND label=? AND depth=?", (parent_id, label, depth))
-    row = cur.fetchone()
-    if row:
-        return row["id"], False, False
-
-    slot = _first_free_slot(conn, parent_id)
-    if slot is None:
-        # parent already has 5 children — never create >5
-        return None, False, True
-
-    cur = conn.execute(
-        "INSERT OR IGNORE INTO nodes (parent_id,label,depth,slot) VALUES (?,?,?,?)",
-        (parent_id, label, depth, slot)
-    )
-    if cur.rowcount == 0:
-        # race: try to fetch again
-        cur2 = conn.execute("SELECT id FROM nodes WHERE parent_id=? AND label=? AND depth=?", (parent_id, label, depth))
-        row2 = cur2.fetchone()
-        return (row2["id"] if row2 else None), False, False
-
-    return cur.lastrowid, True, False
+    """Legacy function disabled - use EngineLongBow instead."""
+    _legacy_guard("get_or_create_child")
 
 def upsert_outcome(conn: sqlite3.Connection, node_id: int, triage: str, actions: str) -> Tuple[bool, bool]:
     """
@@ -159,77 +156,8 @@ def stats(conn: sqlite3.Connection) -> Dict[str, int]:
     }
 
 def import_dataframe(conn: sqlite3.Connection, df) -> Dict[str, Any]:
-    """
-    Transactionally import a canonical dataframe into nodes/outcomes
-    """
-    ensure_schema(conn)
-    created_roots = 0
-    created_nodes = 0
-    updated_nodes = 0  # (no-op in this phase, reserved)
-    created_outcomes = 0
-    updated_outcomes = 0
-    skipped_overfull = 0
-    rows_processed = 0
-
-    with tx(conn):
-        # Ensure we have a root node first
-        root_id = create_root_if_missing(conn, "Root")
-        
-        for _, row in df.iterrows():
-            # Sanitize parent label
-            parent_label = sanitize_label(row.get("Vital Measurement"))
-            if not parent_label:
-                continue  # skip row if no valid parent label
-            
-            # Skip the "Root" row as we already created it
-            if parent_label == "Root":
-                continue
-            
-            # Create parent node under root (depth=1)
-            parent_id = create_parent_under_root(conn, root_id, parent_label)
-            if parent_id is None:
-                skipped_overfull += 1
-                continue  # cannot create more if root is overfull
-
-            # Create five direct siblings under the parent (not a chain)
-            parent_depth = 1  # Parent nodes are at depth 1
-            child_depth = parent_depth + 1  # Children are at depth 2
-            child_count = 0
-            
-            for i, col in enumerate(["Node 1","Node 2","Node 3","Node 4","Node 5"], start=1):
-                lab = sanitize_label(row.get(col))
-                if not lab:
-                    break  # stop at first blank
-                
-                # Create child directly under parent at slot i, depth = parent_depth + 1
-                node_id, created, skipped = get_or_create_child(conn, parent_id, lab, child_depth)
-                if skipped:
-                    skipped_overfull += 1
-                    break  # cannot create more if parent is overfull
-                
-                # Update the slot to be the correct slot number (1, 2, 3, 4, 5)
-                conn.execute("UPDATE nodes SET slot=? WHERE id=?", (i, node_id))
-                
-                child_count += 1
-                if created: created_nodes += 1
-
-            # Outcomes at the parent node (if any outcome present)
-            triage = sanitize_label(row.get("Diagnostic Triage"))
-            actions = sanitize_label(row.get("Actions"))
-            if parent_id is not None and (triage or actions):
-                c, u = upsert_outcome(conn, parent_id, triage, actions)
-                if c: created_outcomes += 1
-                if u: updated_outcomes += 1
-
-            rows_processed += 1
-
-    return {
-        "status": "success",
-        "rows_processed": rows_processed,
-        "created": {"roots": created_roots, "nodes": created_nodes},
-        "updated": {"nodes": updated_nodes, "outcomes": updated_outcomes},
-        "skipped": {"overfull_parents": skipped_overfull}
-    }
+    """Legacy function disabled - use EngineLongBow instead."""
+    _legacy_guard("import_dataframe")
 
 def export_rows(conn: sqlite3.Connection, limit: int = 50, offset: int = 0) -> Dict[str, Any]:
     """

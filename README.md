@@ -1,48 +1,44 @@
-# Lorien
+# Lorien (LongBow Core + VM Builder)
 
-Decision-tree tooling with:
-- **SQLite core** (exactly 5 children per parent)
-- **FastAPI** service
-- **Flutter UI** (desktop & mobile)
-- **Streamlit adapter** (thin, dev-focused)
-- **Optional local LLM** (feature-flagged, guidance-only) to suggest *Diagnostic Triage* and *Actions*
+This repo contains a minimal decision-tree authoring system:
 
-## Quickstart
+- **EngineLongBow** for bulk import/export via a frozen 8-column header (D0..D6, Notes)
+- **Minimal API** (FastAPI): health, import, export, basic tree operations (roots/children GET, atomic PUT children)
+- **VM Builder (Flutter)**: single screen to author the tree stepwise (pick a root → edit its children → drill down)
+
+## Quick Start
+
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
+# Backend
+export LORIEN_DB_PATH=/tmp/lorien.db
+python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-uvicorn api.app:app --reload
-API: http://localhost:8000/api/v1 (see /docs and /api/v1/health)
+uvicorn api.main:app --reload --host 127.0.0.1 --port 8000
 
-Flutter UI: see ui_flutter/README or ui_flutter/docs/Flutter_UI_Spec.md
+# Health
+curl -sS http://127.0.0.1:8000/api/v1/health | jq
 
-Streamlit (dev): API_BASE_URL=http://localhost:8000/api/v1 bash tools/scripts/run_streamlit.sh
+# Import CSV (LongBow)
+curl -sS -F "file=@/path/to/data.csv;type=text/csv" "http://127.0.0.1:8000/api/v1/import?mode=replace" | jq
+
+# Export CSV
+curl -sS "http://127.0.0.1:8000/api/v1/tree/export?format=csv&limit=100" -o export.csv
+
+# Flutter
+cd ui_flutter && flutter pub get && flutter run -d linux
 ```
 
-## Backend Development
+## API Surface
 
-### Common import error: FastAPI Depends not defined
-If you see `NameError: name 'Depends' is not defined` on startup, ensure the router file includes:
-```python
-from fastapi import APIRouter, Depends
-```
-and any other FastAPI primitives used in that file (HTTPException, Query, Path, Body, status).
+- `GET /api/v1/health`
+- `POST /api/v1/import?mode=replace|append` (EngineLongBow)
+- `GET /api/v1/tree/export?format=csv|xlsx`
+- `GET /api/v1/tree/roots`
+- `GET /api/v1/tree/children?parent_id=<id>`
+- `PUT /api/v1/tree/children` — atomic replace children for a parent
 
-Run `ruff check .` and `pytest -q` to catch this before startup.
+## Structure
 
-## Docs
-- [Project Overview](docs/ProjectOverview.md)
-- [Design Decisions](docs/DesignDecisions.md)
-- [API Reference](docs/API.md)
-- [Schema](docs/Schema.md)
-- [Backup & Restore](docs/Backup_Restore.md)
-- [LLM (Optional)](docs/LLM_README.md)
-- [WSL Setup](docs/Setup_WSL.md)
-- [Dev Quickstart](docs/Dev_Quickstart.md)
-- [Release Notes](docs/ReleaseNotes_v6.7.md)
-- [License & Safety](docs/Medical_Safety.md)
-
-**Not a medical device; guidance-only. See [docs/Medical_Safety.md](docs/Medical_Safety.md).**
-
-MkDocs config included; to build local site: `pip install mkdocs mkdocs-material && mkdocs serve`
+- `api/` — FastAPI app, migrations, minimal routers
+- `Engines/EngineLongBow/` — ingest/store/present
+- `ui_flutter/` — VM Builder only

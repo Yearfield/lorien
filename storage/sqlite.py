@@ -65,21 +65,13 @@ class SQLiteRepository:
         Path(db_dir).mkdir(parents=True, exist_ok=True)
     
     def _init_database(self):
-        """Initialize database with schema."""
-        logger.debug("_init_database: Starting database initialization")
-        schema_path = Path(__file__).parent / 'schema.sql'
-        logger.debug(f"_init_database: Schema path: {schema_path}")
-        logger.debug(f"_init_database: Schema file exists: {schema_path.exists()}")
+        """Initialize database with migrations."""
+        logger.debug("_init_database: Starting database initialization with migrations")
         
-        with self._get_connection() as conn:
-            # Read and execute schema
-            with open(schema_path, 'r') as f:
-                schema_sql = f.read()
-            
-            logger.debug(f"_init_database: Schema SQL length: {len(schema_sql)} characters")
-            conn.executescript(schema_sql)
-            conn.commit()
-            logger.debug("_init_database: Schema executed and committed")
+        # Use migrations instead of schema.sql
+        from api.db.migrate import apply_migrations
+        apply_migrations(self._db_path)
+        logger.debug("_init_database: Migrations applied successfully")
     
     def _get_connection(self) -> sqlite3.Connection:
         """Get database connection with proper configuration."""
