@@ -30,22 +30,3 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_parent_slot_unique
 CREATE INDEX IF NOT EXISTS idx_nodes_parent_id ON nodes(parent_id);
 CREATE INDEX IF NOT EXISTS idx_nodes_depth_label ON nodes(depth, label);
 
--- Outcomes (if present in prod; keep as-is)
-CREATE TABLE IF NOT EXISTS outcomes (
-  id INTEGER PRIMARY KEY,
-  node_id INTEGER NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
-  text TEXT NOT NULL
-);
-
--- Dictionary terms (if present in prod; keep as-is)
-CREATE TABLE IF NOT EXISTS dictionary_terms (
-  id        INTEGER PRIMARY KEY,
-  type      TEXT NOT NULL,
-  term      TEXT NOT NULL,
-  normalized TEXT,
-  hints     TEXT,
-  red_flag  INTEGER DEFAULT 0,
-  updated_at TEXT,
-  created_at TEXT
-);
-CREATE UNIQUE INDEX IF NOT EXISTS ux_dict_type_normalized ON dictionary_terms(type, normalized);

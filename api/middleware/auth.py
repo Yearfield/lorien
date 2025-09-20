@@ -33,38 +33,12 @@ class AuthMiddleware(BaseHTTPMiddleware):
             "/tree/children/",
             "/api/v1/tree/children",
             "/api/v1/tree/children/",
-            
-            # Dictionary operations
-            "/dictionary",
-            "/dictionary/",
-            "/api/v1/dictionary",
-            "/api/v1/dictionary/",
-            
-            # Outcomes operations
-            "/triage",
-            "/triage/",
-            "/api/v1/triage",
-            "/api/v1/triage/",
-            
-            # Admin operations
-            "/admin/",
-            "/api/v1/admin/",
-            
-            # Conflicts and merge operations
-            "/conflicts/",
-            "/api/v1/conflicts/",
-            
-            # Apply default operations
-            "/apply-default",
-            "/api/v1/apply-default",
-            
-            # Delete subtree operations
-            "/delete-subtree",
-            "/api/v1/delete-subtree",
-            
-            # VM builder operations (future)
-            "/tree/vm/",
-            "/api/v1/tree/vm/",
+
+            # Import operations
+            "/api/v1/import",
+            "/api/v1/import/",
+            "/api/v1/import/preview",
+            "/api/v1/import/preview/",
         }
     
     async def dispatch(self, request: Request, call_next):

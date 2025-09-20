@@ -1,14 +1,13 @@
 # Project Overview
 
 ## 1) Purpose
-A cross-platform decision-tree editor and calculator for clinical workflows. The app enforces a strict “exactly five children per parent” rule, supports red-flag assignment, produces a calculator-ready CSV, and can optionally run a small local medical LLM for guidance (not diagnosis).
+A cross-platform decision-tree editor for clinical workflows. The app enforces a strict “exactly five children per parent” rule, exports a calculator-ready view of the tree, and can optionally run a small local medical LLM for guidance (not diagnosis).
 
 ## 2) Canonical Data Shape (Non-Negotiable)
 Columns and their meanings:
-- **Vital Measurement** (root)
-- **Node 1**, **Node 2**, **Node 3**, **Node 4**, **Node 5**
-- **Diagnostic Triage**
-- **Actions**
+- **D0** (root label)
+- **D1**, **D2**, **D3**, **D4**, **D5**, **D6**
+- **Notes** (optional metadata ignored during ingest)
 
 Each parent must have **exactly 5** children, occupying slots 1..5. Off-by-one or shifted inserts are invalid.
 
@@ -18,7 +17,7 @@ api/ # FastAPI exposing core to UIs
 ui_flutter/ # Flutter (desktop + mobile) consuming api/
 ui_streamlit/# legacy UI for continuity (thin wrapper)
 llm/ # optional local LLM (llama-cpp-python)
-tools/ # CLI, scripts, migrations helpers
+tools/ # scripts, migrations helpers
 docs/ # this file, user/developer docs
 tests/ # unit + integration tests
 
@@ -32,24 +31,20 @@ Copy code
 - **importers/exporters**: map Excel/Google Sheets ⇄ DB (fixes prior off-by-one bug)
 
 ### API Responsibilities
-- CRUD nodes/parents, assign/search red flags
-- Retrieve “next incomplete parent”
-- Manage triage/actions
-- Stream calculator CSV
+- List roots and children for navigation
+- Replace a parent’s children atomically
+- Import/export canonical CSV or XLSX data via EngineLongBow
+- Health metadata (version, database pragmas, feature flags)
 - (Optional) `/llm/complete` for local guidance when enabled
 
 ### Flutter Responsibilities
 - **Editor**: browse parents, “Skip to next incomplete parent,” manage 5 slots
 - **ParentDetail**: add/replace children in slots 1..5, reorder within limits
-- **RedFlags**: search + assign
 - **Calculator**: selection → export CSV
 - State via Riverpod/Bloc; server URL configurable
 
 ## 4) Data Model (SQLite)
 - `nodes(id, parent_id, depth, slot, label, is_leaf, created_at, updated_at)`
-- `triage(node_id, diagnostic_triage, actions)`
-- `red_flags(id, name)`
-- `node_red_flags(node_id, red_flag_id)`
 - Constraints:
   - `CHECK(depth BETWEEN 0 AND 5)`, `CHECK(slot BETWEEN 0 AND 5)`
   - `UNIQUE(parent_id, slot)` (enforces 1 child per slot)
@@ -67,9 +62,6 @@ Copy code
 - Auto-propagate to maintain complete paths to depth 5.
 - “Skip to next incomplete parent” to accelerate curation.
 
-### Red Flags
-- Search by text; assign to node; stored in `node_red_flags`.
-
 ### Calculator
 - Select rows; export CSV where **Diagnosis** forms a new header row and the selected **Node 1..5** entries become rows with quality/metadata.
 
@@ -85,7 +77,6 @@ Copy code
 ## 7) Dev & Ops
 - **Run API**: `uvicorn api.server:app --reload`
 - **Run Flutter**: `flutter run -d windows|macos|linux|android|ios`
-- **CLI**: `python -m tools.cli validate|import-excel|export-csv|...`
 - **Tests**: `pytest -q`
 - **Format**: `ruff check --fix && black .` (Python), `dart format .` (Flutter)
 - **Linux inotify (dev)**:
@@ -96,7 +87,7 @@ pgsql
 Copy code
 
 ## 8) Naming & Conventions
-- Columns exactly as: Vital Measurement → Node 1..5 → Diagnostic Triage → Actions.
+- Columns exactly as: D0 → D1..D6 → Notes.
 - Slots 1..5 map to Node 1..5 (no gaps; no reindexing).
 - Commits follow conventional commits (feat/fix/chore/docs/test).
 

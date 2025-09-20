@@ -93,8 +93,6 @@ class ETagManager:
         # Normalize tree data for consistent hashing
         normalized_data = {
             "nodes": sorted(tree_data.get("nodes", []), key=lambda x: x.get("id", 0)),
-            "triage": sorted(tree_data.get("triage", []), key=lambda x: x.get("node_id", 0)),
-            "flags": sorted(tree_data.get("flags", []), key=lambda x: x.get("id", 0))
         }
         
         return ETagManager.generate_etag(normalized_data)
