@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 import sqlite3
 from pydantic import BaseModel, Field
 from typing import List, Optional
@@ -70,3 +70,30 @@ def put_children(payload: PutChildrenRequest):
     finally:
         conn.close()
     return {"ok": True, "count": len(labels)}
+
+@router.delete("/root")
+def delete_root(root_id: int = Query(..., ge=1)):
+    conn = get_conn()
+    try:
+        # verify depth==0
+        cur = conn.execute("SELECT id FROM nodes WHERE id=? AND depth=0", (root_id,))
+        if not cur.fetchone():
+            raise HTTPException(status_code=404, detail="root not found")
+        conn.execute("DELETE FROM nodes WHERE id=?", (root_id,))
+        conn.commit()
+        return {"ok": True, "deleted": root_id}
+    finally:
+        conn.close()
+
+@router.get("/node")
+def get_node(node_id: int):
+    """Return node id,label,depth,parent_id for breadcrumbs/drilldown."""
+    conn = get_conn()
+    try:
+        cur = conn.execute("SELECT id,label,depth,parent_id FROM nodes WHERE id=?", (node_id,))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="not found")
+        return {"id": row[0], "label": row[1], "depth": row[2], "parent_id": row[3]}
+    finally:
+        conn.close()

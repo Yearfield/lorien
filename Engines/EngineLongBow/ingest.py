@@ -12,6 +12,57 @@ import pandas as pd
 
 from .consts import FROZEN_HEADER, PATH_COLUMNS, NOTES_COLUMN
 
+# Header synonyms for user-friendly import
+CANON = ["D0", "D1", "D2", "D3", "D4", "D5", "D6", "Notes"]
+HEADER_SYNONYMS = {
+    "d0": "D0", "vitalmeasurement": "D0", "vital measurement": "D0",
+    "d1": "D1", "node1": "D1", "node 1": "D1",
+    "d2": "D2", "node2": "D2", "node 2": "D2",
+    "d3": "D3", "node3": "D3", "node 3": "D3",
+    "d4": "D4", "node4": "D4", "node 4": "D4",
+    "d5": "D5", "node5": "D5", "node 5": "D5",
+    "d6": "D6", "diagnostictriage": "D6", "diagnostic triage": "D6",
+    "notes": "Notes", "actions": "Notes",
+}
+
+class HeaderMismatchError(Exception):
+    """Exception for header validation failures with hint support."""
+    def __init__(self, expected, received, hint=None):
+        self.expected = expected
+        self.received = received
+        self.hint = hint
+        super().__init__(f"Header mismatch: expected {expected}, got {received}")
+
+def _key(s: str) -> str:
+    return " ".join(s.strip().split()).lower()
+
+def normalize_header(cols: list[str]) -> list[str]:
+    mapped = []
+    for raw in cols:
+        k = _key(raw)
+        canon = HEADER_SYNONYMS.get(k)
+        if not canon:
+            # allow already-canonical names
+            if raw in CANON:
+                canon = raw
+        if not canon:
+            # fail fast
+            raise HeaderMismatchError(
+                expected=CANON, 
+                received=cols,
+                hint="Accepted synonyms: " + ", ".join(sorted(set(HEADER_SYNONYMS.keys())))
+            )
+        mapped.append(canon)
+    if mapped != CANON:
+        # We only accept exactly the canonical order after mapping
+        # (prevents shuffled columns)
+        raise HeaderMismatchError(
+            expected=CANON, 
+            received=cols,
+            hint="Columns must be in canonical order after mapping"
+        )
+    return mapped
+
 try:
     import openpyxl
 except ImportError:
@@ -191,14 +242,25 @@ def ingest_file(file_content: bytes, filename: str) -> Dict[str, Any]:
                 "valid_rows": 0
             }
         
-        # Validate header
+        # Validate and normalize header
         header = rows[0]
-        validation = validate_header(header)
-        
-        if not validation["valid"]:
+        try:
+            normalized_header = normalize_header(header)
+            # Replace the header row with normalized version for processing
+            rows[0] = normalized_header
+        except HeaderMismatchError as e:
             return {
                 "success": False,
-                "error": validation["error"],
+                "error": {
+                    "type": "value_error.header_mismatch",
+                    "loc": ["header"],
+                    "msg": "Frozen 8-column header mismatch",
+                    "ctx": {
+                        "expected": e.expected,
+                        "received": e.received,
+                        "hint": e.hint
+                    }
+                },
                 "paths": [],
                 "total_rows": len(rows) - 1,
                 "valid_rows": 0

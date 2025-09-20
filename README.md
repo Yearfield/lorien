@@ -5,6 +5,10 @@ This repo contains a minimal decision-tree authoring system:
 - **EngineLongBow** for bulk import/export via a frozen 8-column header (D0..D6, Notes)
 - **Minimal API** (FastAPI): health, import, export, basic tree operations (roots/children GET, atomic PUT children)
 - **VM Builder (Flutter)**: single screen to author the tree stepwise (pick a root → edit its children → drill down)
+  - Import: In the left panel, choose Replace or Append, pick a CSV/XLSX in the LongBow 8-column header, and click Import. On success, roots refresh automatically.
+  - Breadcrumbs: Click any crumb to jump to that ancestor's children.
+  - Tap a child to drill into it and edit its children
+  - Delete a root via the trash icon; deletion is cascading
 
 ## Quick Start
 
@@ -36,6 +40,8 @@ cd ui_flutter && flutter pub get && flutter run -d linux
 - `GET /api/v1/tree/roots`
 - `GET /api/v1/tree/children?parent_id=<id>`
 - `PUT /api/v1/tree/children` — atomic replace children for a parent
+- `DELETE /api/v1/tree/root?root_id=<id>` — delete root and its subtree
+- `GET /api/v1/tree/node?node_id=<id>` — get node details for navigation
 
 ## Structure
 

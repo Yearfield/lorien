@@ -31,3 +31,33 @@ def test_roots_children_put(tmp_path, monkeypatch):
     rc2 = c.get(f"/api/v1/tree/children?parent_id={root_id}")
     labels = [x["label"] for x in rc2.json()["items"]]
     assert labels == ["A","B","C"]
+
+def test_delete_root_cascades(tmp_path, monkeypatch):
+    from api.main import app
+    from starlette.testclient import TestClient
+    from api.db.migrate import apply_migrations
+
+    db = tmp_path / "app.db"
+    monkeypatch.setenv("LORIEN_DB_PATH", str(db))
+    apply_migrations(str(db))
+    c = TestClient(app)
+
+    # seed one root + child through API
+    csv = "D0,D1,D2,D3,D4,D5,D6,Notes\nRootX,ChildA,,,,,,\n"
+    r = c.post("/api/v1/import?mode=replace", files={"file": ("r.csv", csv, "text/csv")})
+    assert r.status_code in (200, 201)
+
+    roots = c.get("/api/v1/tree/roots").json()["items"]
+    root_id = roots[0]["id"]
+
+    # verify child exists
+    children = c.get(f"/api/v1/tree/children?parent_id={root_id}").json()["items"]
+    assert children and children[0]["label"].lower() == "childa"
+
+    # delete root
+    d = c.delete(f"/api/v1/tree/root?root_id={root_id}")
+    assert d.status_code == 200 and d.json()["ok"] is True
+
+    # root gone, subtree gone
+    roots_after = c.get("/api/v1/tree/roots").json()["items"]
+    assert roots_after == []
