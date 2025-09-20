@@ -15,8 +15,9 @@ class VmRepo {
     return (json['items'] as List).cast<Map<String, dynamic>>();
   }
 
-  Future<List<Map<String, dynamic>>> getChildren(int parentId) async {
-    final r = await http.get(Uri.parse('$base/tree/children?parent_id=$parentId'));
+  Future<List<Map<String, dynamic>>> getChildren(int parentId, {bool onlyRed = false}) async {
+    final uri = Uri.parse('$base/tree/children?parent_id=$parentId&only_red=${onlyRed ? 'true' : 'false'}');
+    final r = await http.get(uri);
     if (r.statusCode != 200) throw Exception('children failed');
     final json = jsonDecode(r.body);
     return (json['items'] as List).cast<Map<String, dynamic>>();
@@ -68,5 +69,39 @@ class VmRepo {
       throw Exception('import failed: ${res.statusCode} ${res.body}');
     }
     return jsonDecode(res.body) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>?> nextUnderfilled({required int rootId, int? afterId}) async {
+    final qs = [
+      'root_id=$rootId',
+      if (afterId != null) 'after_id=$afterId',
+    ].join('&');
+    final uri = Uri.parse('$base/tree/next-underfilled?$qs');
+    final r = await http.get(uri);
+    if (r.statusCode == 204) return null;
+    if (r.statusCode != 200) throw Exception('next-underfilled failed: ${r.statusCode} ${r.body}');
+    return jsonDecode(r.body) as Map<String, dynamic>;
+  }
+
+  Future<void> setEdgeFlag(int parentId, int childId, bool red) async {
+    final r = await http.put(Uri.parse('$base/tree/edge/flag'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'parent_id': parentId, 'child_id': childId, 'red_flag': red}));
+    if (r.statusCode != 200) throw Exception('edge flag failed: ${r.statusCode} ${r.body}');
+  }
+
+  Future<List<Map<String, dynamic>>> findCloneCandidates(String label) async {
+    final r = await http.get(Uri.parse('$base/tree/clone/candidates?label=${Uri.encodeQueryComponent(label)}'));
+    if (r.statusCode != 200) throw Exception('clone candidates failed: ${r.statusCode} ${r.body}');
+    final items = (jsonDecode(r.body)['items'] as List).cast<Map<String, dynamic>>();
+    return items;
+  }
+
+  Future<Map<String, dynamic>> cloneSubtree({required int sourceId, required int destParentId}) async {
+    final r = await http.post(Uri.parse('$base/tree/clone'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'source_id': sourceId, 'dest_parent_id': destParentId}));
+    if (r.statusCode != 200) throw Exception('clone failed: ${r.statusCode} ${r.body}');
+    return jsonDecode(r.body) as Map<String, dynamic>;
   }
 }

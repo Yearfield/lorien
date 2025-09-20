@@ -9,6 +9,8 @@ This document provides setup and development guidelines for the Lorien project.
 - SQLite3
 - Git
 
+Platform notes: see `docs/platforms/WSL.md` for WSL specifics.
+
 ## Setup
 
 ### Backend Setup
@@ -77,6 +79,12 @@ This document provides setup and development guidelines for the Lorien project.
 - Keep documentation up to date
 - Use the single source of truth for API headers
 - Run documentation audit: `python tools/audit/docs_audit.py`
+
+### Environment & Monitoring
+
+- Configuration quickstart: see `docs/Dev_Quickstart.md` (Configuration section) for commonly used environment variables.
+- Full environment reference previously in `ENV.md` has been consolidated into the quickstart and this guide.
+- Health, metrics and SLOs: see `docs/Monitoring_Telemetry.md`.
 
 ### Database
 

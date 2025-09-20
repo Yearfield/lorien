@@ -17,6 +17,10 @@ class VmState extends ChangeNotifier {
   final List<Map<String, dynamic>> crumbs = [];
   bool importing = false;
   String? importStatus; // "Imported 1292 rows (replace)" or error text
+  
+  // New features state
+  bool filterOnlyRed = false;
+  List<Map<String, dynamic>> childrenWithMeta = []; // children with red_flag info
 
   Future<void> loadRoots() async {
     loading = true; 
@@ -42,13 +46,20 @@ class VmState extends ChangeNotifier {
     // push crumb
     crumbs.removeWhere((e) => e['id'] == id);
     crumbs.add({'id': id, 'label': label, 'depth': depth});
+    await reloadChildren();
+  }
+
+  Future<void> reloadChildren() async {
+    if (currentParentId == null) return;
     loading = true; 
     notifyListeners();
     try {
-      final ch = await repo.getChildren(id);
+      final ch = await repo.getChildren(currentParentId!, onlyRed: filterOnlyRed);
+      childrenWithMeta = ch;
       children = ch.map((e) => (e['label'] as String)).toList();
     } catch (e) {
       // Handle error silently for now
+      childrenWithMeta = [];
       children = [];
     }
     loading = false; 
@@ -160,5 +171,44 @@ class VmState extends ChangeNotifier {
       importing = false; 
       notifyListeners();
     }
+  }
+
+  // New feature methods
+  Future<void> toggleRedFilter() async {
+    filterOnlyRed = !filterOnlyRed;
+    await reloadChildren();
+  }
+
+  Future<void> toggleEdgeFlag(int childId, bool currentRed) async {
+    await repo.setEdgeFlag(currentParentId!, childId, !currentRed);
+    await reloadChildren();
+  }
+
+  Future<String?> nextUnderfilled() async {
+    if (crumbs.isEmpty) {
+      return 'Select a root first';
+    }
+    final rootId = crumbs.first['id'] as int;
+    final afterId = currentParentId;
+    final res = await repo.nextUnderfilled(rootId: rootId, afterId: afterId);
+    if (res == null) {
+      return 'All parents under this root have ≥ 5 children';
+    }
+    await selectParent(res['id'] as int, res['label'] as String, res['depth'] as int);
+    return null; // Successfully navigated, no error message
+  }
+
+  Future<void> tryCloneSubtreeForChildLabel(String label) async {
+    final items = await repo.findCloneCandidates(label);
+    if (items.isEmpty) {
+      // Show toast message - we'll need to implement this
+      return;
+    }
+    // if 1 item, use it; else prompt simple dialog to pick
+    final srcId = items.first['id'] as int;
+    final dest = currentParentId!;
+    final res = await repo.cloneSubtree(sourceId: srcId, destParentId: dest);
+    // Show toast message - we'll need to implement this
+    await reloadChildren();
   }
 }

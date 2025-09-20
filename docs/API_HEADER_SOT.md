@@ -43,5 +43,5 @@ Any changes to this header require:
 ## References
 
 - [API Routes Registry](./API_ROUTES_REGISTRY.md)
-- [Export Documentation](./EXPORT_FORMATS.md)
-- [Import Documentation](./IMPORT_FORMATS.md)
+- [Export Formats](./EXPORT_FORMATS.md)
+- [Import Formats](./IMPORT_FORMATS.md)

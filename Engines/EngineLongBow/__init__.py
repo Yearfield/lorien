@@ -12,7 +12,7 @@ Components:
 """
 
 from .ingest import ingest_file, read_file, extract_paths, validate_header
-from .store import apply_import, ImportResult
+from .store import apply_import, apply_import_with_metadata, ImportResult
 from .present import export_paths, export_paths_to_csv, export_paths_to_xlsx
 from .consts import FROZEN_HEADER, PATH_COLUMNS, NOTES_COLUMN
 
@@ -22,6 +22,7 @@ __all__ = [
     "extract_paths",
     "validate_header",
     "apply_import",
+    "apply_import_with_metadata",
     "ImportResult",
     "export_paths",
     "export_paths_to_csv",

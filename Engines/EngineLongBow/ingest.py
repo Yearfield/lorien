@@ -11,6 +11,7 @@ from pathlib import Path
 import pandas as pd
 
 from .consts import FROZEN_HEADER, PATH_COLUMNS, NOTES_COLUMN
+import sqlite3
 
 # Header synonyms for user-friendly import
 CANON = ["D0", "D1", "D2", "D3", "D4", "D5", "D6", "Notes"]
@@ -21,7 +22,9 @@ HEADER_SYNONYMS = {
     "d3": "D3", "node3": "D3", "node 3": "D3",
     "d4": "D4", "node4": "D4", "node 4": "D4",
     "d5": "D5", "node5": "D5", "node 5": "D5",
-    "d6": "D6", "diagnostictriage": "D6", "diagnostic triage": "D6",
+    # IMPORTANT CHANGE: diagnostic triage is NOT a node; normalize to Notes
+    "d6": "D6",  # keep canonical name available if already provided
+    "diagnostictriage": "Notes", "diagnostic triage": "Notes",
     "notes": "Notes", "actions": "Notes",
 }
 
@@ -38,6 +41,12 @@ def _key(s: str) -> str:
 
 def normalize_header(cols: list[str]) -> list[str]:
     mapped = []
+    notes_count = 0
+    
+    # First, check if this is already the canonical header
+    if cols == CANON:
+        return cols
+    
     for raw in cols:
         k = _key(raw)
         canon = HEADER_SYNONYMS.get(k)
@@ -52,15 +61,34 @@ def normalize_header(cols: list[str]) -> list[str]:
                 received=cols,
                 hint="Accepted synonyms: " + ", ".join(sorted(set(HEADER_SYNONYMS.keys())))
             )
-        mapped.append(canon)
-    if mapped != CANON:
-        # We only accept exactly the canonical order after mapping
-        # (prevents shuffled columns)
+        
+        # Handle multiple Notes columns (Diagnostic Triage + Actions both map to Notes)
+        if canon == "Notes":
+            notes_count += 1
+            if notes_count == 1:
+                mapped.append("D6")  # First Notes synonym becomes D6
+            else:
+                mapped.append("Notes")  # Subsequent Notes synonyms stay as Notes
+        else:
+            mapped.append(canon)
+    
+    # Ensure we have exactly 8 columns
+    if len(mapped) != 8:
         raise HeaderMismatchError(
             expected=CANON, 
             received=cols,
-            hint="Columns must be in canonical order after mapping"
+            hint=f"Expected exactly 8 columns, got {len(mapped)}"
         )
+    
+    # Verify we have the right structure: D0..D5, D6, Notes
+    expected_structure = ["D0", "D1", "D2", "D3", "D4", "D5", "D6", "Notes"]
+    if mapped != expected_structure:
+        raise HeaderMismatchError(
+            expected=expected_structure, 
+            received=cols,
+            hint="Columns must map to D0..D5, D6, Notes structure"
+        )
+    
     return mapped
 
 try:
@@ -83,6 +111,22 @@ def normalize_label(label: Any) -> Optional[str]:
     
     # Basic normalization (can be enhanced with proper Unicode NFKC)
     return s.lower().strip()
+
+
+def _normalize_metadata_value(value: Any) -> Optional[str]:
+    """
+    Normalize a metadata value (preserve case, only trim whitespace).
+    Returns None for blank/empty values.
+    """
+    if value is None:
+        return None
+    
+    s = str(value).strip()
+    if s == "" or s.lower() == "nan":
+        return None
+    
+    # Only trim whitespace, preserve case for metadata
+    return s
 
 
 def validate_header(header: List[str]) -> Dict[str, Any]:
@@ -182,15 +226,16 @@ def read_file(file_content: bytes, filename: str) -> List[List[str]]:
         raise ValueError(f"Unsupported file format: {file_path.suffix}")
 
 
-def extract_paths(rows: List[List[str]]) -> List[List[str]]:
+def extract_paths_with_metadata(rows: List[List[str]]) -> List[Dict[str, Any]]:
     """
-    Extract path labels from rows, skipping blank rows.
+    Extract path labels and metadata from rows, skipping blank rows.
     
     Args:
         rows: List of rows from file (including header)
         
     Returns:
-        List of paths, each path is a list of up to 7 labels (D0..D6)
+        List of dicts with 'path' (D0..D5 labels) and 'metadata' (D6, Notes values)
+        Note: D6/Notes are stored as metadata, not used for structural node creation
     """
     if not rows:
         return []
@@ -198,11 +243,11 @@ def extract_paths(rows: List[List[str]]) -> List[List[str]]:
     # Skip header row
     data_rows = rows[1:] if len(rows) > 1 else []
     
-    paths = []
+    paths_with_meta = []
     for row in data_rows:
-        # Extract path columns (D0..D6)
+        # Extract structural path columns (D0..D5 only) to prevent depth=6 nodes
         path_labels = []
-        for i, col in enumerate(PATH_COLUMNS):
+        for i in range(6):  # Only D0..D5, not D6
             if i < len(row):
                 label = normalize_label(row[i])
                 if label is not None:
@@ -214,9 +259,59 @@ def extract_paths(rows: List[List[str]]) -> List[List[str]]:
         
         # Only include non-empty paths
         if path_labels:
-            paths.append(path_labels)
+            # Extract metadata from D6 and Notes columns (preserve case)
+            d6_value = None
+            notes_value = None
+            
+            if len(row) > 6:  # D6 column exists
+                d6_value = _normalize_metadata_value(row[6])
+            if len(row) > 7:  # Notes column exists  
+                notes_value = _normalize_metadata_value(row[7])
+            
+            paths_with_meta.append({
+                'path': path_labels,
+                'metadata': {
+                    'd6': d6_value,
+                    'notes': notes_value
+                }
+            })
     
-    return paths
+    return paths_with_meta
+
+
+def _upsert_path_meta(conn: sqlite3.Connection, leaf_id: int, d6_value: Optional[str], notes_value: Optional[str]) -> None:
+    """
+    Upsert path metadata for a leaf node.
+    
+    Args:
+        conn: SQLite connection
+        leaf_id: ID of the leaf node
+        d6_value: D6 (Diagnostic Triage) value, may be None
+        notes_value: Notes (Actions) value, may be None
+    """
+    conn.execute("""
+        INSERT INTO path_meta(leaf_id, d6, notes)
+        VALUES(?, ?, ?)
+        ON CONFLICT(leaf_id) DO UPDATE SET
+          d6 = COALESCE(excluded.d6, path_meta.d6),
+          notes = COALESCE(excluded.notes, path_meta.notes)
+    """, (leaf_id, d6_value, notes_value))
+
+
+def extract_paths(rows: List[List[str]]) -> List[List[str]]:
+    """
+    Extract path labels from rows, skipping blank rows.
+    Legacy function for backward compatibility.
+    
+    Args:
+        rows: List of rows from file (including header)
+        
+    Returns:
+        List of paths, each path is a list of up to 6 labels (D0..D5)
+        Note: D6/Notes are not used for structural node creation
+    """
+    paths_with_meta = extract_paths_with_metadata(rows)
+    return [item['path'] for item in paths_with_meta]
 
 
 def ingest_file(file_content: bytes, filename: str) -> Dict[str, Any]:
@@ -266,14 +361,14 @@ def ingest_file(file_content: bytes, filename: str) -> Dict[str, Any]:
                 "valid_rows": 0
             }
         
-        # Extract paths
-        paths = extract_paths(rows)
+        # Extract paths with metadata
+        paths_with_meta = extract_paths_with_metadata(rows)
         
         return {
             "success": True,
-            "paths": paths,
+            "paths": paths_with_meta,
             "total_rows": len(rows) - 1,  # Exclude header
-            "valid_rows": len(paths)
+            "valid_rows": len(paths_with_meta)
         }
         
     except Exception as e:

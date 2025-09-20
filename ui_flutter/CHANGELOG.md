@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] - Phase-6D+/6E UI Enhancements
+
+### Added
+- Batch operations in Edit Tree: multi-select parents, batch fill with "Other", batch materialization
+- Parent focusing: deep linking with `parentId` parameter for `/edit-tree`
+- Materialization service integration: progress dialog with added/filled/pruned/kept counters
+- Keyboard productivity: Tab cycles slots 1→5; Ctrl+S saves
+- Navigation aids: breadcrumb path, "Next Incomplete" call-to-action chip
+- Suggestions: dictionary overlay appears at ≥2 characters
+- Unsaved changes guard: Save/Discard/Stay dialog
+- Responsive layouts: split panes ≥1000px, tabbed interface below
+
+### Enhanced
+- Error mapping and banners for 409/422, including `duplicate_child_label` with slot context
+- API client unification: canonical `tree/{id}/children` with automatic 404→legacy fallback
+- Debounce (300ms) and infinite scroll (80%) for smoother UX
+
+### Fixed
+- Stabilization pass across tests and analyzer warnings in UI code
+
 ## [0.7.0] - Phase-6D+ Finalization & Release
 
 ### Added

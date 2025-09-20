@@ -85,11 +85,54 @@ class _VmBuilderScreenState extends State<VmBuilderScreen> {
     );
   }
 
+  Widget _rightHeader(VmState s) {
+    return Row(
+      children: [
+        Expanded(
+          child: Wrap(
+            spacing: 8, 
+            runSpacing: 4,
+            children: s.crumbs.map((c) {
+              final id = c['id'] as int;
+              final label = c['label'] as String;
+              return ActionChip(
+                label: Text(label), 
+                onPressed: () => s.jumpToCrumb(id)
+              );
+            }).toList(),
+          ),
+        ),
+        const SizedBox(width: 8),
+        // Next <5 button
+        FilledButton.icon(
+          onPressed: s.loading ? null : () async {
+            final errorMessage = await s.nextUnderfilled();
+            if (context.mounted) {
+              if (errorMessage == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Jumped to next underfilled parent')),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(errorMessage)),
+                );
+              }
+            }
+          },
+          icon: const Icon(Icons.filter_5),
+          label: const Text('Next <5'),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = context.watch<VmState>();
     return Scaffold(
-      appBar: AppBar(title: const Text('VM Builder')),
+      appBar: AppBar(
+        title: const Text('VM Builder'),
+      ),
       body: Row(
         children: [
           // Left: Import panel + Roots list
@@ -187,44 +230,64 @@ class _VmBuilderScreenState extends State<VmBuilderScreen> {
                             ),
                           ],
                         ),
-                        // Breadcrumb navigation
-                        Row(
-                          children: [
-                            if (s.canGoBack())
+                        const SizedBox(height: 12),
+                        // Right header with breadcrumbs and Next <5 button
+                        _rightHeader(s),
+                        const SizedBox(height: 12),
+                        // Back button
+                        if (s.canGoBack())
+                          Row(
+                            children: [
                               TextButton.icon(
                                 onPressed: s.goBack,
                                 icon: const Icon(Icons.arrow_back),
                                 label: const Text('Back'),
                               ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Wrap(
-                                spacing: 8,
-                                runSpacing: 4,
-                                children: s.crumbs.map((c) {
-                                  final id = c['id'] as int;
-                                  final label = c['label'] as String;
-                                  return ActionChip(
-                                    label: Text(label),
-                                    onPressed: () => s.jumpToCrumb(id),
-                                  );
-                                }).toList(),
-                              ),
-                            ),
-                          ],
+                            ],
+                          ),
+                        const SizedBox(height: 12),
+                        // Red flag filter toggle
+                        FilterChip(
+                          label: const Text('Only red'),
+                          selected: s.filterOnlyRed,
+                          onSelected: (_) => s.toggleRedFilter(),
                         ),
                         const SizedBox(height: 12),
                         Expanded(
                           child: ListView.builder(
-                            itemCount: s.children.length,
+                            itemCount: s.childrenWithMeta.length,
                             itemBuilder: (_, i) {
-                              final label = s.children[i];
+                              final child = s.childrenWithMeta[i];
+                              final label = child['label'] as String;
+                              final redFlag = child['red_flag'] as bool? ?? false;
                               return ListTile(
                                 title: Text(label),
                                 onTap: () => s.drillIntoChildByIndex(i),
-                                trailing: IconButton(
-                                  icon: const Icon(Icons.delete),
-                                  onPressed: () => s.removeChildAt(i),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    // Red flag icon
+                                    IconButton(
+                                      icon: Icon(redFlag ? Icons.flag : Icons.outlined_flag, 
+                                               color: redFlag ? Colors.red : null),
+                                      tooltip: redFlag ? 'Unflag red' : 'Mark as red flag',
+                                      onPressed: () => s.toggleEdgeFlag(child['id'] as int, redFlag),
+                                    ),
+                                    // Clone menu
+                                    PopupMenuButton<String>(
+                                      onSelected: (v) { 
+                                        if (v == 'clone') s.tryCloneSubtreeForChildLabel(label); 
+                                      },
+                                      itemBuilder: (ctx) => [ 
+                                        const PopupMenuItem(value: 'clone', child: Text('Clone subtree here')) 
+                                      ],
+                                    ),
+                                    // Delete button
+                                    IconButton(
+                                      icon: const Icon(Icons.delete),
+                                      onPressed: () => s.removeChildAt(i),
+                                    ),
+                                  ],
                                 ),
                               );
                             },

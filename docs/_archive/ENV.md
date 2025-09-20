@@ -1,6 +1,11 @@
-# Lorien Environment Configuration
+# [Archived] Lorien Environment Configuration
 
-This document describes the environment variables used by Lorien v6.8.0-beta.1 and their configuration options.
+This document has been consolidated. See:
+- `docs/Dev_Quickstart.md` (Configuration quick reference)
+- `docs/DEVELOPMENT.md` (development environment details)
+- `docs/Monitoring_Telemetry.md` (health fields, metrics, SLOs)
+
+Below is the historical content retained for reference.
 
 ## Server Environment Variables
 

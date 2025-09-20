@@ -5,16 +5,15 @@ Health check router for the decision tree API.
 from fastapi import APIRouter, Depends, HTTPException
 from typing import Dict, Any
 import os
+import sqlite3
 
-from ..dependencies import get_repository
-from storage.sqlite import SQLiteRepository
+from ..dependencies import get_db_connection
 from core.version import __version__
-from ..models import HealthResponse, DBInfo
 
 router = APIRouter(tags=["health"])
 
 @router.get("/health")
-async def health_check(repo: SQLiteRepository = Depends(get_repository)):
+async def health_check(conn: sqlite3.Connection = Depends(get_db_connection)):
     """
     Comprehensive health check endpoint.
 
@@ -22,7 +21,7 @@ async def health_check(repo: SQLiteRepository = Depends(get_repository)):
         200 with health status, version, database info, and feature flags
     """
     # Check database status
-    db_info = await _check_database_health(repo)
+    db_info = await _check_database_health(conn)
 
     # Check feature flags
     features = await _check_features()
@@ -60,34 +59,33 @@ async def health_metrics():
     metrics_data = await _get_runtime_metrics()
     return metrics_data
 
-async def _check_database_health(repo: SQLiteRepository) -> Dict[str, Any]:
+async def _check_database_health(conn: sqlite3.Connection) -> Dict[str, Any]:
     """Check database configuration and health."""
     try:
-        with repo._get_connection() as conn:
-            # Get database configuration
-            cursor = conn.cursor()
-            
-            # Check WAL mode
-            cursor.execute("PRAGMA journal_mode")
-            journal_mode = cursor.fetchone()[0]
-            
-            # Check foreign keys
-            cursor.execute("PRAGMA foreign_keys")
-            foreign_keys = cursor.fetchone()[0]
-            
-            # Check page size
-            cursor.execute("PRAGMA page_size")
-            page_size = cursor.fetchone()[0]
-            
-            # Get database path from repository (resolved path)
-            db_path = repo.get_resolved_db_path()
-            
-            return {
-                "wal": journal_mode == "wal",
-                "foreign_keys": bool(foreign_keys),
-                "page_size": page_size,
-                "path": db_path
-            }
+        # Get database configuration
+        cursor = conn.cursor()
+        
+        # Check WAL mode
+        cursor.execute("PRAGMA journal_mode")
+        journal_mode = cursor.fetchone()[0]
+        
+        # Check foreign keys
+        cursor.execute("PRAGMA foreign_keys")
+        foreign_keys = cursor.fetchone()[0]
+        
+        # Check page size
+        cursor.execute("PRAGMA page_size")
+        page_size = cursor.fetchone()[0]
+        
+        # Get database path from environment
+        db_path = os.environ.get("LORIEN_DB_PATH")
+        
+        return {
+            "wal": journal_mode == "wal",
+            "foreign_keys": bool(foreign_keys),
+            "page_size": page_size,
+            "path": db_path
+        }
     except Exception as e:
         return {
             "wal": False,
@@ -119,12 +117,15 @@ async def _get_runtime_metrics() -> Dict[str, Any]:
 
         telemetry = snapshot()
 
-        # Count rows in the primary table using a fresh repository connection
-        repo = SQLiteRepository()
-        with repo._get_connection() as conn:
+        # Count rows in the primary table using a fresh connection
+        from ..settings import get_db_path
+        conn = sqlite3.connect(get_db_path())
+        try:
             cursor = conn.cursor()
             cursor.execute("SELECT COUNT(*) FROM nodes")
             node_count = cursor.fetchone()[0]
+        finally:
+            conn.close()
 
         return {
             "telemetry": telemetry,

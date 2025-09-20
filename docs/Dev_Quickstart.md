@@ -29,6 +29,15 @@ LLM_ENABLED=false     # Keep disabled for safety
 ANALYTICS_ENABLED=false  # Set to true for metrics collection
 ```
 
+### Configuration (quick reference)
+- `DB_PATH` / `LORIEN_DB_PATH`: path to SQLite database
+- `CORS_ALLOW_ALL`: true for LAN/mobile testing
+- `LLM_ENABLED`: keep false unless explicitly testing guidance
+- `ANALYTICS_ENABLED`: true to surface counts/cache in `/health`
+- Flutter run: `--dart-define=API_BASE_URL=http://127.0.0.1:8000`
+
+For more details, see `docs/DEVELOPMENT.md` and `docs/Monitoring_Telemetry.md`.
+
 ### 3. Database Setup
 ```bash
 # Initialize database

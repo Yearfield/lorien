@@ -9,41 +9,45 @@ from typing import List, Dict, Any, Optional, Iterable
 from .consts import FROZEN_HEADER, PATH_COLUMNS, NOTES_COLUMN
 
 
-def export_paths(limit: Optional[int] = None, offset: int = 0, db_path: Optional[str] = None) -> Iterable[List[str]]:
+def export_paths(limit: Optional[int] = None, offset: int = 0, conn: sqlite3.Connection = None) -> Iterable[List[str]]:
     """
     Export current graph as paths in frozen 8-column format.
     
     Args:
         limit: Maximum number of paths to return (None for all)
         offset: Number of paths to skip
+        conn: Database connection to use (if None, will create own connection)
         
     Yields:
         List of strings representing one row (D0..D6 + Notes)
     """
-    # Get database connection
-    if db_path is None:
+    # If no connection provided, create one (for backward compatibility)
+    if conn is None:
         # Try to get from environment or use default
         db_path = os.environ.get("LORIEN_DB_PATH", os.path.expanduser("~/.local/share/lorien/app.db"))
-    
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        should_close = True
+    else:
+        should_close = False
     
     try:
-        # Get all paths from root to leaves
-        paths = _get_all_paths(conn, limit, offset)
+        # Get all paths from root to leaves with metadata
+        paths_with_meta = _get_all_paths_with_metadata(conn, limit, offset)
         
-        for path in paths:
-            # Convert path to 8-column row
-            row = _path_to_row(path)
+        for path_with_meta in paths_with_meta:
+            # Convert path with metadata to 8-column row
+            row = _path_to_row_with_metadata(path_with_meta)
             yield row
             
     finally:
-        conn.close()
+        if should_close:
+            conn.close()
 
 
-def _get_all_paths(conn: sqlite3.Connection, limit: Optional[int], offset: int) -> List[List[str]]:
+def _get_all_paths_with_metadata(conn: sqlite3.Connection, limit: Optional[int], offset: int) -> List[Dict[str, Any]]:
     """
-    Get all paths from root to leaves using recursive CTE.
+    Get all paths from root to leaves with metadata using recursive CTE.
     
     Args:
         conn: Database connection
@@ -51,9 +55,9 @@ def _get_all_paths(conn: sqlite3.Connection, limit: Optional[int], offset: int) 
         offset: Number of paths to skip
         
     Returns:
-        List of paths, each path is a list of labels
+        List of dicts with 'path' (list of labels) and 'metadata' (d6, notes)
     """
-    # Build the recursive CTE to traverse from root to leaves
+    # Build the recursive CTE to traverse from root to leaves with metadata
     sql = """
     WITH RECURSIVE path_traversal AS (
         -- Base case: root nodes
@@ -79,14 +83,18 @@ def _get_all_paths(conn: sqlite3.Connection, limit: Optional[int], offset: int) 
             pt.path_length + 1 AS path_length
         FROM nodes n
         JOIN path_traversal pt ON n.parent_id = pt.id
-        WHERE n.depth <= 6  -- Limit to max depth
+        WHERE n.depth <= 5  -- Limit to max structural depth (D0..D5)
     )
     SELECT 
-        path,
-        path_length
-    FROM path_traversal
-    WHERE path_length <= 7  -- Only paths up to 7 levels (D0..D6)
-    ORDER BY path
+        pt.path,
+        pt.path_length,
+        pt.id as leaf_id,
+        pm.d6,
+        pm.notes
+    FROM path_traversal pt
+    LEFT JOIN path_meta pm ON pm.leaf_id = pt.id
+    WHERE pt.path_length <= 6  -- Only paths up to 6 levels (D0..D5)
+    ORDER BY pt.path
     """
     
     if limit is not None:
@@ -94,20 +102,76 @@ def _get_all_paths(conn: sqlite3.Connection, limit: Optional[int], offset: int) 
     if offset > 0:
         sql += f" OFFSET {offset}"
     
-    cur = conn.execute(sql)
-    paths = []
+    cursor = conn.execute(sql)
+    paths_with_meta = []
     
-    for row in cur.fetchall():
-        path_str = row["path"]
-        path_labels = path_str.split("|")
-        paths.append(path_labels)
+    for row in cursor.fetchall():
+        path_str = row['path']
+        path_labels = path_str.split('|') if path_str else []
+        
+        paths_with_meta.append({
+            'path': path_labels,
+            'metadata': {
+                'd6': row['d6'],
+                'notes': row['notes']
+            }
+        })
     
-    return paths
+    return paths_with_meta
+
+
+def _get_all_paths(conn: sqlite3.Connection, limit: Optional[int], offset: int) -> List[List[str]]:
+    """
+    Get all paths from root to leaves using recursive CTE.
+    Legacy function for backward compatibility.
+    
+    Args:
+        conn: Database connection
+        limit: Maximum number of paths
+        offset: Number of paths to skip
+        
+    Returns:
+        List of paths, each path is a list of labels
+    """
+    paths_with_meta = _get_all_paths_with_metadata(conn, limit, offset)
+    return [item['path'] for item in paths_with_meta]
+
+
+def _path_to_row_with_metadata(path_with_meta: Dict[str, Any]) -> List[str]:
+    """
+    Convert a path with metadata to a frozen 8-column row.
+    
+    Args:
+        path_with_meta: Dict with 'path' (list of labels) and 'metadata' (d6, notes)
+        
+    Returns:
+        List of 8 strings (D0..D6 + Notes)
+    """
+    path = path_with_meta['path']
+    metadata = path_with_meta['metadata']
+    
+    row = []
+    
+    # Add structural path columns (D0..D5)
+    for i in range(6):
+        if i < len(path):
+            row.append(path[i])
+        else:
+            row.append("")  # Pad with empty strings
+    
+    # Add D6 from metadata
+    row.append(metadata.get('d6', ''))
+    
+    # Add Notes from metadata
+    row.append(metadata.get('notes', ''))
+    
+    return row
 
 
 def _path_to_row(path: List[str]) -> List[str]:
     """
     Convert a path to a frozen 8-column row.
+    Legacy function for backward compatibility.
     
     Args:
         path: List of labels representing the path
@@ -130,7 +194,7 @@ def _path_to_row(path: List[str]) -> List[str]:
     return row
 
 
-def export_paths_to_csv(limit: Optional[int] = None, offset: int = 0, db_path: Optional[str] = None) -> str:
+def export_paths_to_csv(limit: Optional[int] = None, offset: int = 0, conn: sqlite3.Connection = None) -> str:
     """
     Export paths as CSV string with frozen header.
     
@@ -151,13 +215,13 @@ def export_paths_to_csv(limit: Optional[int] = None, offset: int = 0, db_path: O
     writer.writerow(FROZEN_HEADER)
     
     # Write path rows
-    for row in export_paths(limit, offset, db_path):
+    for row in export_paths(limit, offset, conn):
         writer.writerow(row)
     
     return output.getvalue()
 
 
-def export_paths_to_xlsx(limit: Optional[int] = None, offset: int = 0, db_path: Optional[str] = None) -> bytes:
+def export_paths_to_xlsx(limit: Optional[int] = None, offset: int = 0, conn: sqlite3.Connection = None) -> bytes:
     """
     Export paths as XLSX bytes with frozen header.
     
@@ -180,7 +244,7 @@ def export_paths_to_xlsx(limit: Optional[int] = None, offset: int = 0, db_path: 
     ws.append(FROZEN_HEADER)
     
     # Write path rows
-    for row in export_paths(limit, offset, db_path):
+    for row in export_paths(limit, offset, conn):
         ws.append(row)
     
     # Save to bytes

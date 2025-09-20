@@ -2,7 +2,8 @@ from fastapi import APIRouter, UploadFile, File, HTTPException, Query, Depends
 from fastapi.responses import JSONResponse
 
 from api.dependencies import get_db_connection
-from Engines.EngineLongBow import ingest_file, apply_import, FROZEN_HEADER
+from Engines.EngineLongBow import ingest_file, apply_import, apply_import_with_metadata, FROZEN_HEADER
+import sqlite3
 
 router = APIRouter()
 
@@ -29,7 +30,8 @@ async def import_preview(file: UploadFile = File(...)):
     
     # Extract unique root labels (D0) from paths
     roots = []
-    for path in ingest_result["paths"]:
+    for path_with_meta in ingest_result["paths"]:
+        path = path_with_meta['path']
         if path and len(path) > 0:
             roots.append(path[0])
     
@@ -47,7 +49,7 @@ async def import_preview(file: UploadFile = File(...)):
 async def import_file(
     file: UploadFile = File(...), 
     mode: str = Query("append", pattern="^(append|replace|hard_replace)$"), 
-    conn = Depends(get_db_connection)
+    conn: sqlite3.Connection = Depends(get_db_connection)
 ):
     # Read file content
     try:
@@ -72,11 +74,8 @@ async def import_file(
         # Map mode to EngineLongBow mode
         engine_mode = "replace" if mode in ["replace", "hard_replace"] else "append"
         
-        # Get database path from the connection
-        db_path = conn.execute("PRAGMA database_list").fetchone()[2]  # Get main database path
-        
-        # Apply import
-        import_result = apply_import(ingest_result["paths"], engine_mode, db_path)
+        # Apply import with metadata support using the provided connection
+        import_result = apply_import_with_metadata(ingest_result["paths"], engine_mode, conn)
         
         return JSONResponse({
             "ok": True,
@@ -90,8 +89,7 @@ async def import_file(
                     "nodes": import_result.inserted_nodes
                 },
                 "updated": {
-                    "nodes": 0,
-                    "outcomes": 0
+                    "nodes": 0
                 },
                 "skipped": {
                     "overfull_parents": 0  # EngineLongBow doesn't enforce 5-child limit

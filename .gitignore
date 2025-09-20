@@ -46,6 +46,9 @@ Thumbs.db
 .streamlit/secrets.toml
 .streamlit/config.toml
 
+# Examples (exclude demos from builds/analysis)
+examples/
+
 # Test / coverage
 .coverage
 coverage.xml

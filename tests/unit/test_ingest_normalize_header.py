@@ -24,7 +24,7 @@ def test_normalize_header_shuffled_raises():
     shuffled = ["D1", "D0", "D2", "D3", "D4", "D5", "D6", "Notes"]  # D0 and D1 swapped
     with pytest.raises(HeaderMismatchError) as exc_info:
         normalize_header(shuffled)
-    assert "canonical order" in exc_info.value.hint
+    assert "Columns must map to D0..D5, D6, Notes structure" in exc_info.value.hint
 
 def test_normalize_header_unknown_raises():
     """Test that unknown headers raise an error with helpful hint."""

@@ -199,7 +199,6 @@ def assign_slot_if_new(conn: sqlite3.Connection, parent_id: int) -> Optional[int
 def delete_all_nodes(conn: sqlite3.Connection) -> None:
     """Delete all nodes (for replace mode)."""
     conn.execute("DELETE FROM nodes")
-    conn.execute("DELETE FROM outcomes")
 
 
 def list_direct_children(conn: sqlite3.Connection, parent_ids: List[int]) -> List[Dict[str, Any]]:
@@ -238,6 +237,133 @@ def transaction(conn: sqlite3.Connection):
     except Exception:
         conn.execute("ROLLBACK")
         raise
+
+
+def _upsert_path_meta(conn: sqlite3.Connection, leaf_id: int, d6_value: Optional[str], notes_value: Optional[str]) -> None:
+    """
+    Upsert path metadata for a leaf node.
+    
+    Args:
+        conn: SQLite connection
+        leaf_id: ID of the leaf node
+        d6_value: D6 (Diagnostic Triage) value, may be None
+        notes_value: Notes (Actions) value, may be None
+    """
+    conn.execute("""
+        INSERT INTO path_meta(leaf_id, d6, notes)
+        VALUES(?, ?, ?)
+        ON CONFLICT(leaf_id) DO UPDATE SET
+          d6 = COALESCE(excluded.d6, path_meta.d6),
+          notes = COALESCE(excluded.notes, path_meta.notes)
+    """, (leaf_id, d6_value, notes_value))
+
+
+def apply_import_with_metadata(paths_with_meta: List[Dict[str, Any]], mode: Literal["replace", "append", "preview"], conn: sqlite3.Connection) -> ImportResult:
+    """
+    Apply import of paths with metadata to the database.
+    
+    Args:
+        paths_with_meta: List of dicts with 'path' (D0..D5 labels) and 'metadata' (D6, Notes values)
+        mode: Import mode (replace/append/preview)
+        conn: Database connection to use
+        
+    Returns:
+        ImportResult with operation details
+    """
+    # Extract just the paths for the existing store logic
+    paths = [item['path'] for item in paths_with_meta]
+    
+    # Use the existing apply_import function with connection
+    result = apply_import_with_conn(paths, mode, conn)
+    
+    # If not preview mode, also store metadata
+    if not result.preview and result.inserted_nodes > 0:
+        # For each path with metadata, find the leaf node and store metadata
+        for path_with_meta in paths_with_meta:
+            path = path_with_meta['path']
+            metadata = path_with_meta['metadata']
+            
+            if not path:  # Skip empty paths
+                continue
+            
+            # Find the leaf node ID by walking the path
+            leaf_id = _find_leaf_id_by_path(conn, path)
+            if leaf_id is not None:
+                _upsert_path_meta(conn, leaf_id, metadata.get('d6'), metadata.get('notes'))
+    
+    return result
+
+
+def _find_leaf_id_by_path(conn: sqlite3.Connection, path: List[str]) -> Optional[int]:
+    """
+    Find the leaf node ID by walking the path from root.
+    
+    Args:
+        conn: SQLite connection
+        path: List of labels from root to leaf
+        
+    Returns:
+        Node ID of the leaf, or None if path not found
+    """
+    if not path:
+        return None
+    
+    current_id = None
+    
+    for depth, label in enumerate(path):
+        nlabel = norm(label)
+        
+        if depth == 0:
+            # Find root
+            cur = conn.execute("SELECT id FROM nodes WHERE depth=0 AND label=?", (nlabel,))
+            row = cur.fetchone()
+            if not row:
+                return None
+            current_id = row[0]
+        else:
+            # Find child
+            cur = conn.execute("SELECT id FROM nodes WHERE parent_id=? AND depth=? AND label=?", (current_id, depth, nlabel))
+            row = cur.fetchone()
+            if not row:
+                return None
+            current_id = row[0]
+    
+    return current_id
+
+
+def apply_import_with_conn(paths: List[List[str]], mode: Literal["replace", "append", "preview"], conn: sqlite3.Connection) -> ImportResult:
+    """
+    Apply import of paths to the database using provided connection.
+    
+    Args:
+        paths: List of paths, each path is a list of labels (D0..D5)
+        mode: Import mode (replace/append/preview)
+        conn: Database connection to use
+        
+    Returns:
+        ImportResult with operation details
+    """
+    result = ImportResult()
+    result.preview = (mode == "preview")
+    
+    if not paths:
+        return result
+    
+    # Ensure indexes exist
+    _ensure_schema(conn)
+    
+    if mode == "replace":
+        delete_all_nodes(conn)
+        result = _process_paths_contextual(conn, paths, result)
+    elif mode == "append":
+        result = _process_paths_contextual(conn, paths, result)
+    elif mode == "preview":
+        # Preview mode - don't actually write to database
+        result = _preview_paths(paths, result)
+    else:
+        raise ValueError(f"Invalid mode: {mode}")
+    
+    return result
 
 
 def apply_import(paths: List[List[str]], mode: Literal["replace", "append", "preview"], db_path: Optional[str] = None) -> ImportResult:

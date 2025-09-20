@@ -4,7 +4,7 @@
 The Lorien API provides endpoints for managing decision trees, red flags, and triage data.
 
 ## Mounts
-All endpoints are available at both root (`/`) and versioned (`/api/v1`).
+Clients must use versioned endpoints under `/api/v1`. Bare mounts also exist for backward compatibility but are considered legacy.
 
 ## CSV / XLSX Export (Contract Frozen)
 
@@ -19,9 +19,10 @@ Vital Measurement,Node 1,Node 2,Node 3,Node 4,Node 5,Diagnostic Triage,Actions
 - **Diagnostic Triage**: Clinical assessment for leaf nodes
 - **Actions**: Recommended actions for leaf nodes
 
-**Endpoints:** `GET /calc/export`, `GET /tree/export`, and XLSX variants `/calc/export.xlsx`, `/tree/export.xlsx`.
+**Endpoints:** `GET /api/v1/tree/export`, `GET /api/v1/tree/export.xlsx` (bare mounts exist for legacy). See also: `docs/EXPORT_FORMATS.md`.
 
 **Contract:** UI (Flutter/Streamlit) must not construct CSV/XLSX; always call the API.
+Import formats are documented in `docs/IMPORT_FORMATS.md`.
 
 ## Error Response Examples
 
@@ -645,4 +646,3 @@ Get tree completeness statistics.
 `GET /api/v1/triage/search?vm=<vital_measurement>&leaf_only=true&sort=updated_at:desc&limit=1`
 
 Returns the most recent record under the given Vital Measurement for pre-fill in the client.
-

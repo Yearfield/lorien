@@ -1,5 +1,7 @@
 # Lorien UI — Release Checklist (Phase-6D+)
 
+Note: For end-to-end manual acceptance, see the canonical checklist in `docs/Beta_Acceptance_Checklist.md`.
+
 ## Pre-Release Validation
 - [ ] `flutter clean && flutter pub get`
 - [ ] `dart format . && flutter analyze` (0 issues)

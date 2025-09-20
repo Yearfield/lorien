@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Depends
 from fastapi.responses import JSONResponse, StreamingResponse
 from Engines.EngineLongBow import export_paths, export_paths_to_csv, export_paths_to_xlsx
+from api.dependencies import get_db_connection
 import datetime
 import io
+import sqlite3
 
 router = APIRouter()
 
@@ -18,13 +20,9 @@ def _xlsx_response(data: bytes):
         headers={"Content-Disposition": f'attachment; filename="{fname}"'})
 
 @router.get("/tree/export-json")
-def tree_export(limit: int = Query(50, ge=1, le=500), offset: int = Query(0, ge=0)):
-    # Get database path
-    from api.settings import get_db_path
-    db_path = get_db_path()
-    
-    # Use EngineLongBow to export paths
-    paths = list(export_paths(limit=limit, offset=offset, db_path=db_path))
+def tree_export(limit: int = Query(50, ge=1, le=500), offset: int = Query(0, ge=0), conn: sqlite3.Connection = Depends(get_db_connection)):
+    # Use EngineLongBow to export paths with provided connection
+    paths = list(export_paths(limit=limit, offset=offset, conn=conn))
     
     # Convert paths to the expected format
     items = []
@@ -49,24 +47,16 @@ def tree_export(limit: int = Query(50, ge=1, le=500), offset: int = Query(0, ge=
 # ---- CANONICAL ROUTES ----
 @router.get("/tree/export", name="tree_export_csv")
 @router.head("/tree/export")
-def export_csv():
-    # Get database path
-    from api.settings import get_db_path
-    db_path = get_db_path()
-    
-    # Use EngineLongBow to export CSV
-    csv_data = export_paths_to_csv(db_path=db_path)
+def export_csv(conn: sqlite3.Connection = Depends(get_db_connection)):
+    # Use EngineLongBow to export CSV with provided connection
+    csv_data = export_paths_to_csv(conn=conn)
     return _csv_response(csv_data.encode('utf-8'))
 
 @router.get("/tree/export.xlsx", name="tree_export_xlsx")
 @router.head("/tree/export.xlsx")
-def export_xlsx():
-    # Get database path
-    from api.settings import get_db_path
-    db_path = get_db_path()
-    
-    # Use EngineLongBow to export XLSX
-    xlsx_data = export_paths_to_xlsx(db_path=db_path)
+def export_xlsx(conn: sqlite3.Connection = Depends(get_db_connection)):
+    # Use EngineLongBow to export XLSX with provided connection
+    xlsx_data = export_paths_to_xlsx(conn=conn)
     return _xlsx_response(xlsx_data)
 
 # ---- Backward-compat ALIASES (keep until all clients updated) ----

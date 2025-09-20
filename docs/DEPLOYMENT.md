@@ -124,6 +124,18 @@ See [DEVELOPMENT.md](./DEVELOPMENT.md) for local development setup.
 - **API Health**: `GET /api/v1/health`
 - **Metrics**: `GET /api/v1/health/metrics` (if enabled)
 
+See also `docs/Monitoring_Telemetry.md` for health fields, metrics and SLOs.
+
+## Rollback (Summary)
+- Create on‑demand backup (see `docs/Backup_Restore.md`)
+- Option 1: API revert (git revert + redeploy)
+- Option 2: DB restore (restore latest backup)
+- Communicate status, run post‑mortem (see full plan in `docs/Rollback_Plan.md`)
+
+## Windows Service (NSSM)
+For Windows deployments, install Lorien as a service using NSSM.
+See detailed steps in `docs/services/windows-nssm.md`.
+
 ### Logging
 
 - **Application Logs**: Check systemd journal or Docker logs
