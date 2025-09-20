@@ -28,38 +28,10 @@ CREATE TABLE IF NOT EXISTS nodes (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_parent_slot_unique
 ON nodes(parent_id, slot) WHERE parent_id IS NOT NULL;
 
--- Triage per LEAF node only (depth=5)
-CREATE TABLE IF NOT EXISTS triage (
-  node_id           INTEGER PRIMARY KEY REFERENCES nodes(id) ON DELETE CASCADE,
-  diagnostic_triage TEXT,     -- nullable; can be edited later
-  actions           TEXT,     -- nullable
-  created_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  updated_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-);
-
--- Red flags catalogue
-CREATE TABLE IF NOT EXISTS red_flags (
-  id          INTEGER PRIMARY KEY,
-  name        TEXT UNIQUE NOT NULL,
-  description TEXT,
-  severity    TEXT CHECK(severity IN ('low','medium','high','critical')) DEFAULT 'medium',
-  created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-);
-
--- Junction: node <-> red flag (many-to-many)
-CREATE TABLE IF NOT EXISTS node_red_flags (
-  node_id     INTEGER NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
-  red_flag_id INTEGER NOT NULL REFERENCES red_flags(id) ON DELETE CASCADE,
-  created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  PRIMARY KEY (node_id, red_flag_id)
-);
-
 -- Performance indexes
 CREATE INDEX IF NOT EXISTS idx_nodes_parent_depth ON nodes(parent_id, depth);
 CREATE INDEX IF NOT EXISTS idx_nodes_depth        ON nodes(depth);
 CREATE INDEX IF NOT EXISTS idx_nodes_label        ON nodes(label);
-CREATE INDEX IF NOT EXISTS idx_node_red_flags_node ON node_red_flags(node_id);
-CREATE INDEX IF NOT EXISTS idx_node_red_flags_flag ON node_red_flags(red_flag_id);
 CREATE INDEX IF NOT EXISTS idx_nodes_parent_slot ON nodes(parent_id, slot);
 CREATE INDEX IF NOT EXISTS idx_nodes_parent ON nodes(parent_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_nodes_parent_slot_unique ON nodes(parent_id, slot) WHERE slot IS NOT NULL;

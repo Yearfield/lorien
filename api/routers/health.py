@@ -116,60 +116,23 @@ async def _get_runtime_metrics() -> Dict[str, Any]:
     try:
         # Import here to avoid circular dependencies
         from ..metrics import snapshot
-        
-        # Get telemetry snapshot
+
         telemetry = snapshot()
-        
-        # Import here to avoid circular dependencies
-        from storage.sqlite import SQLiteRepository
+
+        # Count rows in the primary table using a fresh repository connection
         repo = SQLiteRepository()
-        
         with repo._get_connection() as conn:
             cursor = conn.cursor()
-            
-            # Count records in main tables (non-PHI)
             cursor.execute("SELECT COUNT(*) FROM nodes")
             node_count = cursor.fetchone()[0]
-            
-            cursor.execute("SELECT COUNT(*) FROM red_flags")
-            flag_count = cursor.fetchone()[0]
-            
-            cursor.execute("SELECT COUNT(*) FROM red_flag_audit")
-            audit_count = cursor.fetchone()[0]
-            
-            cursor.execute("SELECT COUNT(*) FROM triage")
-            triage_count = cursor.fetchone()[0]
-            
-            # Get audit retention status
-            try:
-                cursor.execute("SELECT retention_status FROM audit_retention_status LIMIT 1")
-                retention_status = cursor.fetchone()
-                retention_status = retention_status[0] if retention_status else "UNKNOWN"
-            except:
-                retention_status = "VIEW_NOT_AVAILABLE"
-            
-            return {
-                "telemetry": telemetry,
-                "table_counts": {
-                    "nodes": node_count,
-                    "red_flags": flag_count,
-                    "red_flag_audit": audit_count,
-                    "triage": triage_count
-                },
-                "audit_retention": {
-                    "status": retention_status,
-                    "total_audit_rows": audit_count
-                },
-                "cache": {
-                    "enabled": True,
-                    "ttl_seconds": 300  # 5 minutes default
-                }
-            }
+
+        return {
+            "telemetry": telemetry,
+            "table_counts": {"nodes": node_count},
+        }
     except Exception as e:
         return {
             "error": str(e),
             "telemetry": {},
             "table_counts": {},
-            "audit_retention": {"status": "ERROR"},
-            "cache": {"enabled": False}
         }
