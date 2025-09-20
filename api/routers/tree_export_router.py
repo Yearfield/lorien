@@ -1,7 +1,5 @@
 from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse, StreamingResponse
-from api.db import get_conn, ensure_schema
-from api.repositories.tree_repo import export_rows, export_rows_csv, export_rows_xlsx
 from Engines.EngineLongBow import export_paths, export_paths_to_csv, export_paths_to_xlsx
 import datetime
 import io

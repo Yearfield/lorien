@@ -40,36 +40,18 @@ class EnhancedAuthMiddleware(BaseHTTPMiddleware):
             "/api/v1/tree/children/": {Permission.WRITE_TREE},
             "/tree/children": {Permission.WRITE_TREE},
             "/tree/children/": {Permission.WRITE_TREE},
-            
-            # Triage operations
-            "/api/v1/triage": {Permission.WRITE_TRIAGE},
-            "/api/v1/triage/": {Permission.WRITE_TRIAGE},
-            "/triage": {Permission.WRITE_TRIAGE},
-            "/triage/": {Permission.WRITE_TRIAGE},
-            
-            # Dictionary operations
-            "/api/v1/dictionary": {Permission.WRITE_DICTIONARY},
-            "/api/v1/dictionary/": {Permission.WRITE_DICTIONARY},
-            "/dictionary": {Permission.WRITE_DICTIONARY},
-            "/dictionary/": {Permission.WRITE_DICTIONARY},
-            
-            # Flags operations
-            "/api/v1/flags": {Permission.WRITE_FLAGS},
-            "/api/v1/flags/": {Permission.WRITE_FLAGS},
-            "/flags": {Permission.WRITE_FLAGS},
-            "/flags/": {Permission.WRITE_FLAGS},
-            
+
+            # Import operations
+            "/api/v1/import": {Permission.WRITE_TREE},
+            "/api/v1/import/": {Permission.WRITE_TREE},
+            "/api/v1/import/preview": {Permission.WRITE_TREE},
+            "/api/v1/import/preview/": {Permission.WRITE_TREE},
+
             # Export operations
             "/api/v1/tree/export": {Permission.WRITE_EXPORT},
-            "/api/v1/export": {Permission.WRITE_EXPORT},
             "/tree/export": {Permission.WRITE_EXPORT},
-            "/export": {Permission.WRITE_EXPORT},
-            
-            # Admin operations
-            "/api/v1/admin": {Permission.ADMIN_SYSTEM},
-            "/api/v1/admin/": {Permission.ADMIN_SYSTEM},
-            "/admin": {Permission.ADMIN_SYSTEM},
-            "/admin/": {Permission.ADMIN_SYSTEM},
+            "/api/v1/tree/export.xlsx": {Permission.WRITE_EXPORT},
+            "/tree/export.xlsx": {Permission.WRITE_EXPORT},
         }
     
     async def dispatch(self, request: Request, call_next):

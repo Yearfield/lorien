@@ -134,18 +134,22 @@ class TelemetryMiddleware(BaseHTTPMiddleware):
         """Check if route is an import operation."""
         import_routes = [
             "/import",
-            "/import/excel",
             "/import/preview",
-            "/import/jobs",
+            "/api/v1/import",
+            "/api/v1/import/preview",
         ]
         return any(route.startswith(imp_route) for imp_route in import_routes)
     
     def _is_export_operation(self, route: str) -> bool:
         """Check if route is an export operation."""
         export_routes = [
-            "/export",
             "/tree/export",
-            "/calc/export",
-            "/dictionary/export",
+            "/tree/export.xlsx",
+            "/export/csv",
+            "/export.xlsx",
+            "/api/v1/tree/export",
+            "/api/v1/tree/export.xlsx",
+            "/api/v1/export/csv",
+            "/api/v1/export.xlsx",
         ]
         return any(route.startswith(exp_route) for exp_route in export_routes)
