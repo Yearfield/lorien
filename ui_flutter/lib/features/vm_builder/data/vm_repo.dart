@@ -1,7 +1,10 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
+import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
 
 class VmRepo {
   final String base; // e.g., http://127.0.0.1:8000/api/v1
@@ -102,6 +105,36 @@ class VmRepo {
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'source_id': sourceId, 'dest_parent_id': destParentId}));
     if (r.statusCode != 200) throw Exception('clone failed: ${r.statusCode} ${r.body}');
+    return jsonDecode(r.body) as Map<String, dynamic>;
+  }
+
+  Future<List<Map<String, dynamic>>> ancestors(int nodeId) async {
+    final uri = Uri.parse('$base/tree/ancestors?node_id=$nodeId');
+    final r = await http.get(uri);
+    if (r.statusCode != 200) throw Exception('ancestors failed: ${r.statusCode}');
+    final data = jsonDecode(r.body) as Map<String, dynamic>;
+    return (data['items'] as List).cast<Map<String, dynamic>>();
+  }
+
+  Future<void> exportCsv({int? rootId}) async {
+    final qs = [
+      'format=csv',
+      if (rootId != null) 'root_id=$rootId',
+    ].join('&');
+    final uri = Uri.parse('$base/tree/export?$qs');
+    final r = await http.get(uri);
+    if (r.statusCode != 200) throw Exception('export failed: ${r.statusCode}');
+    // Save to ~/Downloads/lorien_export_<ts>.csv
+    final dir = await getDownloadsDirectory(); // add path_provider dependency
+    final ts = DateTime.now().toIso8601String().replaceAll(':', '-');
+    final f = File(path.join(dir!.path, 'lorien_export_$ts.csv'));
+    await f.writeAsBytes(r.bodyBytes);
+  }
+
+  Future<Map<String, dynamic>> createRoot(String label) async {
+    final uri = Uri.parse('$base/tree/roots');
+    final r = await http.post(uri, headers: {'Content-Type': 'application/json'}, body: jsonEncode({'label': label}));
+    if (r.statusCode != 201) throw Exception('create root failed: ${r.statusCode} ${r.body}');
     return jsonDecode(r.body) as Map<String, dynamic>;
   }
 }

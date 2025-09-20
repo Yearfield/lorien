@@ -46,8 +46,8 @@ class TreeRepository:
         ),
         cc AS (
           SELECT parent_id AS id, COUNT(*) AS cnt
-          FROM nodes
-          WHERE parent_id IS NOT NULL
+      FROM nodes
+      WHERE parent_id IS NOT NULL
           GROUP BY parent_id
         )
         """
@@ -165,3 +165,24 @@ class TreeRepository:
                 queue.append((child[0], new_id))
 
         return created
+
+    def get_ancestors(self, node_id: int):
+        """
+        Return list of dicts [{id,label,depth}] from root to the given node_id.
+        """
+        q = """
+        WITH RECURSIVE chain AS (
+          SELECT id, label, depth, parent_id
+          FROM nodes
+          WHERE id = ?
+          UNION ALL
+          SELECT n.id, n.label, n.depth, n.parent_id
+          FROM nodes n
+          JOIN chain c ON c.parent_id = n.id
+        )
+        SELECT id, label, depth
+        FROM chain
+        ORDER BY depth ASC;
+        """
+        rows = self.conn.execute(q, (node_id,)).fetchall()
+        return [{"id": r[0], "label": r[1], "depth": r[2]} for r in rows]

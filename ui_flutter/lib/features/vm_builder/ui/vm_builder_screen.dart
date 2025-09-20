@@ -103,6 +103,26 @@ class _VmBuilderScreenState extends State<VmBuilderScreen> {
           ),
         ),
         const SizedBox(width: 8),
+        // Export button
+        FilledButton.icon(
+          onPressed: s.exporting ? null : () async {
+            final errorMessage = await s.exportCurrentRoot();
+            if (context.mounted) {
+              if (errorMessage == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Export saved to Downloads')),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(errorMessage)),
+                );
+              }
+            }
+          },
+          icon: s.exporting ? const SizedBox(width:16,height:16,child:CircularProgressIndicator(strokeWidth:2)) : const Icon(Icons.download),
+          label: const Text('Export'),
+        ),
+        const SizedBox(width: 8),
         // Next <5 button
         FilledButton.icon(
           onPressed: s.loading ? null : () async {
@@ -143,6 +163,55 @@ class _VmBuilderScreenState extends State<VmBuilderScreen> {
               child: Column(
                 children: [
                   _importPanel(s),
+                  // + Root button
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Row(
+                      children: [
+                        const Text('Roots', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        const Spacer(),
+                        FilledButton.icon(
+                          onPressed: () async {
+                            final controller = TextEditingController();
+                            final result = await showDialog<String>(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: const Text('Add Root'),
+                                content: TextField(
+                                  controller: controller,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Root label',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  autofocus: true,
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  FilledButton(
+                                    onPressed: () => Navigator.pop(context, controller.text.trim()),
+                                    child: const Text('Add'),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (result != null && result.isNotEmpty) {
+                              await s.addRoot(result);
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Added root: $result')),
+                                );
+                              }
+                            }
+                          },
+                          icon: const Icon(Icons.add),
+                          label: const Text('+ Root'),
+                        ),
+                      ],
+                    ),
+                  ),
                   Expanded(
                     child: s.loading && s.roots.isEmpty
                         ? const Center(child: CircularProgressIndicator())
@@ -203,7 +272,7 @@ class _VmBuilderScreenState extends State<VmBuilderScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Parent: ${s.currentParentLabel}', style: Theme.of(context).textTheme.titleLarge),
+                        Text('Parent: ${s.currentParentLabel} (${s.children.length}/5)', style: Theme.of(context).textTheme.titleLarge),
                         const SizedBox(height: 12),
                         Row(
                           children: [
@@ -261,7 +330,21 @@ class _VmBuilderScreenState extends State<VmBuilderScreen> {
                               final label = child['label'] as String;
                               final redFlag = child['red_flag'] as bool? ?? false;
                               return ListTile(
-                                title: Text(label),
+                                title: Row(
+                                  children: [
+                                    if (redFlag) 
+                                      Container(
+                                        width: 6, 
+                                        height: 6, 
+                                        decoration: const BoxDecoration(
+                                          color: Colors.red, 
+                                          shape: BoxShape.circle
+                                        ),
+                                      ),
+                                    if (redFlag) const SizedBox(width: 8),
+                                    Expanded(child: Text(label)),
+                                  ],
+                                ),
                                 onTap: () => s.drillIntoChildByIndex(i),
                                 trailing: Row(
                                   mainAxisSize: MainAxisSize.min,

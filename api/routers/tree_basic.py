@@ -17,11 +17,23 @@ class PutChildrenRequest(BaseModel):
     parent_id: int
     children: List[Child] = Field(default_factory=list)
 
+class CreateRootBody(BaseModel):
+    label: str
+
 @router.get("/roots")
 def list_roots(conn: sqlite3.Connection = Depends(get_db_connection)):
     cur = conn.execute("SELECT id, label FROM nodes WHERE depth=0 ORDER BY id")
     data = [{"id": r[0], "label": r[1]} for r in cur.fetchall()]
     return {"items": data, "total": len(data)}
+
+@router.post("/roots", status_code=201)
+def create_root(body: CreateRootBody, conn: sqlite3.Connection = Depends(get_db_connection)):
+    lab = body.label.strip()
+    if not lab:
+        raise HTTPException(status_code=422, detail="empty label")
+    cur = conn.execute("INSERT INTO nodes (label, depth, parent_id, slot) VALUES (?, 0, NULL, NULL) RETURNING id, label, depth", (lab,))
+    row = cur.fetchone()
+    return {"id": row[0], "label": row[1], "depth": row[2]}
 
 @router.get("/children")
 def list_children(parent_id: int, only_red: bool = Query(default=False), repo: TreeRepository = Depends(get_repository)):
@@ -75,6 +87,14 @@ def get_node(node_id: int, conn: sqlite3.Connection = Depends(get_db_connection)
     if not row:
         raise HTTPException(status_code=404, detail="not found")
     return {"id": row[0], "label": row[1], "depth": row[2], "parent_id": row[3]}
+
+@router.get("/ancestors")
+def get_ancestors(node_id: int, repo: TreeRepository = Depends(get_repository)):
+    """Get the ancestor chain from root to the given node."""
+    items = repo.get_ancestors(node_id)
+    if not items:
+        raise HTTPException(status_code=404, detail="node not found")
+    return {"items": items, "total": len(items)}
 
 @router.get("/next-underfilled")
 def next_underfilled(

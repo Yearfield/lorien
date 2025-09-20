@@ -5,6 +5,7 @@ from api.dependencies import get_db_connection
 import datetime
 import io
 import sqlite3
+from typing import Optional
 
 router = APIRouter()
 
@@ -47,9 +48,9 @@ def tree_export(limit: int = Query(50, ge=1, le=500), offset: int = Query(0, ge=
 # ---- CANONICAL ROUTES ----
 @router.get("/tree/export", name="tree_export_csv")
 @router.head("/tree/export")
-def export_csv(conn: sqlite3.Connection = Depends(get_db_connection)):
+def export_csv(format: str = Query("csv"), root_id: Optional[int] = Query(None), limit: Optional[int] = Query(None), conn: sqlite3.Connection = Depends(get_db_connection)):
     # Use EngineLongBow to export CSV with provided connection
-    csv_data = export_paths_to_csv(conn=conn)
+    csv_data = export_paths_to_csv(root_id=root_id, limit=limit, conn=conn)
     return _csv_response(csv_data.encode('utf-8'))
 
 @router.get("/tree/export.xlsx", name="tree_export_xlsx")

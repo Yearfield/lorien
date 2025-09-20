@@ -9,13 +9,14 @@ from typing import List, Dict, Any, Optional, Iterable
 from .consts import FROZEN_HEADER, PATH_COLUMNS, NOTES_COLUMN
 
 
-def export_paths(limit: Optional[int] = None, offset: int = 0, conn: sqlite3.Connection = None) -> Iterable[List[str]]:
+def export_paths(limit: Optional[int] = None, offset: int = 0, root_id: Optional[int] = None, conn: sqlite3.Connection = None) -> Iterable[List[str]]:
     """
     Export current graph as paths in frozen 8-column format.
     
     Args:
         limit: Maximum number of paths to return (None for all)
         offset: Number of paths to skip
+        root_id: Optional root ID to filter paths to only those under this root
         conn: Database connection to use (if None, will create own connection)
         
     Yields:
@@ -33,7 +34,7 @@ def export_paths(limit: Optional[int] = None, offset: int = 0, conn: sqlite3.Con
     
     try:
         # Get all paths from root to leaves with metadata
-        paths_with_meta = _get_all_paths_with_metadata(conn, limit, offset)
+        paths_with_meta = _get_all_paths_with_metadata(conn, limit, offset, root_id)
         
         for path_with_meta in paths_with_meta:
             # Convert path with metadata to 8-column row
@@ -45,7 +46,7 @@ def export_paths(limit: Optional[int] = None, offset: int = 0, conn: sqlite3.Con
             conn.close()
 
 
-def _get_all_paths_with_metadata(conn: sqlite3.Connection, limit: Optional[int], offset: int) -> List[Dict[str, Any]]:
+def _get_all_paths_with_metadata(conn: sqlite3.Connection, limit: Optional[int], offset: int, root_id: Optional[int] = None) -> List[Dict[str, Any]]:
     """
     Get all paths from root to leaves with metadata using recursive CTE.
     
@@ -53,6 +54,7 @@ def _get_all_paths_with_metadata(conn: sqlite3.Connection, limit: Optional[int],
         conn: Database connection
         limit: Maximum number of paths
         offset: Number of paths to skip
+        root_id: Optional root ID to filter paths to only those under this root
         
     Returns:
         List of dicts with 'path' (list of labels) and 'metadata' (d6, notes)
@@ -69,7 +71,13 @@ def _get_all_paths_with_metadata(conn: sqlite3.Connection, limit: Optional[int],
             CAST(label AS TEXT) AS path,
             depth AS path_length
         FROM nodes 
-        WHERE parent_id IS NULL
+        WHERE parent_id IS NULL"""
+    
+    # Add root_id filter if specified
+    if root_id is not None:
+        sql += f" AND id = {root_id}"
+    
+    sql += """
         
         UNION ALL
         
@@ -194,13 +202,14 @@ def _path_to_row(path: List[str]) -> List[str]:
     return row
 
 
-def export_paths_to_csv(limit: Optional[int] = None, offset: int = 0, conn: sqlite3.Connection = None) -> str:
+def export_paths_to_csv(limit: Optional[int] = None, offset: int = 0, root_id: Optional[int] = None, conn: sqlite3.Connection = None) -> str:
     """
     Export paths as CSV string with frozen header.
     
     Args:
         limit: Maximum number of paths to return
         offset: Number of paths to skip
+        root_id: Optional root ID to filter paths to only those under this root
         
     Returns:
         CSV string with frozen header and path rows
@@ -215,19 +224,20 @@ def export_paths_to_csv(limit: Optional[int] = None, offset: int = 0, conn: sqli
     writer.writerow(FROZEN_HEADER)
     
     # Write path rows
-    for row in export_paths(limit, offset, conn):
+    for row in export_paths(limit, offset, root_id, conn):
         writer.writerow(row)
     
     return output.getvalue()
 
 
-def export_paths_to_xlsx(limit: Optional[int] = None, offset: int = 0, conn: sqlite3.Connection = None) -> bytes:
+def export_paths_to_xlsx(limit: Optional[int] = None, offset: int = 0, root_id: Optional[int] = None, conn: sqlite3.Connection = None) -> bytes:
     """
     Export paths as XLSX bytes with frozen header.
     
     Args:
         limit: Maximum number of paths to return
         offset: Number of paths to skip
+        root_id: Optional root ID to filter paths to only those under this root
         
     Returns:
         XLSX bytes
@@ -244,7 +254,7 @@ def export_paths_to_xlsx(limit: Optional[int] = None, offset: int = 0, conn: sql
     ws.append(FROZEN_HEADER)
     
     # Write path rows
-    for row in export_paths(limit, offset, conn):
+    for row in export_paths(limit, offset, root_id, conn):
         ws.append(row)
     
     # Save to bytes

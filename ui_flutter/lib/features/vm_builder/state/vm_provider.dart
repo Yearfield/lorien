@@ -21,6 +21,7 @@ class VmState extends ChangeNotifier {
   // New features state
   bool filterOnlyRed = false;
   List<Map<String, dynamic>> childrenWithMeta = []; // children with red_flag info
+  bool exporting = false;
 
   Future<void> loadRoots() async {
     loading = true; 
@@ -195,6 +196,11 @@ class VmState extends ChangeNotifier {
       return 'All parents under this root have ≥ 5 children';
     }
     await selectParent(res['id'] as int, res['label'] as String, res['depth'] as int);
+    // Refresh canonical crumbs
+    final a = await repo.ancestors(res['id'] as int);
+    crumbs.clear();
+    crumbs.addAll(a); // replace entirely
+    notifyListeners();
     return null; // Successfully navigated, no error message
   }
 
@@ -210,5 +216,29 @@ class VmState extends ChangeNotifier {
     final res = await repo.cloneSubtree(sourceId: srcId, destParentId: dest);
     // Show toast message - we'll need to implement this
     await reloadChildren();
+  }
+
+  Future<String?> exportCurrentRoot() async {
+    if (crumbs.isEmpty) {
+      return 'Select a root first';
+    }
+    exporting = true; 
+    notifyListeners();
+    try {
+      final rootId = crumbs.first['id'] as int;
+      await repo.exportCsv(rootId: rootId);
+      return null; // Success
+    } catch (e) {
+      return 'Export failed: $e';
+    } finally {
+      exporting = false; 
+      notifyListeners();
+    }
+  }
+
+  Future<void> addRoot(String label) async {
+    final created = await repo.createRoot(label);
+    await loadRoots(); // refresh left list
+    await selectParent(created['id'] as int, created['label'] as String, created['depth'] as int);
   }
 }
