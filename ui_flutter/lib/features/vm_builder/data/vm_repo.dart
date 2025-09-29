@@ -42,8 +42,9 @@ class VmRepo {
   }
 
   Future<void> deleteRoot(int rootId) async {
-    final r = await http.delete(Uri.parse('$base/tree/root?root_id=$rootId'));
-    if (r.statusCode != 200) {
+    final uri = Uri.parse('$base/tree/roots/$rootId');
+    final r = await http.delete(uri);
+    if (r.statusCode != 204) {
       throw Exception('delete root failed: ${r.statusCode} ${r.body}');
     }
   }
@@ -123,12 +124,25 @@ class VmRepo {
     ].join('&');
     final uri = Uri.parse('$base/tree/export?$qs');
     final r = await http.get(uri);
-    if (r.statusCode != 200) throw Exception('export failed: ${r.statusCode}');
-    // Save to ~/Downloads/lorien_export_<ts>.csv
-    final dir = await getDownloadsDirectory(); // add path_provider dependency
+    if (r.statusCode != 200) {
+      throw Exception('export failed: ${r.statusCode} ${r.body}');
+    }
+
+    Directory? dl;
+    try {
+      dl = await getDownloadsDirectory();
+    } catch (_) {
+      dl = null;
+    }
+    // Fallbacks
+    dl ??= Directory(Platform.environment['XDG_DOWNLOAD_DIR'] ?? Platform.environment['HOME'] ?? Directory.current.path);
+    if (!await dl.exists()) {
+      dl = Directory(Directory.current.path);
+    }
+
     final ts = DateTime.now().toIso8601String().replaceAll(':', '-');
-    final f = File(path.join(dir!.path, 'lorien_export_$ts.csv'));
-    await f.writeAsBytes(r.bodyBytes);
+    final file = File(path.join(dl.path, 'lorien_export_$ts.csv'));
+    await file.writeAsBytes(r.bodyBytes);
   }
 
   Future<Map<String, dynamic>> createRoot(String label) async {

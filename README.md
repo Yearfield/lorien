@@ -9,6 +9,7 @@ This repo contains a minimal decision-tree authoring system:
   - Breadcrumbs: Click any crumb to jump to that ancestor's children.
   - Tap a child to drill into it and edit its children
   - Delete a root via the trash icon; deletion is cascading
+  - **Note**: The database stores any number of children. The editor's 'Next <5' and v_missing_slots view treat '5' as a workflow helper (not a storage constraint).
 
 ## Quick Start
 

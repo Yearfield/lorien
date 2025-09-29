@@ -18,7 +18,17 @@ class _VmBuilderScreenState extends State<VmBuilderScreen> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() => context.read<VmState>().loadRoots());
+    Future.microtask(() {
+      final state = context.read<VmState>();
+      state.toast = (String message) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(message)),
+          );
+        }
+      };
+      state.loadRoots();
+    });
   }
 
   Widget _importPanel(VmState s) {
@@ -105,20 +115,7 @@ class _VmBuilderScreenState extends State<VmBuilderScreen> {
         const SizedBox(width: 8),
         // Export button
         FilledButton.icon(
-          onPressed: s.exporting ? null : () async {
-            final errorMessage = await s.exportCurrentRoot();
-            if (context.mounted) {
-              if (errorMessage == null) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Export saved to Downloads')),
-                );
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(errorMessage)),
-                );
-              }
-            }
-          },
+          onPressed: s.exporting ? null : () => s.exportCurrentRoot(),
           icon: s.exporting ? const SizedBox(width:16,height:16,child:CircularProgressIndicator(strokeWidth:2)) : const Icon(Icons.download),
           label: const Text('Export'),
         ),
@@ -199,11 +196,6 @@ class _VmBuilderScreenState extends State<VmBuilderScreen> {
                             );
                             if (result != null && result.isNotEmpty) {
                               await s.addRoot(result);
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Added root: $result')),
-                                );
-                              }
                             }
                           },
                           icon: const Icon(Icons.add),
@@ -226,31 +218,9 @@ class _VmBuilderScreenState extends State<VmBuilderScreen> {
                                   icon: const Icon(Icons.delete),
                                   tooltip: 'Delete root',
                                   onPressed: () async {
-                                    final ok = await showDialog<bool>(
-                                      context: context,
-                                      builder: (_) => AlertDialog(
-                                        title: const Text('Delete root?'),
-                                        content: Text('Delete "${it['label']}" and its entire subtree? This cannot be undone.'),
-                                        actions: [
-                                          TextButton(
-                                            onPressed: () => Navigator.pop(context, false), 
-                                            child: const Text('Cancel')
-                                          ),
-                                          TextButton(
-                                            onPressed: () => Navigator.pop(context, true), 
-                                            child: const Text('Delete')
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                    if (ok == true) {
-                                      await s.deleteRoot(it['id'] as int);
-                                      if (context.mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('Root deleted'))
-                                        );
-                                      }
-                                    }
+                                    // First select this root, then delete it
+                                    await s.selectParent(it['id'] as int, it['label'] as String, 0);
+                                    await s.removeCurrentRootWithConfirm(context);
                                   },
                                 ),
                               );

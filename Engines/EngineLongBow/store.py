@@ -135,14 +135,14 @@ def get_or_create_node(conn: sqlite3.Connection, parent_id: Optional[int], depth
     if parent_id is None:
         # Root node
         cur = conn.execute(
-            "SELECT id FROM nodes WHERE parent_id IS NULL AND depth = ? AND label = ?",
-            (depth, label_raw)
+            "SELECT id FROM nodes WHERE parent_id IS NULL AND depth = ? AND lower(trim(label)) = ?",
+            (depth, norm(label_raw))
         )
     else:
         # Child node
         cur = conn.execute(
-            "SELECT id FROM nodes WHERE parent_id = ? AND depth = ? AND label = ?",
-            (parent_id, depth, label_raw)
+            "SELECT id FROM nodes WHERE parent_id = ? AND depth = ? AND lower(trim(label)) = ?",
+            (parent_id, depth, norm(label_raw))
         )
     
     row = cur.fetchone()
@@ -315,14 +315,14 @@ def _find_leaf_id_by_path(conn: sqlite3.Connection, path: List[str]) -> Optional
         
         if depth == 0:
             # Find root
-            cur = conn.execute("SELECT id FROM nodes WHERE depth=0 AND label=?", (nlabel,))
+            cur = conn.execute("SELECT id FROM nodes WHERE depth=0 AND lower(trim(label)) = ?", (nlabel,))
             row = cur.fetchone()
             if not row:
                 return None
             current_id = row[0]
         else:
             # Find child
-            cur = conn.execute("SELECT id FROM nodes WHERE parent_id=? AND depth=? AND label=?", (current_id, depth, nlabel))
+            cur = conn.execute("SELECT id FROM nodes WHERE parent_id=? AND depth=? AND lower(trim(label)) = ?", (current_id, depth, nlabel))
             row = cur.fetchone()
             if not row:
                 return None
@@ -355,8 +355,16 @@ def apply_import_with_conn(paths: List[List[str]], mode: Literal["replace", "app
     if mode == "replace":
         delete_all_nodes(conn)
         result = _process_paths_contextual(conn, paths, result)
+        try:
+            conn.execute("ANALYZE")
+        except Exception:
+            pass
     elif mode == "append":
         result = _process_paths_contextual(conn, paths, result)
+        try:
+            conn.execute("ANALYZE")
+        except Exception:
+            pass
     elif mode == "preview":
         # Preview mode - don't actually write to database
         result = _preview_paths(paths, result)
@@ -405,9 +413,17 @@ def apply_import(paths: List[List[str]], mode: Literal["replace", "append", "pre
             with transaction(conn):
                 delete_all_nodes(conn)
                 result = _process_paths_contextual(conn, paths, result)
+            try:
+                conn.execute("ANALYZE")
+            except Exception:
+                pass
         elif mode == "append":
             with transaction(conn):
                 result = _process_paths_contextual(conn, paths, result)
+            try:
+                conn.execute("ANALYZE")
+            except Exception:
+                pass
         elif mode == "preview":
             # Preview mode - don't actually write to database
             result = _preview_paths(paths, result)

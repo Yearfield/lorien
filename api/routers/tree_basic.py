@@ -52,8 +52,9 @@ def put_children(payload: PutChildrenRequest, conn: sqlite3.Connection = Depends
     try:
         # Remove current children
         conn.execute("DELETE FROM nodes WHERE parent_id=?", (parent_id,))
+
         # Insert new children with sequential slots starting at 1
-        slot = 1
+        assigned_slot = 1
         for lab in labels:
             # fetch parent depth
             cur = conn.execute("SELECT depth FROM nodes WHERE id=?", (parent_id,))
@@ -61,23 +62,45 @@ def put_children(payload: PutChildrenRequest, conn: sqlite3.Connection = Depends
             if not row:
                 raise HTTPException(status_code=404, detail="parent not found")
             depth = row[0] + 1
-            conn.execute(
-                "INSERT INTO nodes (parent_id, depth, slot, label) VALUES (?,?,?,?)",
-                (parent_id, depth, slot, lab),
-            )
-            slot += 1
+            try:
+                conn.execute(
+                    "INSERT INTO nodes (parent_id, depth, slot, label) VALUES (?,?,?,?)",
+                    (parent_id, depth, assigned_slot, lab),
+                )
+            except sqlite3.IntegrityError as e:
+                # Map unique slot conflicts to 409 for better client handling
+                msg = str(e).lower()
+                if "unique" in msg and ("nodes(parent_id, slot)" in msg or "idx_parent_slot_unique" in msg):
+                    raise HTTPException(
+                        status_code=409,
+                        detail={
+                            "error": "slot_conflict",
+                            "slot": assigned_slot,
+                            "parent_id": parent_id,
+                            "hint": "Concurrent edit detected. Slot already occupied."
+                        }
+                    )
+                # Re-raise non-slot integrity errors
+                raise
+            assigned_slot += 1
+    except HTTPException:
+        # Let FastAPI handle structured HTTP errors
+        raise
     except Exception:
+        # Preserve default error propagation for unexpected failures
         raise
     return {"ok": True, "count": len(labels)}
 
-@router.delete("/root")
-def delete_root(root_id: int = Query(..., ge=1), conn: sqlite3.Connection = Depends(get_db_connection)):
-    # verify depth==0
-    cur = conn.execute("SELECT id FROM nodes WHERE id=? AND depth=0", (root_id,))
-    if not cur.fetchone():
+@router.delete("/roots/{root_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_root(root_id: int, conn: sqlite3.Connection = Depends(get_db_connection)):
+    """Delete a root node and all its descendants."""
+    row = conn.execute("SELECT id, depth, parent_id FROM nodes WHERE id = ?", (root_id,)).fetchone()
+    if not row:
         raise HTTPException(status_code=404, detail="root not found")
-    conn.execute("DELETE FROM nodes WHERE id=?", (root_id,))
-    return {"ok": True, "deleted": root_id}
+    if row[1] != 0 or row[2] is not None:
+        raise HTTPException(status_code=422, detail="not a root")
+    conn.execute("DELETE FROM nodes WHERE id = ?", (root_id,))
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 @router.get("/node")
 def get_node(node_id: int, conn: sqlite3.Connection = Depends(get_db_connection)):
@@ -98,12 +121,18 @@ def get_ancestors(node_id: int, repo: TreeRepository = Depends(get_repository)):
 
 @router.get("/next-underfilled")
 def next_underfilled(
-    root_id: int,
+    root_id: Optional[int] = Query(default=None),
     after_id: Optional[int] = Query(default=None),
     repo: TreeRepository = Depends(get_repository)
 ):
-    """Find the next parent with fewer than 5 children within the specified root subtree."""
-    res = repo.next_underfilled_parent_scoped(root_id=root_id, after_id=after_id)
+    """Find the next parent with fewer than 5 children.
+
+    If root_id is provided, search is scoped to that root subtree; otherwise searches across all roots.
+    """
+    if root_id is None:
+        res = repo.next_underfilled_parent(after_id=after_id)
+    else:
+        res = repo.next_underfilled_parent_scoped(root_id=root_id, after_id=after_id)
     if not res:
         return Response(status_code=status.HTTP_204_NO_CONTENT)
     return res

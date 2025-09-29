@@ -46,14 +46,20 @@ Import formats are documented in `docs/IMPORT_FORMATS.md`.
 ```
 
 ### 409 Conflict Errors
-```json
-{
-  "error": "slot_conflict",
-  "slot": 2,
-  "hint": "Concurrent edit detected. Slot 2 already has a child.",
-  "parent_id": 123
-}
-```
+Used when a concurrent update claims the same child slot under a parent during writes.
+
+- Endpoint: `PUT /api/v1/tree/children`
+- Shape:
+  ```json
+  {
+    "error": "slot_conflict",
+    "slot": 2,
+    "parent_id": 123,
+    "hint": "Concurrent edit detected. Slot already occupied."
+  }
+  ```
+  
+Clients should surface a non-fatal retry affordance (e.g., "Tap to Retry").
 
 ## Dictionary
 

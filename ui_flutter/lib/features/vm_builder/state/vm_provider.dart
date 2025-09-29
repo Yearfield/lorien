@@ -1,10 +1,14 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'dart:typed_data';
 import '../data/vm_repo.dart';
 
 class VmState extends ChangeNotifier {
   final VmRepo repo;
   VmState(this.repo);
+
+  // Toast callback function
+  Function(String)? toast;
 
   List<Map<String, dynamic>> roots = [];
   int? currentParentId;
@@ -218,18 +222,19 @@ class VmState extends ChangeNotifier {
     await reloadChildren();
   }
 
-  Future<String?> exportCurrentRoot() async {
-    if (crumbs.isEmpty) {
-      return 'Select a root first';
+  Future<void> exportCurrentRoot() async {
+    if (crumbs.isEmpty) { 
+      toast?.call('Select a root first'); 
+      return; 
     }
     exporting = true; 
     notifyListeners();
     try {
       final rootId = crumbs.first['id'] as int;
       await repo.exportCsv(rootId: rootId);
-      return null; // Success
+      toast?.call('Export saved to Downloads');
     } catch (e) {
-      return 'Export failed: $e';
+      toast?.call('Export failed: $e');
     } finally {
       exporting = false; 
       notifyListeners();
@@ -237,8 +242,54 @@ class VmState extends ChangeNotifier {
   }
 
   Future<void> addRoot(String label) async {
-    final created = await repo.createRoot(label);
-    await loadRoots(); // refresh left list
-    await selectParent(created['id'] as int, created['label'] as String, created['depth'] as int);
+    try {
+      final created = await repo.createRoot(label);
+      await loadRoots(); // refresh left list
+      await selectParent(created['id'] as int, created['label'] as String, created['depth'] as int);
+      toast?.call('Root created');
+    } catch (e) {
+      toast?.call('Create root failed: $e');
+    }
+  }
+
+  Future<void> removeCurrentRootWithConfirm(BuildContext context) async {
+    if (crumbs.isEmpty) { 
+      toast?.call('Select a root first'); 
+      return; 
+    }
+    final rootId = crumbs.first['id'] as int;
+    final rootLabel = crumbs.first['label'] as String;
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Root'),
+        content: Text('Delete root "$rootLabel" and all its descendants?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
+        ],
+      ),
+    ) ?? false;
+
+    if (!ok) return;
+
+    try {
+      await repo.deleteRoot(rootId);
+      await loadRoots();
+      // Select first available root if any
+      if (roots.isNotEmpty) {
+        final r = roots.first;
+        await selectParent(r['id'] as int, r['label'] as String, r['depth'] as int);
+      } else {
+        crumbs.clear();
+        currentParentId = null;
+        childrenWithMeta = [];
+        notifyListeners();
+      }
+      toast?.call('Root deleted');
+    } catch (e) {
+      toast?.call('Delete failed: $e');
+    }
   }
 }

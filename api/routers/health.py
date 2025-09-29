@@ -8,6 +8,7 @@ import os
 import sqlite3
 
 from ..dependencies import get_db_connection
+from ..settings import get_db_path
 from core.version import __version__
 
 router = APIRouter(tags=["health"])
@@ -77,13 +78,23 @@ async def _check_database_health(conn: sqlite3.Connection) -> Dict[str, Any]:
         cursor.execute("PRAGMA page_size")
         page_size = cursor.fetchone()[0]
         
-        # Get database path from environment
-        db_path = os.environ.get("LORIEN_DB_PATH")
+        # Check integrity
+        cursor.execute("PRAGMA integrity_check")
+        integrity = cursor.fetchone()[0]
+        
+        # Count database objects (tables, views, triggers)
+        cursor.execute("SELECT COUNT(*) FROM sqlite_master WHERE type IN ('table', 'view', 'trigger')")
+        object_count = cursor.fetchone()[0]
+        
+        # Report the actual DB path in use
+        db_path = get_db_path()
         
         return {
             "wal": journal_mode == "wal",
             "foreign_keys": bool(foreign_keys),
             "page_size": page_size,
+            "integrity": integrity,
+            "objects": object_count,
             "path": db_path
         }
     except Exception as e:
@@ -91,6 +102,8 @@ async def _check_database_health(conn: sqlite3.Connection) -> Dict[str, Any]:
             "wal": False,
             "foreign_keys": False,
             "page_size": 0,
+            "integrity": "error",
+            "objects": 0,
             "path": None,
             "error": str(e)
         }

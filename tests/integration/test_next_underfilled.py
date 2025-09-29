@@ -30,34 +30,38 @@ Root3,ChildX,,,,,,"""
     roots = r.json()["items"]
     root_ids = {root["label"].lower(): root["id"] for root in roots}
     
-    # Root1 has 5 children (full), Root2 has 2 children, Root3 has 1 child
-    # Next underfilled should be Root2 (first with <5)
-    r = c.get("/api/v1/tree/next-underfilled")
-    assert r.status_code == 200
-    data = r.json()
-    assert data["label"].lower() == "root2"
-    assert data["child_count"] == 2
-
-    # Test with after_id parameter (after Root1)
+    # Test with root_id parameter - scope to Root1 tree
     root1_id = root_ids["root1"]
-    r = c.get(f"/api/v1/tree/next-underfilled?after_id={root1_id}")
+    r = c.get(f"/api/v1/tree/next-underfilled?root_id={root1_id}")
+    assert r.status_code == 204  # Root1 is full (5 children)
+
+    # Test with root_id parameter - scope to Root2 tree
+    root2_id = root_ids["root2"]
+    r = c.get(f"/api/v1/tree/next-underfilled?root_id={root2_id}")
     assert r.status_code == 200
     data = r.json()
     assert data["label"].lower() == "root2"
     assert data["child_count"] == 2
 
-    # After Root2, should find Root3
-    root2_id = root_ids["root2"]
-    r = c.get(f"/api/v1/tree/next-underfilled?after_id={root2_id}")
+    # Test with root_id and after_id parameters (after Root1 in Root1's subtree)
+    # Since Root1 is full, after Root1 should return 204 (no more underfilled in Root1's subtree)
+    r = c.get(f"/api/v1/tree/next-underfilled?root_id={root1_id}&after_id={root1_id}")
+    assert r.status_code == 204
+
+    # Test Root2's subtree - should find Root2 itself (has 2 children < 5)
+    r = c.get(f"/api/v1/tree/next-underfilled?root_id={root2_id}")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["label"].lower() == "root2"
+    assert data["child_count"] == 2
+
+    # Test Root3's subtree - should find Root3 itself (has 1 child < 5)
+    root3_id = root_ids["root3"]
+    r = c.get(f"/api/v1/tree/next-underfilled?root_id={root3_id}")
     assert r.status_code == 200
     data = r.json()
     assert data["label"].lower() == "root3"
     assert data["child_count"] == 1
-
-    # After Root3, should return 204 (no more underfilled)
-    root3_id = root_ids["root3"]
-    r = c.get(f"/api/v1/tree/next-underfilled?after_id={root3_id}")
-    assert r.status_code == 204
 
 def test_next_underfilled_all_full(tmp_path, monkeypatch):
     """Test when all parents have 5 children."""
@@ -82,6 +86,13 @@ Root2,ChildE,,,,,,"""
     r = c.post("/api/v1/import?mode=replace", files={"file": ("tree.csv", csv, "text/csv")})
     assert r.status_code in (200, 201)
 
-    # All parents are full, should return 204
-    r = c.get("/api/v1/tree/next-underfilled")
-    assert r.status_code == 204
+    # Get the root IDs
+    r = c.get("/api/v1/tree/roots")
+    assert r.status_code == 200
+    roots = r.json()["items"]
+    root_ids = {root["label"].lower(): root["id"] for root in roots}
+    
+    # All parents are full, should return 204 for any root scope
+    for root_id in root_ids.values():
+        r = c.get(f"/api/v1/tree/next-underfilled?root_id={root_id}")
+        assert r.status_code == 204
