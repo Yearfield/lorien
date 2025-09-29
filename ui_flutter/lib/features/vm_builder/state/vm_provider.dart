@@ -10,6 +10,9 @@ class VmState extends ChangeNotifier {
   // Toast callback function
   Function(String)? toast;
 
+  bool isBusy = false;
+  String? bannerError;
+
   List<Map<String, dynamic>> roots = [];
   int? currentParentId;
   String? currentParentLabel;
@@ -28,8 +31,7 @@ class VmState extends ChangeNotifier {
   bool exporting = false;
 
   Future<void> loadRoots() async {
-    loading = true; 
-    notifyListeners();
+    isBusy = true; bannerError = null; notifyListeners();
     try {
       roots = await repo.getRoots();
       crumbs.clear();
@@ -37,11 +39,10 @@ class VmState extends ChangeNotifier {
       currentParentLabel = null; 
       children = [];
     } catch (e) {
-      // Handle error silently for now
-      roots = [];
+      bannerError = e.toString();
+    } finally {
+      isBusy = false; notifyListeners();
     }
-    loading = false; 
-    notifyListeners();
   }
 
   Future<void> selectParent(int id, String label, int depth) async {
@@ -126,8 +127,15 @@ class VmState extends ChangeNotifier {
   }
 
   Future<void> deleteRoot(int rootId) async {
-    await repo.deleteRoot(rootId);
-    await loadRoots();
+    isBusy = true; bannerError = null; notifyListeners();
+    try {
+      await repo.deleteRoot(rootId);
+      await loadRoots();
+    } catch (e) {
+      bannerError = e.toString();
+    } finally {
+      isBusy = false; notifyListeners();
+    }
   }
 
   // Jump to an ancestor crumb by node id:
@@ -290,6 +298,55 @@ class VmState extends ChangeNotifier {
       toast?.call('Root deleted');
     } catch (e) {
       toast?.call('Delete failed: $e');
+    }
+  }
+
+  Future<void> onImportPreview(Uint8List bytes) async {
+    isBusy = true; bannerError = null; notifyListeners();
+    try {
+      final res = await repo.importPreview(bytes);
+      final errs = (res['errors'] as List?) ?? const [];
+      if (errs.isNotEmpty) {
+        bannerError = 'Import preview found ${errs.length} issue(s). Fix before applying.';
+      } else {
+        toast?.call('Preview OK: ${res['stats']?['found_paths'] ?? 0} paths');
+      }
+    } catch (e) {
+      bannerError = e.toString();
+    } finally {
+      isBusy = false; notifyListeners();
+    }
+  }
+
+  Future<void> onImportApply(Uint8List bytes) async {
+    isBusy = true; bannerError = null; notifyListeners();
+    try {
+      await repo.importApply(bytes, enforceFive: true);
+      toast?.call('Import completed');
+      await loadRoots();
+    } catch (e) {
+      bannerError = e.toString();
+    } finally {
+      isBusy = false; notifyListeners();
+    }
+  }
+
+  Future<void> goToNextIncomplete({int? rootId, int? afterId}) async {
+    isBusy = true; bannerError = null; notifyListeners();
+    try {
+      final res = await repo.nextUnderfilled(rootId: rootId, afterId: afterId);
+      final parentId = res['parent_id'] as int?;
+      if (parentId == null) {
+        toast?.call('All parents have ≤5 children');
+        return;
+      }
+      // client should navigate to parentId; for now just set it
+      currentParentId = parentId;
+      // downstream UI will call a method to load children for currentParentId
+    } catch (e) {
+      bannerError = e.toString();
+    } finally {
+      isBusy = false; notifyListeners();
     }
   }
 }

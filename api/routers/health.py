@@ -21,28 +21,29 @@ async def health_check(conn: sqlite3.Connection = Depends(get_db_connection)):
     Returns:
         200 with health status, version, database info, and feature flags
     """
-    # Check database status
-    db_info = await _check_database_health(conn)
-
-    # Check feature flags
-    features = await _check_features()
-
-    # Build response
-    response_data = {
-        "ok": True,
-        "version": __version__,
-        "db": db_info,
-        "features": features
-    }
-
-    # Add metrics if analytics is enabled (default false)
-    analytics_enabled = os.getenv("ANALYTICS_ENABLED", "false").lower() == "true"
-    if analytics_enabled:
-        metrics_data = await _get_runtime_metrics()
-        if metrics_data:
-            response_data["metrics"] = metrics_data
-
-    return response_data
+    # Open a short-lived connection for introspection
+    from ..dependencies import get_db_connection
+    conn = await get_db_connection()
+    try:
+        db_path = get_db_path()
+        wal = conn.execute("PRAGMA journal_mode").fetchone()[0]
+        # migration marker (exists if migrations applied)
+        tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
+        nodes = conn.execute("SELECT COUNT(*) FROM nodes").fetchone()[0] if "nodes" in tables else 0
+        # Check LLM feature flag
+        llm_enabled = os.getenv("LLM_ENABLED", "false").lower() == "true"
+        
+        return {
+            "version": __version__,
+            "db": {"path": db_path, "journal_mode": wal, "tables": len(tables), "nodes": nodes},
+            "llm": llm_enabled,
+            "status": "ok"
+        }
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
 
 
 @router.get("/health/metrics")
@@ -125,11 +126,6 @@ async def _check_features() -> Dict[str, bool]:
 async def _get_runtime_metrics() -> Dict[str, Any]:
     """Get runtime metrics (non-PHI counters only)."""
     try:
-        # Import here to avoid circular dependencies
-        from ..metrics import snapshot
-
-        telemetry = snapshot()
-
         # Count rows in the primary table using a fresh connection
         from ..settings import get_db_path
         conn = sqlite3.connect(get_db_path())
@@ -141,7 +137,7 @@ async def _get_runtime_metrics() -> Dict[str, Any]:
             conn.close()
 
         return {
-            "telemetry": telemetry,
+            "telemetry": {},  # No metrics module available
             "table_counts": {"nodes": node_count},
         }
     except Exception as e:
@@ -150,3 +146,15 @@ async def _get_runtime_metrics() -> Dict[str, Any]:
             "telemetry": {},
             "table_counts": {},
         }
+
+@router.get("/live")
+def live() -> Dict[str, Any]:
+    """Liveness probe: process is up."""
+    return {"status": "live"}
+
+@router.get("/ready")
+def ready(conn: sqlite3.Connection = Depends(get_db_connection)) -> Dict[str, Any]:
+    """Readiness probe: DB reachable and schema present."""
+    cur = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='nodes'")
+    ok = cur.fetchone() is not None
+    return {"status": "ready" if ok else "not_ready", "db": {"has_nodes_table": ok}}

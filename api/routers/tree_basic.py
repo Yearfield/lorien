@@ -6,6 +6,7 @@ from typing import List, Optional, Dict
 from api.settings import get_db_path
 from api.dependencies import get_db_connection, get_repository
 from api.repositories.tree_repo import TreeRepository
+from api.core.validators import validate_child_labels_and_limit, coerce_assigned_slots
 
 router = APIRouter(prefix="/api/v1/tree", tags=["tree"])
 
@@ -44,10 +45,8 @@ def list_children(parent_id: int, only_red: bool = Query(default=False), repo: T
 def put_children(payload: PutChildrenRequest, conn: sqlite3.Connection = Depends(get_db_connection)):
     # Atomic replace children for a given parent (simple version).
     parent_id = payload.parent_id
-    labels = [c.label.strip() for c in payload.children if c.label.strip()]
-    # Basic validation
-    if len(labels) != len(set([l.lower() for l in labels])):
-        raise HTTPException(status_code=422, detail=[{"loc": ["children"], "msg": "duplicate labels"}])
+    # Service-level guard for ≤5 rule + duplicates
+    labels = validate_child_labels_and_limit(payload.children, limit=5)
 
     try:
         # Remove current children

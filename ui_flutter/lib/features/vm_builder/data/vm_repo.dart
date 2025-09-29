@@ -11,6 +11,33 @@ class VmRepo {
 
   VmRepo(this.base);
 
+  Future<Map<String, dynamic>> importPreview(Uint8List bytes) async {
+    final uri = Uri.parse('$base/import/preview');
+    final req = http.MultipartRequest('POST', uri)
+      ..files.add(http.MultipartFile.fromBytes('file', bytes, filename: 'import.csv', contentType: MediaType('text', 'csv')));
+    final streamed = await req.send();
+    final r = await http.Response.fromStream(streamed);
+    if (r.statusCode != 200) {
+      throw Exception('preview failed: ${r.statusCode} ${r.body}');
+    }
+    return jsonDecode(r.body) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> importApply(Uint8List bytes, {bool enforceFive = true, String mode = 'append'}) async {
+    final uri = Uri.parse('$base/import?mode=$mode&enforce_five=${enforceFive ? 'true' : 'false'}');
+    final req = http.MultipartRequest('POST', uri)
+      ..files.add(http.MultipartFile.fromBytes('file', bytes, filename: 'import.csv', contentType: MediaType('text', 'csv')));
+    final streamed = await req.send();
+    final r = await http.Response.fromStream(streamed);
+    if (r.statusCode == 422) {
+      throw Exception('validation: ${r.body}');
+    }
+    if (r.statusCode != 200) {
+      throw Exception('import failed: ${r.statusCode} ${r.body}');
+    }
+    return jsonDecode(r.body) as Map<String, dynamic>;
+  }
+
   Future<List<Map<String, dynamic>>> getRoots() async {
     final r = await http.get(Uri.parse('$base/tree/roots'));
     if (r.statusCode != 200) throw Exception('roots failed');
@@ -75,15 +102,13 @@ class VmRepo {
     return jsonDecode(res.body) as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>?> nextUnderfilled({required int rootId, int? afterId}) async {
-    final qs = [
-      'root_id=$rootId',
-      if (afterId != null) 'after_id=$afterId',
-    ].join('&');
-    final uri = Uri.parse('$base/tree/next-underfilled?$qs');
+  Future<Map<String, dynamic>> nextUnderfilled({int? rootId, int? afterId}) async {
+    final q = <String>[];
+    if (rootId != null) q.add('root_id=$rootId');
+    if (afterId != null) q.add('after_id=$afterId');
+    final uri = Uri.parse('$base/tree/next-underfilled${q.isEmpty ? '' : '?'+q.join('&')}');
     final r = await http.get(uri);
-    if (r.statusCode == 204) return null;
-    if (r.statusCode != 200) throw Exception('next-underfilled failed: ${r.statusCode} ${r.body}');
+    if (r.statusCode != 200) throw Exception('next-underfilled failed');
     return jsonDecode(r.body) as Map<String, dynamic>;
   }
 

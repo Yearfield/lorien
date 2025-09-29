@@ -149,6 +149,13 @@ class _VmBuilderScreenState extends State<VmBuilderScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('VM Builder'),
+        actions: [
+          IconButton(
+            tooltip: 'Next Incomplete',
+            onPressed: s.isBusy ? null : () => s.goToNextIncomplete(),
+            icon: const Icon(Icons.fast_forward),
+          ),
+        ],
       ),
       body: Row(
         children: [
