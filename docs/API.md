@@ -1,654 +1,107 @@
-# API Documentation
+# API Documentation (VM Core)
 
-## Overview
-The Lorien API provides endpoints for managing decision trees, red flags, and triage data.
+Overview
+- Versioned base: `/api/v1`
+- EngineLongBow is the ingest/export engine; UI and CLI call the API (no client-side CSV building)
 
-## Mounts
-Clients must use versioned endpoints under `/api/v1`. Bare mounts also exist for backward compatibility but are considered legacy.
-
-## CSV / XLSX Export (Contract Frozen)
-
-**CANONICAL 8-COLUMN HEADER (Single Source of Truth):**
+Canonical header (frozen)
 ```
-Vital Measurement,Node 1,Node 2,Node 3,Node 4,Node 5,Diagnostic Triage,Actions
+D0,D1,D2,D3,D4,D5,D6,Notes
 ```
 
-**Column Details:**
-- **Vital Measurement**: Root node label (depth=0)
-- **Node 1-5**: Child node labels (depth=1-5)  
-- **Diagnostic Triage**: Clinical assessment for leaf nodes
-- **Actions**: Recommended actions for leaf nodes
-
-**Endpoints:** `GET /api/v1/tree/export`, `GET /api/v1/tree/export.xlsx` (bare mounts exist for legacy). See also: `docs/EXPORT_FORMATS.md`.
-
-**Contract:** UI (Flutter/Streamlit) must not construct CSV/XLSX; always call the API.
-Import formats are documented in `docs/IMPORT_FORMATS.md`.
-
-## Error Response Examples
-
-### 422 Validation Errors
-```json
-{
-  "detail": [
-    {
-      "loc": ["body", "label"],
-      "msg": "field required",
-      "type": "value_error.missing"
-    },
-    {
-      "loc": ["body", "category"],
-      "msg": "ensure this value has at most 50 characters",
-      "type": "value_error.any_str.max_length",
-      "ctx": {"limit_value": 50}
-    }
-  ]
-}
-```
-
-### 409 Conflict Errors
-Used when a concurrent update claims the same child slot under a parent during writes.
-
-- Endpoint: `PUT /api/v1/tree/children`
-- Shape:
+Health
+- `GET /api/v1/live` → `{ "status": "live" }`
+- `GET /api/v1/ready` → `{ "status": "ready"|"not_ready", "db": { "has_nodes_table": true|false } }`
+- `GET /api/v1/health` →
   ```json
   {
-    "error": "slot_conflict",
-    "slot": 2,
-    "parent_id": 123,
-    "hint": "Concurrent edit detected. Slot already occupied."
+    "version": "6.8.0-beta.1",
+    "db": {"path": "/path/app.db", "journal_mode": "wal", "tables": 5, "nodes": 123},
+    "llm": false,
+    "status": "ok"
   }
   ```
-  
-Clients should surface a non-fatal retry affordance (e.g., "Tap to Retry").
-
-## Dictionary
-
-### List dictionary terms
-GET `/api/v1/dictionary?query=&category=&limit=&offset=&sort=&direction=`
-
-- **200** `[{"id": 1, "label": "...", "category": "...", "code": "...", "created_at": "...", "updated_at": "..."}]`
-
-### Create dictionary term
-POST `/api/v1/dictionary`
-```json
-{ "label": "Chest Pain", "category": "symptom", "code": "SYM:0001" }
-```
-- **200** created term object
-- **409** duplicate label+category or code
-- **422** invalid field values
-
-### Update dictionary term
-PUT `/api/v1/dictionary/{id}`
-```json
-{ "label": "Chest Pain", "category": "symptom", "code": "SYM:0001" }
-```
-- **200** updated term object
-- **404** term not found
-- **409** duplicate label+category or code
-- **422** invalid field values
-
-### Delete dictionary term
-DELETE `/api/v1/dictionary/{id}`
-
-- **204** No Content
-- **404** term not found
-
-### Get term usage
-GET `/api/v1/dictionary/{id}/usage?limit=&offset=`
-
-- **200** `[{"node_id": 123, "path": "...", "depth": 3}]`
-- **404** term not found
-
-## LLM Health
-`GET /llm/health` → Top-level JSON response with status codes 200/503/500.
-
-### LLM Health (ready/checked_at)
-GET `/api/v1/llm/health`
-- **200**: `{"ready": true, "checked_at": "<ISO8601>"}`
-- **503**: `{"ready": false, "checked_at": "<ISO8601>"}`
-
-### Response Format
-```json
-{
-  "ok": true|false,
-  "llm_enabled": true|false,
-  "ready": true|false,
-  "provider": "null"|"ollama"|...,
-  "model": "/path/to/model.gguf"|null,
-  "checks": [
-    {"name": "model_path", "ok": true|false, "details": "/path/to/file"},
-    {"name": "provider", "ok": true|false, "details": {...}}
-  ],
-  "checked_at": "2024-01-01T12:00:00.000Z"
-}
-```
-
-### Status Codes
-- **200**: LLM enabled and ready
-- **503**: LLM disabled OR enabled but not ready (missing model file, provider error)
-- **500**: Internal error during health check
-
-### Response Fields
-- `ok`: Overall health status
-- `llm_enabled`: Whether LLM is enabled via environment
-- `ready`: Whether LLM is ready to serve requests
-- `provider`: Provider name (null, ollama, etc.)
-- `model`: Model path or identifier
-- `checks`: Array of individual health checks
-- `checked_at`: ISO-8601 UTC timestamp with Z suffix
-
-## LLM Fill
-`POST /llm/fill-triage-actions` → Generate diagnostic triage and actions with validation.
-
-### Request Format
-```json
-{
-  "root": "Vital Measurement Label",
-  "nodes": ["Node 1", "Node 2", "Node 3", "Node 4", "Node 5"],
-  "triage_style": "diagnosis-only",
-  "actions_style": "referral-only",
-  "apply": false,
-  "node_id": 123
-}
-```
-
-### Response Format (Success)
-```json
-{
-  "diagnostic_triage": "Acute appendicitis",
-  "actions": "Immediate surgical referral",
-  "applied": false
-}
-```
-
-### Validation & Contracts
-- **Word Limits**: Both fields ≤7 words
-- **Character Regex**: `^[A-Za-z0-9 ,\-µ%]+$` (medical symbols allowed)
-- **Prohibited Tokens**: Blocks dosing terms (mg, mcg, µg, ml, kg, IU, %, bid, tid, qid, etc.)
-- **Non-Leaf Apply**: Returns 422 with suggestions when `apply=true` on non-leaf node
-- **Health Check**: Returns 503 when LLM service unavailable
-
-### Error Responses
-- **422** (Validation): `{"error": "Generated content failed validation", "diagnostic_triage": "...", "actions": "..."}`
-- **422** (Non-Leaf): `{"error": "Cannot apply triage/actions to non-leaf node", "diagnostic_triage": "...", "actions": "..."}`
-- **503** (Unavailable): `{"detail": "LLM service unavailable"}`
-
-## Health
-`GET /health` (+ `/api/v1/health`) → `{ status|ok, version, db:{ path, wal, foreign_keys, page_size }, features:{ llm }, metrics?: {...} }`
-
-### Health Metrics
-GET `/api/v1/health/metrics`
-- **200** when `ANALYTICS_ENABLED=true`: telemetry counters and table counts
-- **404** when `ANALYTICS_ENABLED=false`
-
-## Telemetry
-`GET /health` includes `metrics.telemetry` when `ANALYTICS_ENABLED=true` (non-PHI counters only).
-
-## Authentication
-Most endpoints require no authentication. Some endpoints may require API keys in the future.
-
-## Rate Limiting
-Currently no rate limiting is implemented. Consider implementing if needed for production use.
-
-## Error Handling
-All endpoints return appropriate HTTP status codes:
-- 200: Success
-- 400: Bad Request
-- 404: Not Found
-- **422: Unprocessable Entity** (semantic/validation errors)
-- 500: Internal Server Error
-
-**All semantic/validation errors return 422 Unprocessable Entity.**
-
-Body field errors follow FastAPI/Pydantic default format:
-```json
-{
-  "detail": [
-    {
-      "loc": ["body", "diagnostic_triage"], 
-      "msg": "Diagnostic Triage must be ≤7 words", 
-      "type": "value_error.word_count"
-    }
-  ]
-}
-```
-
-## Endpoints
-
-All responses are JSON unless noted. Base URL defaults to `http://localhost:8000/api/v1`.
-
-> **Auth**: None (local dev).  
-> **Version**: Exposed via `/api/v1/health.version`.
-
-## Health
-
-GET `/api/v1/health`
-
-- **200** `{ ok, version, db: { path, wal, foreign_keys }, features: { llm } }`
-
----
-
-## Tree
-
-### Get next incomplete parent
-GET `/api/v1/tree/next-incomplete-parent`
-
-- **200** `{ "parent_id": 123, "label": "...", "depth": 1, "missing_slots": "2,4,5" }`
-- **204** when none (empty response body)
-
-### Get children (1..5) for a parent
-GET `/api/v1/tree/{parent_id}/children`
-
-- **200** `[{ slot: 1..5, label: "..." , id?: int }, ...]`
-
-### Get node path from root to leaf
-GET `/api/v1/tree/path?node_id=123`
-
-- **200** `{ "node_id": 123, "is_leaf": true, "depth": 5, "vital_measurement": "...", "nodes": ["...", "...", "...", "...", ""], "csv_header": ["Vital Measurement", "Node 1", "Node 2", "Node 3", "Node 4", "Node 5", "Diagnostic Triage", "Actions"] }`
-- **404** if node not found
-
-### Upsert multiple slots atomically
-POST `/api/v1/tree/{parent_id}/children`
-```json
-{ "children": [ { "slot": 1, "label": "..." }, { "slot": 4, "label": "..." } ] }
-```
-- **200** `{ ok: true }`
-- **409** slot conflict
-- **422** validation
-
-### Upsert single slot
-POST `/api/v1/tree/{parent_id}/child`
-```json
-{ "slot": 3, "label": "..." }
-```
-
-### Tree (Editing)
-
-#### GET /api/v1/tree/parents/incomplete
-Paged list of incomplete parents with filtering.
-
-**Query Parameters:**
-- `query` (string): Contains search in parent labels (case-insensitive)
-- `depth` (int, optional): Filter by depth (0-5)
-- `limit` (int): Page size (default 50, max 200)
-- `offset` (int): Page offset (default 0)
-
-**Response:**
-```json
-{
-  "items": [
-    {
-      "parent_id": 123,
-      "label": "Parent Label",
-      "depth": 1,
-      "missing_slots": "2,4"
-    }
-  ],
-  "total": 42,
-  "limit": 50,
-  "offset": 0
-}
-```
-
-#### PUT /api/v1/tree/parents/{parent_id}/children
-Atomic bulk upsert of children slots (1-5).
-
-**Request:**
-```json
-{
-  "slots": [
-    {"slot": 1, "label": "Alpha"},
-    {"slot": 2, "label": "Beta"},
-    {"slot": 5, "label": ""}
-  ],
-  "mode": "upsert"
-}
-```
-
-**Semantics:**
-- Atomic upsert for provided slots only (1..5)
-- `label=""` means ignore (no deletes in Phase-6)
-- **200**: `{ "updated": [{"id": 123, "slot": 1, "label": "..."}], "missing_slots": "3,4" }`
-- **409**: `{ "error": "slot_conflict", "slot": 2, "hint": "Concurrent edit" }`
-- **422**: Pydantic `detail[]` with field-level errors, may include `ctx.slot`
-
----
-
-## Import
-
-### Import Excel (unified)
-POST `/api/v1/import`
-- **200** `{ "status": "success", "message": "...", "filename": "...", "rows_processed": 42 }`
-- **422** on schema errors with detailed context:
-  ```json
-  {
-    "detail": [{
-      "loc": ["body", "file"],
-      "msg": "CSV header mismatch",
-      "type": "value_error.csv_schema",
-      "ctx": {
-        "first_offending_row": 0,
-        "col_index": 2,
-        "expected": ["Vital Measurement", "Node 1", "Node 2", "Node 3", "Node 4", "Node 5", "Diagnostic Triage", "Actions"],
-        "received": ["Wrong", "Header", "Format"],
-        "error_counts": {"header": 1}
-      }
-    }]
-  }
-  ```
-
-### Import Excel (legacy)
-POST `/api/v1/import/excel` → Same as unified import above
-
----
-
-## Triage
-
-### Get triage for a node
-GET `/api/v1/triage/{node_id}`
-
-- **200** `{ "diagnostic_triage": "...", "actions": "..." }`
-- **404** if none
-
-### Put triage (leaf-only)
-PUT `/api/v1/triage/{node_id}`
-```json
-{ "diagnostic_triage": "...", "actions": "..." }
-```
-- **200** updated object
-- **422** validation (≤7 words, regex, prohibited dosing/route/time tokens)
-- **400** if not a leaf
-
-### Outcomes Validation
-Server rejects dosing/route/time tokens with **422** field-level detail:
-- Prohibited tokens: mg, ml, mcg, g, kg, iv, im, po, sc, pr, q6h, q8h, qid, tid, bid, od, qod, prn, stat
-- Applies to both `diagnostic_triage` and `actions` fields
-- Combined with existing ≤7 words and character validation
-
-### Put outcomes (alias for triage)
-PUT `/api/v1/outcomes/{node_id}`
-```json
-{ "diagnostic_triage": "...", "actions": "..." }
-```
-- **200** updated object (delegates to triage upsert)
-- **422** validation (≤7 words, regex `^[A-Za-z0-9 ,\-]+$`, prohibited dosing/route/time tokens)
-
----
-
-## Flags
-
-### List flags (with paging)
-GET `/api/v1/flags?query=&limit=&offset=`
-
-- **200** `[{"id": 1, "label": "..."}]`
-
-### Assign flag to node
-POST `/api/v1/flags/assign`
-```json
-{ "node_id": 123, "flag_id": 7, "cascade": false }
-```
-- **200** `{ "affected": 1, "node_ids": [123] }`
-
-### Remove flag from node
-POST `/api/v1/flags/remove`
-```json
-{ "node_id": 123, "flag_id": 7, "cascade": false }
-```
-- **200** `{ "affected": 1, "node_ids": [123] }`
-
-### Get flag audit trail
-GET `/api/v1/flags/audit?node_id=&limit=&offset=`
-
-- **200** `[{"id": 1, "node_id": 123, "flag_id": 7, "action": "assign", "ts": "2024-01-01T12:00:00Z"}]`
-
----
-
-## Calculator
-
-### Export CSV
-GET `/api/v1/calc/export`
-
-- **200** CSV (content-disposition suggests filename)
-
-**Note:** See canonical header definition in "CSV / XLSX Export (Contract Frozen)" section above.
-
----
-
-## LLM (Optional — feature-flagged)
-
-### LLM health
-GET `/api/v1/llm/health`
-
-- **200** `{ enabled, model_path, n_threads, n_ctx, n_gpu_layers }`
-- **503** when disabled
-
-### Fill triage/actions (targeted)
-POST `/llm/fill-triage-actions`
-```json
-{
-  "root": "Chest pain",
-  "nodes": ["Sudden onset", "Radiates to back", "Hypotension", "Sweating", "Collapse"],
-  "triage_style": "diagnosis-only",
-  "actions_style": "referral-only",
-  "apply": false,
-  "node_id": 987  // required only when apply=true (must be a leaf)
-}
-```
-- **200** `{ "diagnostic_triage":"...", "actions":"...", "applied": false }`
-- **400** missing node_id when apply=true, or non-leaf
-- **503** when LLM disabled
-
-**Safety**: the LLM is guidance-only; dosing/prescription requests are refused.
-
-## CSV Export (Contract Frozen)
-
-**Note:** See canonical header definition in "CSV / XLSX Export (Contract Frozen)" section above.
-
-`GET /calc/export` and `GET /tree/export` must return CSV with the exact header above.
-UI (Streamlit + Flutter) must call API; no CSV construction in UI.
-
-## Conflicts & Integrity
-
-### Missing Slots
-`GET /tree/missing-slots` → Returns parents with missing child slots
-```json
-{
-  "parents_with_missing_slots": [
-    {
-      "parent_id": 1,
-      "label": "Blood Pressure",
-      "depth": 1,
-      "missing_slots": [3, 5]
-    }
-  ],
-"total_count": 1
-}
-```
-
-### GET /tree/missing-slots-json
-Machine-readable summary of parents with missing slots.
-
+Examples:
 ```bash
-curl "$BASE/tree/missing-slots-json" | jq '.'
+curl -sS http://127.0.0.1:8000/api/v1/live | jq
+curl -sS http://127.0.0.1:8000/api/v1/ready | jq
+curl -sS http://127.0.0.1:8000/api/v1/health | jq
 ```
 
-### Next Incomplete Parent
-`GET /tree/next-incomplete-parent` → Returns next parent needing completion
-```json
-{
-  "parent_id": 1,
-  "missing_slots": [3, 5]
-}
-```
-
-## Outcomes & Triage
-
-### Search Triage
-`GET /triage/search?leaf_only=true&query=...` → Search triage records
-```json
-{
-  "results": [
-    {
-      "node_id": 5,
-      "label": "High BP",
-      "path": "Blood Pressure → High BP",
-      "diagnostic_triage": "Monitor closely",
-      "actions": "Check every 2 hours",
-      "is_leaf": true,
-      "updated_at": "2024-01-01T12:00:00"
-    }
-  ],
-  "total_count": 1,
-  "leaf_only": true
-}
-```
-
-### Update Triage
-`PUT /triage/{node_id}` → Update triage for leaf nodes only
-```json
-{
-  "diagnostic_triage": "New triage text",
-  "actions": "New actions"
-}
-```
-
-**Response:**
-```json
-{
-  "message": "Triage updated successfully",
-  "node_id": 5,
-  "updated_at": "2024-01-01T12:00:00"
-}
-```
-
-**Error (non-leaf):**
-```json
-{
-  "detail": "Triage can only be updated for leaf nodes"
-}
-```
-
-## Excel Export
-
-### GET /calc/export.xlsx
-Export calculator data as Excel workbook.
-
-**Response:** Excel file with `Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`
-
-**Headers:**
-- `Content-Disposition: attachment; filename=calculator_export.xlsx`
-- `Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`
-
-**Sheet:** CalculatorExport
-
-### GET /tree/export.xlsx
-Export tree data as Excel workbook.
-
-**Response:** Excel file with `Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`
-
-**Headers:**
-- `Content-Disposition: attachment; filename=tree_export.xlsx`
-
-### GET /tree/export-json
-Return the entire decision tree as JSON.
-
-**Example:**
+Import (EngineLongBow)
+- Preview: `POST /api/v1/import/preview` (multipart `file`)
+  - 200:
+    ```json
+    {"ok": true, "header": ["D0","D1","D2","D3","D4","D5","D6","Notes"],
+     "stats": {"found_paths": 42},
+     "errors": [{"row": 12, "msg": "parent (...) would exceed 5 children (preview)", "type": "value_error.max_children"}]}
+    ```
+Examples:
 ```bash
-curl "$BASE/tree/export-json" | jq '.'
+# Preview CSV
+curl -sS -F file=@paths.csv http://127.0.0.1:8000/api/v1/import/preview | jq
+
+# Apply (replace) with enforcement
+curl -sS -F file=@paths.csv "http://127.0.0.1:8000/api/v1/import?mode=replace&enforce_five=true" | jq
 ```
-- `Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`
+- Apply: `POST /api/v1/import?mode=append|replace&enforce_five=true` (multipart `file`)
+  - 200: `{ "ok": true, "result": { ... } }`
+  - 422 (when `enforce_five=true` and any parent ends >5):
+    ```json
+    {"ok": false, "error": "value_error.max_children",
+     "detail": [{"parent_id": 7, "parent_label": "...", "count": 6, "msg": "parent ends with >5 children"}]}
+    ```
 
-**Sheet:** TreeExport
+Tree (editing/navigation)
+- Roots
+  - `GET /api/v1/tree/roots` → `{ "items": [{"id":1, "label":"..."}], "total": 1 }`
+  - `POST /api/v1/tree/roots` → `201 { "id": 1, "label": "...", "depth": 0 }`
+  - `DELETE /api/v1/tree/roots/{root_id}` → `204 No Content`
+- Children
+  - `GET /api/v1/tree/children?parent_id=123[&only_red=false]` → `{ "items": [...], "total": N }`
+  - `PUT /api/v1/tree/children` (body: `{ "parent_id": 123, "children": [{"label": "A"}, {"label": "B"}] }`)
+    - 200: `{ "ok": true, "count": 2 }`
+    - 409 (concurrent slot conflict):
+      ```json
+      {"error": "slot_conflict", "slot": 2, "parent_id": 123, "hint": "Concurrent edit detected. Slot already occupied."}
+      ```
+    - 422 (validation):
+      ```json
+      {"detail": [{"loc": ["children"], "msg": "duplicate labels", "type": "value_error.duplicate"}]}
+      ```
+      or
+      ```json
+      {"detail": [{"loc": ["children"], "msg": "too many children: 6>5", "type": "value_error.max_children"}]}
+      ```
+- Drilldown
+  - `GET /api/v1/tree/node?node_id=123` → `{ "id": 123, "label": "...", "depth": 2, "parent_id": 45 }`
+  - `GET /api/v1/tree/ancestors?node_id=123` → `{ "items": [{"id":1,"label":"..."}, ...], "total": 3 }`
+- Next underfilled (authoring assist)
+  - `GET /api/v1/tree/next-underfilled[?root_id=1][&after_id=999]` → `200 { "parent_id": 7, ... }` or `204` when none
+- Edge flags
+  - `PUT /api/v1/tree/edge/flag` (body: `{ "parent_id": 1, "child_id": 2, "red_flag": true }`) → `{ "ok": true, ... }`
 
-## Root Management
+Export
+- CSV (canonical): `GET /api/v1/tree/export` → `text/csv` with frozen header
+- XLSX: `GET /api/v1/tree/export.xlsx` → spreadsheet with the same columns
+- JSON (dev aid): `GET /api/v1/tree/export-json`
+- Aliases (legacy): `/api/v1/export/csv`, `/api/v1/export.xlsx`
 
-### GET /tree/roots
-List all root vital measurements.
-
-**Example:**
+Curl examples
 ```bash
-curl "$BASE/tree/roots" | jq '.'
+# Preview
+curl -sS -F "file=@data.csv;type=text/csv" http://127.0.0.1:8000/api/v1/import/preview | jq .
+
+# Apply (replace) with service-level ≤5 enforcement
+curl -sS -F "file=@data.csv;type=text/csv" \
+  "http://127.0.0.1:8000/api/v1/import?mode=replace&enforce_five=true" | jq .
+
+# Export CSV / XLSX
+curl -L "http://127.0.0.1:8000/api/v1/tree/export" -o tree.csv
+curl -L "http://127.0.0.1:8000/api/v1/tree/export.xlsx" -o tree.xlsx
 ```
 
-### GET /tree/leaves
-List all leaf nodes in the tree.
-
-```bash
-curl "$BASE/tree/leaves" | jq '.'
-```
-
-**Response:** Array of root or leaf nodes with `id`, `label`, and `depth` fields.
-
-## Tree Statistics
-
-### GET /tree/stats
-Get tree completeness statistics.
-
-**Response:**
-```json
-{
-  "nodes": 1234,
-  "roots": 12,
-  "leaves": 456,
-  "complete_paths": 400,
-  "incomplete_parents": 35
-}
-```
-
-**Metrics:**
-- `nodes`: Total number of nodes in the tree
-- `roots`: Number of root nodes (depth 0)
-- `leaves`: Number of leaf nodes (depth 5)
-- `complete_paths`: Number of complete root→leaf paths
-- `incomplete_parents`: Number of parents with fewer than 5 children
-
-## LLM Integration
-
-### LLM Health
-- `GET /api/v1/llm/health` - Check if LLM service is available
-- Returns 503 when disabled, 200 when enabled
-
-### LLM Fill — Triage & Actions
-`POST /api/v1/llm/fill-triage-actions`
-
-**Body:**
-```json
-{
-  "root": "<string>",
-  "nodes": ["<n1>","<n2>","<n3>","<n4>","<n5>"],  // exactly 5 strings; empty "" allowed
-  "triage_style": "diagnosis-only" | "referral-only",
-  "actions_style": "diagnosis-only" | "referral-only",
-  "apply": false
-}
-```
-
-**Response (always JSON):**
-```json
-{ 
-  "diagnostic_triage": "<=600 chars>", 
-  "actions": "<=800 chars>" 
-}
-```
-
-**Notes:**
-- Outputs are server-clamped to the caps above.
-- If `apply=true` and the target is not a leaf, server returns 422 but still includes suggestions in the JSON body so the client may copy manually.
-
-## Triage Management
-
-### Search Triage Records
-- `GET /api/v1/triage/search` - Search triage records with filtering
-- Supports `leaf_only`, `query`, `vm`, `sort`, and `limit` parameters
-
-### Get Triage for Node
-- `GET /api/v1/triage/{node_id}` - Get triage information for a specific node
-
-### Update Triage
-- `PUT /api/v1/triage/{node_id}` - Update triage for a node (leaf-only)
-- Enforces character caps: diagnostic_triage ≤600 chars, actions ≤800 chars
-- Returns 422 on validation errors
-
-### Triage — Copy From last VM
-`GET /api/v1/triage/search?vm=<vital_measurement>&leaf_only=true&sort=updated_at:desc&limit=1`
-
-Returns the most recent record under the given Vital Measurement for pre-fill in the client.
+Contracts & rules
+- Frozen header exactly: `D0..D6, Notes`
+- Option B ≤5 enforced at API/import; DB flexible via unique `(parent_id, slot)`
+- Import is transactional when `enforce_five=true` (rollback on violations)

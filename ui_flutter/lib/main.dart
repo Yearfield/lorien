@@ -1,31 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'features/vm_builder/data/vm_repo.dart';
-import 'features/vm_builder/state/vm_provider.dart';
-import 'features/vm_builder/ui/vm_builder_screen.dart';
+import 'core/api_config.dart';
+import 'core/health_state.dart';
+import 'shell/app_shell.dart';
 
 void main() {
-  const baseUrl = String.fromEnvironment('API_BASE', defaultValue: 'http://127.0.0.1:8000/api/v1');
-  runApp(MyApp(baseUrl: baseUrl));
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  final String baseUrl;
-  const MyApp({super.key, required this.baseUrl});
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => VmState(VmRepo(baseUrl))),
-      ],
+    return ChangeNotifierProvider(
+      create: (_) => HealthState(),
       child: MaterialApp(
-        title: 'VM Builder',
-        theme: ThemeData(
-          primarySwatch: Colors.blue,
-          useMaterial3: true,
-        ),
-        home: VmBuilderScreen(baseUrl: baseUrl),
+        title: 'Lorien',
+        theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.blue),
+        home: const AppShell(),
       ),
     );
   }

@@ -1,16 +1,18 @@
 site_name: Lorien
 nav:
   - Home: README.md
+  - Quickstart: Dev_Quickstart.md
   - Overview: docs/ProjectOverview.md
-  - Design Decisions: docs/DesignDecisions.md
+  - Architecture: docs/Architecture.md
   - API: docs/API.md
+  - UI Guide: docs/UI_Guide.md
+  - Runbook: docs/Runbook.md
+  - Migration: docs/Migration.md
   - Schema: docs/Schema.md
   - Backup & Restore: docs/Backup_Restore.md
   - LLM: docs/LLM_README.md
   - Safety: docs/Medical_Safety.md
-  - Dev Quickstart: docs/Dev_Quickstart.md
-  - WSL: docs/Setup_WSL.md
-  - Release Notes: docs/ReleaseNotes_v6.7.md
+  - Changelog: CHANGELOG.md
 theme:
   name: material
 markdown_extensions:

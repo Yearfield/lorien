@@ -21,9 +21,6 @@ async def health_check(conn: sqlite3.Connection = Depends(get_db_connection)):
     Returns:
         200 with health status, version, database info, and feature flags
     """
-    # Open a short-lived connection for introspection
-    from ..dependencies import get_db_connection
-    conn = await get_db_connection()
     try:
         db_path = get_db_path()
         wal = conn.execute("PRAGMA journal_mode").fetchone()[0]
@@ -39,11 +36,14 @@ async def health_check(conn: sqlite3.Connection = Depends(get_db_connection)):
             "llm": llm_enabled,
             "status": "ok"
         }
-    finally:
-        try:
-            conn.close()
-        except Exception:
-            pass
+    except Exception as e:
+        return {
+            "version": __version__,
+            "db": {"path": None, "journal_mode": None, "tables": 0, "nodes": 0},
+            "llm": False,
+            "status": "error",
+            "error": str(e)
+        }
 
 
 @router.get("/health/metrics")

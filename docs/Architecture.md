@@ -1,36 +1,39 @@
 # Architecture
 
-## Overview
-Cross‑platform decision‑tree tooling with a frozen 8‑column contract and exactly‑5 children invariant.
+Overview
+- Flutter shell with NavigationRail panes talks to a FastAPI VM Core; SQLite stores the tree. EngineLongBow is the only engine.
 
-## Components
-- `core/`: domain logic, validators, invariants (next‑incomplete, exactly‑5 children)
-- `api/`: FastAPI exposing tree navigation, edit, import/export, health, optional LLM
-- `ui_flutter/`: Desktop/mobile UI with Riverpod, GoRouter, Dio
-- `ui_streamlit/`: Dev adapter for prototyping and imports
-- `storage/`: SQLite DAL with WAL + FK enabled
+Diagram
+```
+Flutter Shell (Desktop)
+  Panes: Home | VM Builder | Outcomes | Flags | Settings
+        |                               ^
+        |  REST (JSON + CSV/XLSX)       |
+        v                               |
+FastAPI (VM Core)
+  Routers: health | import | export | tree_basic
+        |   ^                     |
+        |   |                     v
+        |   |               EngineLongBow
+        |   |           (import/preview/export)
+        v   |                     |
+     SQLite (WAL)
+```
 
-## Data Model (SQLite)
+State & validation
+- EngineLongBow is the sole ingest/export engine
+- Option B: ≤5 children enforced at the service layer; DB remains flexible with unique `(parent_id, slot)` in 1..5
+- Depth 0..5, root at depth 0; slots 1..5 for children
+
+Configuration
+- Flutter: `--dart-define=API_BASE` (e.g., `http://127.0.0.1:8000/api/v1`)
+- API: `LORIEN_DB_PATH` points to SQLite file; WAL enabled
+
+Versioning & health
+- All endpoints mounted under `/api/v1`
+- `/api/v1/health` returns: version, DB path, journal mode, table count, node count
+
+Data model (SQLite)
 - `nodes(id, parent_id, depth, slot, label, is_leaf, created_at, updated_at)`
-- Constraints: `UNIQUE(parent_id, slot)`, `CHECK(depth BETWEEN 0 AND 5)`, `CHECK(slot BETWEEN 0 AND 5)`
-- Views: missing slots, next‑incomplete parent, materialized export rows
-
-## API Design
-- RESTful JSON; CSV/XLSX via export endpoints
-- Canonical versioned mount `/api/v1/*` (clients use this). Bare mounts exist for legacy compatibility.
-- Atomic children upsert per parent; 409/422 semantics documented in `docs/API.md`
-
-## CSV Contract
-- Frozen 8‑column header (see `docs/API_HEADER_SOT.md`)
-- UI must call API for CSV/XLSX; no client‑side construction
-
-## Key Design Decisions
-- SQLite + WAL for local durability and simplicity
-- Strict slot semantics (1..5) to ensure consistent tree shape
-- Optional local LLM: OFF by default; guidance‑only
-
-## Workflows
-- Import: Excel/CSV normalization → validate → apply
-- Edit: parent detail with slots → next‑incomplete navigation
-- Export: stream CSV/XLSX from materialized views
-
+- Key constraint: `UNIQUE(parent_id, slot)` enabling ≤5 children via service validation
+- Views/triggers support next‑underfilled queries and metadata integrity

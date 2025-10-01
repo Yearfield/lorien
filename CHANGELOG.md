@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [VM-Core Refresh] - 2025-09-30
+
+### Added/Changed
+- VM Builder promoted to app pane in Flutter shell (NavigationRail)
+- EngineLongBow standardized as the sole engine for import/preview/export
+- Health endpoints extended: `/api/v1/live`, `/api/v1/ready`, enhanced `/api/v1/health`
+- Service-level ≤5 rule enforced (DB flexible with unique `(parent_id, slot)`)
+- Transactional import with `enforce_five=true` rollback on violations
+- Documentation overhaul: README, Dev_Quickstart, Architecture, API, UI Guide, Runbook, Migration
+
 ## [Phase 2] - 2024-12-19
 
 ### Added

@@ -143,3 +143,12 @@ Backend	FastAPI, health + API contracts
 Frontend	Flutter desktop, Riverpod, queues
 Prototyping	Streamlit adapter
 Extensions	Optional LLM suggestion flow
+
+See also
+- README: ./README.md
+- Dev Quickstart: ./Dev_Quickstart.md
+- Architecture: ./docs/Architecture.md
+- API: ./docs/API.md
+- UI Guide: ./docs/UI_Guide.md
+- Runbook: ./docs/Runbook.md
+- Migration: ./docs/Migration.md

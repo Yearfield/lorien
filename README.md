@@ -1,51 +1,45 @@
-# Lorien (LongBow Core + VM Builder)
+# Lorien — VM‑First Builder on LongBow
 
-This repo contains a minimal decision-tree authoring system:
+VM‑first decision‑tree builder; EngineLongBow powers import/export; VM Builder is a core pane in a multi‑pane Flutter shell.
 
-- **EngineLongBow** for bulk import/export via a frozen 8-column header (D0..D6, Notes)
-- **Minimal API** (FastAPI): health, import, export, basic tree operations (roots/children GET, atomic PUT children)
-- **VM Builder (Flutter)**: single screen to author the tree stepwise (pick a root → edit its children → drill down)
-  - Import: In the left panel, choose Replace or Append, pick a CSV/XLSX in the LongBow 8-column header, and click Import. On success, roots refresh automatically.
-  - Breadcrumbs: Click any crumb to jump to that ancestor's children.
-  - Tap a child to drill into it and edit its children
-  - Delete a root via the trash icon; deletion is cascading
-  - **Note**: The database stores any number of children. The editor's 'Next <5' and v_missing_slots view treat '5' as a workflow helper (not a storage constraint).
+- UI: Flutter desktop shell with NavigationRail panes (Home, VM Builder, Outcomes, Flags, Settings)
+- Engine: EngineLongBow is the sole engine for import/preview/apply/export
+- API: FastAPI `/api/v1` with health, import, export, and basic tree editing
 
-## Quick Start
+Key contracts
+- Frozen 8‑column header: D0, D1, D2, D3, D4, D5, D6, Notes
+- Option B rule: service‑level ≤5 children per parent (DB flexible; unique `(parent_id, slot)` on slots 1..5)
+- Transactional import: `POST /api/v1/import?mode=append|replace&enforce_five=true` rolls back on violations (422 with offending parents)
+- Health: `/api/v1/live`, `/api/v1/ready`, enhanced `/api/v1/health` (version, DB path, journal mode, table count, node count)
 
+Quick start
 ```bash
-# Backend
+# Backend (VM Core)
 export LORIEN_DB_PATH=/tmp/lorien.db
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-uvicorn api.main:app --reload --host 127.0.0.1 --port 8000
+uvicorn api.app:app --reload --host 127.0.0.1 --port 8000
 
-# Health
-curl -sS http://127.0.0.1:8000/api/v1/health | jq
+# Health probes
+curl -sS http://127.0.0.1:8000/api/v1/live | jq .
+curl -sS http://127.0.0.1:8000/api/v1/ready | jq .
+curl -sS http://127.0.0.1:8000/api/v1/health | jq .
 
-# Import CSV (LongBow)
-curl -sS -F "file=@/path/to/data.csv;type=text/csv" "http://127.0.0.1:8000/api/v1/import?mode=replace" | jq
-
-# Export CSV
-curl -sS "http://127.0.0.1:8000/api/v1/tree/export?format=csv&limit=100" -o export.csv
-
-# Flutter
-cd ui_flutter && flutter pub get && flutter run -d linux
+# Flutter (Linux example)
+cd ui_flutter
+flutter pub get
+flutter run -d linux --dart-define=API_BASE=http://127.0.0.1:8000/api/v1
 ```
 
-## API Surface
+Links
+- Dev Quickstart: ./Dev_Quickstart.md
+- Architecture: ./docs/Architecture.md
+- API: ./docs/API.md
+- UI Guide: ./docs/UI_Guide.md
+- Runbook: ./docs/Runbook.md
+- Migration: ./docs/Migration.md
 
-- `GET /api/v1/health`
-- `POST /api/v1/import?mode=replace|append` (EngineLongBow)
-- `GET /api/v1/tree/export?format=csv|xlsx`
-- `GET /api/v1/tree/roots`
-- `GET /api/v1/tree/children?parent_id=<id>`
-- `PUT /api/v1/tree/children` — atomic replace children for a parent
-- `DELETE /api/v1/tree/root?root_id=<id>` — delete root and its subtree
-- `GET /api/v1/tree/node?node_id=<id>` — get node details for navigation
-
-## Structure
-
-- `api/` — FastAPI app, migrations, minimal routers
-- `Engines/EngineLongBow/` — ingest/store/present
-- `ui_flutter/` — VM Builder only
+Structure
+- `api/` — FastAPI app, VM Core routers, settings
+- `Engines/EngineLongBow/` — ingest/store/present for the 8‑column contract
+- `ui_flutter/` — multi‑pane Flutter shell with VM Builder as the authoring spine

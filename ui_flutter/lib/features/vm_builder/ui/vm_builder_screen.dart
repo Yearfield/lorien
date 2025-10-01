@@ -44,23 +44,30 @@ class _VmBuilderScreenState extends State<VmBuilderScreen> {
             const SizedBox(height: 8),
             Row(
               children: [
-                StatefulBuilder(builder: (context, setState) {
-                  return Row(children: [
-                    Radio<String>(
-                      value: 'replace',
-                      groupValue: mode,
-                      onChanged: s.importing ? null : (v) => setState(() => mode = v!),
-                    ),
-                    const Text('Replace'),
-                    const SizedBox(width: 12),
-                    Radio<String>(
-                      value: 'append',
-                      groupValue: mode,
-                      onChanged: s.importing ? null : (v) => setState(() => mode = v!),
-                    ),
-                    const Text('Append'),
-                  ]);
-                }),
+                Flexible(
+                  child: StatefulBuilder(builder: (context, setState) {
+                    return Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Radio<String>(
+                          value: 'replace',
+                          groupValue: mode,
+                          onChanged: s.importing ? null : (v) => setState(() => mode = v!),
+                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        const Flexible(child: Text('Replace')),
+                        const SizedBox(width: 8),
+                        Radio<String>(
+                          value: 'append',
+                          groupValue: mode,
+                          onChanged: s.importing ? null : (v) => setState(() => mode = v!),
+                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        const Flexible(child: Text('Append')),
+                      ],
+                    );
+                  }),
+                ),
                 const Spacer(),
                 ElevatedButton(
                   onPressed: s.importing ? null : () async {
