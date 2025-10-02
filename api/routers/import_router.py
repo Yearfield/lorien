@@ -4,8 +4,8 @@ from fastapi.responses import JSONResponse
 from api.dependencies import get_db_connection
 from Engines.EngineLongBow import ingest_file, apply_import, apply_import_with_metadata, FROZEN_HEADER
 from Engines.EngineLongBow.ingest import read_file, extract_paths
-from Engines.EngineLongBow.importer import import_rows, ImportOptions, CANONICAL_HEADER
-from .helpers import parse_csv_or_xlsx
+from Engines.EngineLongBow.importer import import_rows, ImportOptions
+from .helpers import parse_csv_or_xlsx, coerce_rows_to_canonical, CANONICAL_HEADER
 import sqlite3
 from typing import Dict, Any, List, Tuple, Optional
 from collections import defaultdict
@@ -95,13 +95,13 @@ async def import_apply(
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"parse_error: {e}")
 
-    # Light header sanity (tolerate case/spacing but require D0..D6 present)
     if not rows:
         return {"ok": True, "inserted": 0}
-    first = rows[0]
-    missing = [h for h in CANONICAL_HEADER[:7] if h not in first]
-    if missing:
-        raise HTTPException(status_code=400, detail=f"bad_header: missing {missing}")
+    # Coerce to canonical columns; never 400 for minor header variations
+    try:
+        rows = coerce_rows_to_canonical(rows)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"bad_header: {e}")
 
     try:
         result = import_rows(conn, rows, ImportOptions(mode=mode, enforce_five=enforce_five))

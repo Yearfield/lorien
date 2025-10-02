@@ -21,10 +21,10 @@ DROP TRIGGER IF EXISTS tr_triage_touch_on_update;
 CREATE TABLE IF NOT EXISTS nodes__new (
     id         INTEGER PRIMARY KEY,
     parent_id  INTEGER NULL REFERENCES nodes(id) ON DELETE CASCADE,
-    depth      INTEGER NOT NULL CHECK (depth BETWEEN 0 AND 5),
+    depth      INTEGER NOT NULL CHECK (depth BETWEEN 0 AND 6),
     slot       INTEGER NULL CHECK (
         (parent_id IS NULL AND slot IS NULL AND depth = 0) OR
-        (parent_id IS NOT NULL AND slot IS NOT NULL AND slot >= 1 AND depth BETWEEN 1 AND 5)
+        (parent_id IS NOT NULL AND slot IS NOT NULL AND slot >= 1 AND depth BETWEEN 1 AND 6)
     ),
     label      TEXT    NOT NULL,
     is_leaf    INTEGER NOT NULL DEFAULT 0,
