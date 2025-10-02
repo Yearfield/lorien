@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Query, Depends
 from fastapi.responses import JSONResponse, StreamingResponse
-from Engines.EngineLongBow import export_paths, export_paths_to_csv, export_paths_to_xlsx
+from Engines.EngineLongBow import export_paths, export_paths_to_csv, export_paths_to_xlsx, ExportEngine, ExportOptions
 from api.dependencies import get_db_connection
 import datetime
 import io
 import sqlite3
-from typing import Optional
+from typing import Optional, Set
 
 router = APIRouter()
 
@@ -48,17 +48,51 @@ def tree_export(limit: int = Query(50, ge=1, le=500), offset: int = Query(0, ge=
 # ---- CANONICAL ROUTES ----
 @router.get("/tree/export", name="tree_export_csv")
 @router.head("/tree/export")
-def export_csv(format: str = Query("csv"), root_id: Optional[int] = Query(None), limit: Optional[int] = Query(None), conn: sqlite3.Connection = Depends(get_db_connection)):
-    # Use EngineLongBow to export CSV with provided connection
-    csv_data = export_paths_to_csv(root_id=root_id, limit=limit, conn=conn)
-    return _csv_response(csv_data.encode('utf-8'))
+def export_csv(
+    format: str = Query("csv", description="Export format: csv or xlsx"),
+    max_depth: Optional[int] = Query(None, description="Maximum depth to export"),
+    root_ids: Optional[str] = Query(None, description="Comma-separated root IDs to filter"),
+    root_labels: Optional[str] = Query(None, description="Comma-separated root labels to filter"),
+    only_red: bool = Query(False, description="Only export red-flagged paths"),
+    include_meta: bool = Query(False, description="Include metadata columns"),
+    filename: Optional[str] = Query(None, description="Custom filename for download"),
+    conn: sqlite3.Connection = Depends(get_db_connection)
+):
+    # Parse root_ids and root_labels
+    root_id_set = None
+    if root_ids:
+        try:
+            root_id_set = {int(x.strip()) for x in root_ids.split(",") if x.strip()}
+        except ValueError:
+            # If parsing fails, ignore the parameter
+            root_id_set = None
+    
+    root_label_set = None
+    if root_labels:
+        root_label_set = {x.strip() for x in root_labels.split(",") if x.strip()}
+    
+    # Create export options
+    opts = ExportOptions(
+        fmt=format,
+        max_depth=max_depth if max_depth and max_depth > 0 else None,
+        root_ids=root_id_set,
+        root_labels=root_label_set,
+        only_red=only_red,
+        include_meta=include_meta,
+        filename=filename,
+    )
+    
+    # Use ExportEngine for the export
+    engine = ExportEngine(conn, opts)
+    return engine.export()
 
 @router.get("/tree/export.xlsx", name="tree_export_xlsx")
 @router.head("/tree/export.xlsx")
 def export_xlsx(conn: sqlite3.Connection = Depends(get_db_connection)):
-    # Use EngineLongBow to export XLSX with provided connection
-    xlsx_data = export_paths_to_xlsx(conn=conn)
-    return _xlsx_response(xlsx_data)
+    # Use ExportEngine for XLSX export with default options
+    opts = ExportOptions(fmt="xlsx")
+    engine = ExportEngine(conn, opts)
+    return engine.export()
 
 # ---- Backward-compat ALIASES (keep until all clients updated) ----
 @router.get("/export/csv", name="export_csv_alias")

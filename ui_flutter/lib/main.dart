@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:provider/provider.dart' as provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/api_config.dart';
 import 'core/health_state.dart';
 import 'shell/app_shell.dart';
@@ -13,12 +14,14 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => HealthState(),
-      child: MaterialApp(
-        title: 'Lorien',
-        theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.blue),
-        home: const AppShell(),
+    return ProviderScope(
+      child: provider.ChangeNotifierProvider(
+        create: (_) => HealthState(),
+        child: MaterialApp(
+          title: 'Lorien',
+          theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.blue),
+          home: const AppShell(),
+        ),
       ),
     );
   }

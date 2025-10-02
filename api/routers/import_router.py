@@ -4,6 +4,8 @@ from fastapi.responses import JSONResponse
 from api.dependencies import get_db_connection
 from Engines.EngineLongBow import ingest_file, apply_import, apply_import_with_metadata, FROZEN_HEADER
 from Engines.EngineLongBow.ingest import read_file, extract_paths
+from Engines.EngineLongBow.importer import import_rows, ImportOptions, CANONICAL_HEADER
+from .helpers import parse_csv_or_xlsx
 import sqlite3
 from typing import Dict, Any, List, Tuple, Optional
 from collections import defaultdict
@@ -40,27 +42,35 @@ async def import_preview(file: UploadFile = File(...)):
     """Preview import without writing to database - shows detected paths."""
     try:
         file_content = await file.read()
+        rows = parse_csv_or_xlsx(file_content, file.filename)
     except Exception as e:
         raise HTTPException(
-            status_code=422,
+            status_code=400,
             detail=[{"loc": ["body", "file"], "msg": f"Could not read file: {str(e)}", "type":"value_error.file_read"}]
         )
     
     try:
-        # Read DataFrame and extract canonical paths (without DB writes)
-        df = read_file(file_content, file.filename)
-        paths = extract_paths(df)  # List[List[str]] length 7 for D0..D6
-
-        # File-only guard: highlight parents that would exceed limit
-        errors = _group_overfive_within_file(paths, limit=5)
-
+        issues: List[Dict[str, Any]] = []
+        # Shallow pass: check that each row starts at D0 and depth never exceeds 6
+        for idx, r in enumerate(rows, start=2):
+            path = [ (i, (r.get(h) or "").strip()) for i, h in enumerate(CANONICAL_HEADER[:7]) ]
+            nonempty = [(d, v) for (d, v) in path if v]
+            if not nonempty:
+                continue
+            # Ensure first is D0
+            if nonempty[0][0] != 0:
+                issues.append({"row": idx, "msg": "path must start at D0 (root)", "type": "value_error.path"})
+            # Ensure no D7+
+            if any(d > 6 for (d, _) in nonempty):
+                issues.append({"row": idx, "msg": "depth exceeds D6", "type": "value_error.max_depth"})
+        
         return JSONResponse(
             status_code=200,
             content={
                 "ok": True,
-                "header": FROZEN_HEADER,
-                "stats": {"found_paths": len(paths)},
-                "errors": errors,  # clients show this as preview banner/list
+                "header": CANONICAL_HEADER,
+                "stats": {"found_paths": len(rows)},
+                "errors": issues,  # clients show this as preview banner/list
             },
         )
     except Exception as e:
@@ -81,53 +91,27 @@ async def import_apply(
     """
     try:
         blob = await file.read()
-        # Begin explicit transaction
-        conn.isolation_level = None
-        conn.execute("BEGIN IMMEDIATE")
-        result = apply_import_with_metadata(conn=conn, file_bytes=blob, mode=mode)
-
-        if enforce_five:
-            # Validate post-apply state
-            over = conn.execute(
-                """
-                WITH c AS (
-                  SELECT parent_id, COUNT(*) AS cnt
-                  FROM nodes
-                  WHERE parent_id IS NOT NULL
-                  GROUP BY parent_id
-                )
-                SELECT c.parent_id, n.label, c.cnt
-                FROM c
-                JOIN nodes n ON n.id = c.parent_id
-                WHERE c.cnt > 5
-                ORDER BY c.cnt DESC, c.parent_id ASC
-                """
-            ).fetchall()
-            if over:
-                conn.execute("ROLLBACK")
-                return JSONResponse(
-                    status_code=422,
-                    content={
-                        "ok": False,
-                        "error": "value_error.max_children",
-                        "detail": [
-                            {"parent_id": r[0], "parent_label": r[1], "count": r[2], "msg": "parent ends with >5 children"}
-                            for r in over
-                        ],
-                    },
-                )
-
-        conn.execute("COMMIT")
-        return {"ok": True, "result": getattr(result, "__dict__", {})}
-    except HTTPException:
-        try:
-            conn.execute("ROLLBACK")
-        except Exception:
-            pass
-        raise
+        rows = parse_csv_or_xlsx(blob, file.filename)
     except Exception as e:
-        try:
-            conn.execute("ROLLBACK")
-        except Exception:
-            pass
-        raise HTTPException(status_code=500, detail=[{"loc": ["body"], "msg": str(e), "type": "runtime_error"}])
+        raise HTTPException(status_code=400, detail=f"parse_error: {e}")
+
+    # Light header sanity (tolerate case/spacing but require D0..D6 present)
+    if not rows:
+        return {"ok": True, "inserted": 0}
+    first = rows[0]
+    missing = [h for h in CANONICAL_HEADER[:7] if h not in first]
+    if missing:
+        raise HTTPException(status_code=400, detail=f"bad_header: missing {missing}")
+
+    try:
+        result = import_rows(conn, rows, ImportOptions(mode=mode, enforce_five=enforce_five))
+        return result
+    except RuntimeError as e:
+        # Known validation issue (≤5, malformed path, etc.)
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        # Surface sqlite constraint in a readable way
+        msg = str(e)
+        if "CHECK constraint failed" in msg:
+            raise HTTPException(status_code=422, detail=f"constraint_error: {msg}")
+        raise HTTPException(status_code=500, detail=f"import_error: {msg}")

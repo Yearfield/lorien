@@ -28,17 +28,17 @@ def _get_or_create_node(conn: sqlite3.Connection, parent_id: int | None, depth: 
     cur = conn.cursor()
     
     if parent_id is None:
-        # Root node - compare column label to normalized param
+        # Root node - always use depth=0 to satisfy constraint
         cur.execute("""
           SELECT id FROM nodes
-          WHERE parent_id IS NULL AND depth=? AND lower(trim(label)) = ?
-        """, (depth, nlabel))
+          WHERE parent_id IS NULL AND depth=0 AND lower(trim(label)) = ?
+        """, (nlabel,))
         row = cur.fetchone()
         if row:
             nid = row[0]
         else:
-            cur.execute("INSERT INTO nodes (parent_id, depth, slot, label) VALUES (NULL, ?, NULL, ?)",
-                        (depth, raw_label))
+            cur.execute("INSERT INTO nodes (parent_id, depth, slot, label) VALUES (NULL, 0, NULL, ?)",
+                        (raw_label,))
             nid = cur.lastrowid
     else:
         # Child node - contextual by parent, compare column label to normalized param
@@ -441,11 +441,16 @@ def _process_paths_contextual(conn: sqlite3.Connection, paths: List[List[str]], 
     for path in paths:
         if not path:
             continue
+        
+        # Filter out empty labels and track actual depth
+        filtered_path = [label for label in path if label and label.strip()]
+        if not filtered_path:
+            continue
             
         parent_id = None
-        for depth, label in enumerate(path):
+        for actual_depth, label in enumerate(filtered_path):
             # Create or get node contextually
-            node_id = _get_or_create_node(conn, parent_id, depth, label)
+            node_id = _get_or_create_node(conn, parent_id, actual_depth, label)
             result.inserted_nodes += 1
             
             # Update parent for next iteration

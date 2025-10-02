@@ -15,8 +15,9 @@ CREATE TABLE IF NOT EXISTS nodes (
   label     TEXT NOT NULL,       -- Duplicates allowed (no UNIQUE on label)
   is_leaf   INTEGER NOT NULL DEFAULT 0,
 
-  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  -- Timestamps: present from baseline so later trigger migrations can rely on them
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
   CHECK ( (depth = 0 AND parent_id IS NULL) OR (depth > 0 AND parent_id IS NOT NULL) )
 );

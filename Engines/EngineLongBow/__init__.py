@@ -14,6 +14,8 @@ Components:
 from .ingest import ingest_file, read_file, extract_paths, validate_header
 from .store import apply_import, apply_import_with_metadata, ImportResult
 from .present import export_paths, export_paths_to_csv, export_paths_to_xlsx
+from .exporter import ExportEngine, ExportOptions
+from .importer import import_rows, ImportOptions, CANONICAL_HEADER
 from .consts import FROZEN_HEADER, PATH_COLUMNS, NOTES_COLUMN
 
 __all__ = [
@@ -27,6 +29,11 @@ __all__ = [
     "export_paths",
     "export_paths_to_csv",
     "export_paths_to_xlsx",
+    "ExportEngine",
+    "ExportOptions",
+    "import_rows",
+    "ImportOptions",
+    "CANONICAL_HEADER",
     "FROZEN_HEADER",
     "PATH_COLUMNS",
     "NOTES_COLUMN"
