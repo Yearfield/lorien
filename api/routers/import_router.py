@@ -5,6 +5,7 @@ from api.dependencies import get_db_connection
 from Engines.EngineLongBow import ingest_file, apply_import, apply_import_with_metadata, FROZEN_HEADER
 from Engines.EngineLongBow.ingest import read_file, extract_paths
 from Engines.EngineLongBow.importer import import_rows, ImportOptions
+from Engines.EngineLongBow.import_analyzer import analyze_max_children
 from .helpers import parse_csv_or_xlsx, coerce_rows_to_canonical, CANONICAL_HEADER
 import sqlite3
 from typing import Dict, Any, List, Tuple, Optional
@@ -38,7 +39,10 @@ def _group_overfive_within_file(paths: List[List[str]], limit: int = 5) -> List[
 
 
 @router.post("/import/preview")
-async def import_preview(file: UploadFile = File(...)):
+async def import_preview(
+    file: UploadFile = File(...),
+    conn: sqlite3.Connection = Depends(get_db_connection)
+):
     """Preview import without writing to database - shows detected paths."""
     try:
         file_content = await file.read()
@@ -49,20 +53,25 @@ async def import_preview(file: UploadFile = File(...)):
             detail=[{"loc": ["body", "file"], "msg": f"Could not read file: {str(e)}", "type":"value_error.file_read"}]
         )
     
+    # Coerce to canonical columns
     try:
-        issues: List[Dict[str, Any]] = []
-        # Shallow pass: check that each row starts at D0 and depth never exceeds 6
+        rows = coerce_rows_to_canonical(rows)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"bad_header: {e}")
+    
+    try:
+        # Header coercion already applied above
+        issues = []
+        # Basic path checks
         for idx, r in enumerate(rows, start=2):
-            path = [ (i, (r.get(h) or "").strip()) for i, h in enumerate(CANONICAL_HEADER[:7]) ]
-            nonempty = [(d, v) for (d, v) in path if v]
-            if not nonempty:
-                continue
-            # Ensure first is D0
-            if nonempty[0][0] != 0:
+            # Check if row has any non-empty values
+            has_content = any((r.get(f"D{d}") or "").strip() for d in range(7))
+            if has_content and (r.get("D0") or "").strip() == "":
                 issues.append({"row": idx, "msg": "path must start at D0 (root)", "type": "value_error.path"})
-            # Ensure no D7+
-            if any(d > 6 for (d, _) in nonempty):
+            if any((r.get(f"D{d}") or "").strip() for d in range(7, 10)):  # future-proof
                 issues.append({"row": idx, "msg": "depth exceeds D6", "type": "value_error.max_depth"})
+        # Max-children preflight (append considered against DB)
+        max_children = analyze_max_children(conn, rows, mode="append")
         
         return JSONResponse(
             status_code=200,
@@ -70,7 +79,7 @@ async def import_preview(file: UploadFile = File(...)):
                 "ok": True,
                 "header": CANONICAL_HEADER,
                 "stats": {"found_paths": len(rows)},
-                "errors": issues,  # clients show this as preview banner/list
+                "errors": issues + max_children,  # clients show this as preview banner/list
             },
         )
     except Exception as e:
@@ -104,6 +113,10 @@ async def import_apply(
         raise HTTPException(status_code=400, detail=f"bad_header: {e}")
 
     try:
+        # Preflight: fail fast with structured 422 if >5 children would happen
+        violations = analyze_max_children(conn, rows, mode=mode)
+        if violations:
+            raise HTTPException(status_code=422, detail=violations)
         result = import_rows(conn, rows, ImportOptions(mode=mode, enforce_five=enforce_five))
         return result
     except RuntimeError as e:

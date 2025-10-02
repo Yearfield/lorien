@@ -102,8 +102,7 @@ def import_rows(conn: sqlite3.Connection, rows: List[Dict[str, Any]], opts: Impo
                 used = set(mapping.values())
                 slot = next((i for i in range(1,6) if i not in used), None)
                 if slot is None:
-                    # let service-level guard catch this (≤5), but we fail early with clear message
-                    raise RuntimeError("value_error.max_children: parent already has 5 distinct children")
+                    raise RuntimeError("value_error.max_children: parent already has 5 distinct children (see /import/preview for details)")
                 mapping[labn] = slot
             cur = conn.execute(
                 "INSERT INTO nodes (parent_id, depth, slot, label) VALUES (?, ?, ?, ?)",
