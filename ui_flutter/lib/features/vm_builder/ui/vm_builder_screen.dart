@@ -352,7 +352,25 @@ class _VmBuilderScreenState extends State<VmBuilderScreen> {
                                     // Delete button
                                     IconButton(
                                       icon: const Icon(Icons.delete),
-                                      onPressed: () => s.removeChildAt(i),
+                                      onPressed: () async {
+                                        final parentId = s.currentParentId!;
+                                        final nodeId = child['id'] as int;
+                                        await s.deleteNodeWithUndo(nodeId, parentId: parentId);
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: const Text('Node deleted'),
+                                              action: SnackBarAction(
+                                                label: 'Undo',
+                                                onPressed: () async {
+                                                  await s.undoLastDelete(parentId: parentId);
+                                                },
+                                              ),
+                                              duration: const Duration(seconds: 6),
+                                            ),
+                                          );
+                                        }
+                                      },
                                     ),
                                   ],
                                 ),

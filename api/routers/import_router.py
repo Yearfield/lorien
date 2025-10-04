@@ -91,7 +91,7 @@ async def import_preview(
 @router.post("/import")
 async def import_apply(
     mode: str = Query(default="append", regex="^(append|replace)$"),
-    enforce_five: bool = Query(default=True),
+    enforce_five: bool = Query(default=False),  # IMPORT DOES NOT ENFORCE by default
     file: UploadFile = File(...),
     conn: sqlite3.Connection = Depends(get_db_connection),
 ):
@@ -113,11 +113,10 @@ async def import_apply(
         raise HTTPException(status_code=400, detail=f"bad_header: {e}")
 
     try:
-        # Preflight: fail fast with structured 422 if >5 children would happen
-        violations = analyze_max_children(conn, rows, mode=mode)
-        if violations:
-            raise HTTPException(status_code=422, detail=violations)
-        result = import_rows(conn, rows, ImportOptions(mode=mode, enforce_five=enforce_five))
+        # Import never enforces ≤5; it just writes. We attach preview-style warnings for visibility.
+        warnings = analyze_max_children(conn, rows, mode=mode)
+        result = import_rows(conn, rows, ImportOptions(mode=mode, enforce_five=False))
+        result["warnings"] = warnings  # surfaced to UI, but not an error
         return result
     except RuntimeError as e:
         # Known validation issue (≤5, malformed path, etc.)

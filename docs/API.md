@@ -82,10 +82,32 @@ Tree (editing/navigation)
   - `PUT /api/v1/tree/edge/flag` (body: `{ "parent_id": 1, "child_id": 2, "red_flag": true }`) → `{ "ok": true, ... }`
 
 Export
-- CSV (canonical): `GET /api/v1/tree/export` → `text/csv` with frozen header
-- XLSX: `GET /api/v1/tree/export.xlsx` → spreadsheet with the same columns
+- CSV (canonical): `GET /api/v1/tree/export?format=csv` → `text/csv` with frozen header
+- XLSX: `GET /api/v1/tree/export?format=xlsx` → spreadsheet with the same columns
 - JSON (dev aid): `GET /api/v1/tree/export-json`
+- Filters: `max_depth`, `only_red`, `include_meta`, `root_ids` (comma-separated)
 - Aliases (legacy): `/api/v1/export/csv`, `/api/v1/export.xlsx`
+
+Conflicts (Label-only resolution)
+- Scan: `GET /api/v1/conflicts/scan` → 
+  ```json
+  [
+    {
+      "label": "hypertension",
+      "occurrences": 3,
+      "union_children": ["headache", "nausea", "vomiting", "chest pain", "myalgia", "dizziness"],
+      "parents": [
+        {"parent_id": 12, "depth": 1, "children": ["headache", "nausea", "vomiting"]},
+        {"parent_id": 44, "depth": 2, "children": ["headache", "chest pain", "myalgia"]},
+        {"parent_id": 67, "depth": 3, "children": ["dizziness", "nausea", "vomiting"]}
+      ]
+    }
+  ]
+  ```
+- Resolve: `POST /api/v1/conflicts/resolve` (body: `{ "label": "hypertension", "selected_children": ["headache", "nausea", "vomiting", "chest pain", "myalgia"], "dry_run": false }`)
+  - 200: `{ "updated_parents": 3, "children_per_parent": 5, "parents": [...] }`
+  - 422 (too many children): `{ "detail": [{"loc": ["selected_children"], "msg": "too many children: 6>5", "type": "value_error.max_children"}] }`
+  - 422 (max depth): `{ "detail": [{"loc": ["label"], "msg": "parent at max depth; cannot add children beyond D6", "type": "value_error.max_depth"}] }`
 
 Curl examples
 ```bash
@@ -96,12 +118,21 @@ curl -sS -F "file=@data.csv;type=text/csv" http://127.0.0.1:8000/api/v1/import/p
 curl -sS -F "file=@data.csv;type=text/csv" \
   "http://127.0.0.1:8000/api/v1/import?mode=replace&enforce_five=true" | jq .
 
-# Export CSV / XLSX
-curl -L "http://127.0.0.1:8000/api/v1/tree/export" -o tree.csv
-curl -L "http://127.0.0.1:8000/api/v1/tree/export.xlsx" -o tree.xlsx
+# Export CSV / XLSX with filters
+curl -L "http://127.0.0.1:8000/api/v1/tree/export?format=csv" -o tree.csv
+curl -L "http://127.0.0.1:8000/api/v1/tree/export?format=xlsx&max_depth=3&only_red=true" -o tree.xlsx
+
+# Conflicts scan and resolve
+curl -sS http://127.0.0.1:8000/api/v1/conflicts/scan | jq
+curl -sS -X POST -H "Content-Type: application/json" \
+  -d '{"label":"hypertension","selected_children":["headache","nausea","vomiting","chest pain","myalgia"],"dry_run":true}' \
+  http://127.0.0.1:8000/api/v1/conflicts/resolve | jq
 ```
 
 Contracts & rules
 - Frozen header exactly: `D0..D6, Notes`
 - Option B ≤5 enforced at API/import; DB flexible via unique `(parent_id, slot)`
 - Import is transactional when `enforce_five=true` (rollback on violations)
+- Conflicts resolution applies to all parents with matching label across all depths
+- Max depth enforcement: parents at D6 cannot have children (would exceed D6 limit)
+- Label normalization: case-insensitive, trimmed whitespace for conflict detection

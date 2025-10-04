@@ -2,14 +2,16 @@
 
 VM‑first decision‑tree builder; EngineLongBow powers import/export; VM Builder is a core pane in a multi‑pane Flutter shell.
 
-- UI: Flutter desktop shell with NavigationRail panes (Home, VM Builder, Outcomes, Flags, Settings)
+- UI: Flutter desktop shell with NavigationRail panes (Home dashboard, VM Builder, Outcomes, Flags, Settings)
 - Engine: EngineLongBow is the sole engine for import/preview/apply/export
-- API: FastAPI `/api/v1` with health, import, export, and basic tree editing
+- API: FastAPI `/api/v1` with health, import, export, conflicts resolution, and tree editing
 
 Key contracts
 - Frozen 8‑column header: D0, D1, D2, D3, D4, D5, D6, Notes
 - Option B rule: service‑level ≤5 children per parent (DB flexible; unique `(parent_id, slot)` on slots 1..5)
 - Transactional import: `POST /api/v1/import?mode=append|replace&enforce_five=true` rolls back on violations (422 with offending parents)
+- Conflicts resolution: label-only grouping across all depths with cross-depth resolution capabilities
+- Enhanced export: CSV/XLSX with filters (max_depth, only_red, include_meta, root_ids)
 - Health: `/api/v1/live`, `/api/v1/ready`, enhanced `/api/v1/health` (version, DB path, journal mode, table count, node count)
 
 Quick start
@@ -25,6 +27,12 @@ curl -sS http://127.0.0.1:8000/api/v1/live | jq .
 curl -sS http://127.0.0.1:8000/api/v1/ready | jq .
 curl -sS http://127.0.0.1:8000/api/v1/health | jq .
 
+# Conflicts resolution
+curl -sS http://127.0.0.1:8000/api/v1/conflicts/scan | jq
+curl -sS -X POST -H "Content-Type: application/json" \
+  -d '{"label":"hypertension","selected_children":["headache","nausea","vomiting","chest pain","myalgia"],"dry_run":true}' \
+  http://127.0.0.1:8000/api/v1/conflicts/resolve | jq
+
 # Flutter (Linux example)
 cd ui_flutter
 flutter pub get
@@ -36,6 +44,7 @@ Links
 - Architecture: ./docs/Architecture.md
 - API: ./docs/API.md
 - UI Guide: ./docs/UI_Guide.md
+- Conflicts Resolution: ./docs/Conflicts_Resolution.md
 - Runbook: ./docs/Runbook.md
 - Migration: ./docs/Migration.md
 

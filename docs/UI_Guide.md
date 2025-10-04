@@ -1,7 +1,7 @@
 # UI Guide (Flutter Shell)
 
 Panes (NavigationRail)
-- Home: high-level welcome/status
+- Home: dashboard with conflicts resolution, export tools, and submission placeholders
 - VM Builder: primary authoring pane (roots list, children editor, breadcrumbs)
 - Outcomes: read-only outcomes view (future extensibility)
 - Flags: filter and visualize red-flagged edges
@@ -20,9 +20,24 @@ Switching API targets
 - Use Flutter define: `--dart-define=API_BASE=http://127.0.0.1:8000/api/v1`
 - Default when unset: `http://127.0.0.1:8000/api/v1`
 
+Home Dashboard
+- Conflicts Card: scan for label conflicts across all depths, select union children (≤5), dry run preview, apply resolution
+- Export Card: CSV/XLSX format selection, depth/root filters, native file picker save dialog, URL copy
+- New Submission Card: placeholder for future bulk submission workflows
+
+Conflicts Resolution
+- Scan: `GET /api/v1/conflicts/scan` finds parents with same label but different child sets
+- Detail Panel: shows union of all child labels as selectable chips (≤5 limit enforced)
+- Dry Run: `POST /api/v1/conflicts/resolve` with `dry_run=true` shows changes without applying
+- Apply: `POST /api/v1/conflicts/resolve` applies selected children to all matching parents
+- Cross-depth: resolution applies to all parents with matching label regardless of depth
+
 Export actions
-- CSV: `GET /api/v1/tree/export` (download from the right header)
-- XLSX: `GET /api/v1/tree/export.xlsx`
+- CSV/XLSX: `GET /api/v1/tree/export?format=csv|xlsx` with filters
+- Native file picker: save dialog with proper file extensions
+- URL copy: shareable export links with current filter settings
 
 Notes
 - Service-level ≤5 rule: the editor enforces ≤5 children; DB remains flexible via unique `(parent_id, slot)`
+- Label-only conflicts: grouped by normalized label (case-insensitive, trimmed) across all depths
+- Max depth enforcement: prevents adding children to D6 parents (would exceed D6 limit)

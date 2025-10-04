@@ -22,7 +22,7 @@ CREATE TABLE nodes_new (
   depth INTEGER NOT NULL CHECK (depth BETWEEN 0 AND 6),
   slot INTEGER NULL CHECK (
     (parent_id IS NULL AND slot IS NULL AND depth = 0) OR
-    (parent_id IS NOT NULL AND slot BETWEEN 1 AND 5 AND depth BETWEEN 1 AND 6)
+    (parent_id IS NOT NULL AND slot >= 1 AND depth BETWEEN 1 AND 6)
   ),
   label TEXT NOT NULL,
   is_leaf INTEGER NOT NULL DEFAULT 0,
@@ -70,6 +70,11 @@ SELECT
         WHEN NOT EXISTS (SELECT 1 FROM nodes c WHERE c.parent_id = p.id AND c.slot = 3) THEN '3'
         WHEN NOT EXISTS (SELECT 1 FROM nodes c WHERE c.parent_id = p.id AND c.slot = 4) THEN '4'
         WHEN NOT EXISTS (SELECT 1 FROM nodes c WHERE c.parent_id = p.id AND c.slot = 5) THEN '5'
+        WHEN NOT EXISTS (SELECT 1 FROM nodes c WHERE c.parent_id = p.id AND c.slot = 6) THEN '6'
+        WHEN NOT EXISTS (SELECT 1 FROM nodes c WHERE c.parent_id = p.id AND c.slot = 7) THEN '7'
+        WHEN NOT EXISTS (SELECT 1 FROM nodes c WHERE c.parent_id = p.id AND c.slot = 8) THEN '8'
+        WHEN NOT EXISTS (SELECT 1 FROM nodes c WHERE c.parent_id = p.id AND c.slot = 9) THEN '9'
+        WHEN NOT EXISTS (SELECT 1 FROM nodes c WHERE c.parent_id = p.id AND c.slot = 10) THEN '10'
         ELSE NULL
       END, ', '
     )
@@ -97,7 +102,7 @@ FROM nodes p
 LEFT JOIN nodes c ON c.parent_id = p.id
 WHERE p.depth < 6
 GROUP BY p.id, p.label, p.depth
-HAVING child_count < 5
+HAVING child_count = 0
 ORDER BY p.depth, p.id
 LIMIT 1;
 

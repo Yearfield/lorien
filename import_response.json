@@ -1,4 +1,4 @@
   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
                                  Dload  Upload   Total   Spent    Left  Speed
-  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100   697  100   251  100   446  27823  49440 --:--:-- --:--:-- --:--:-- 77444100   697  100   251  100   446  27374  48642 --:--:-- --:--:-- --:--:-- 69700
-{"detail":"import_error: 422: [{'type': 'value_error.max_children', 'parent_path': 'cough', 'parent_depth': 1, 'unique_children': 7, 'children': ['dry', 'fever', 'hemoptysis', 'shortness', 'stridor', 'wet', 'wheeze'], 'rows': [3, 4, 5, 6, 7, 8, 9]}]"}
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100   496  100    67  100   429  15610  99953 --:--:-- --:--:-- --:--:--  121k
+{"detail":"value_error.malformed_path: row 2 has D1 but no parent"}

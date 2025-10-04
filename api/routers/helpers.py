@@ -26,7 +26,8 @@ _SYN = {
     "D4":"D4","DEPTH4":"D4","LEVEL4":"D4","L4":"D4","R4":"D4","CHILD4":"D4",
     "D5":"D5","DEPTH5":"D5","LEVEL5":"D5","L5":"D5","R5":"D5","CHILD5":"D5",
     "D6":"D6","DEPTH6":"D6","LEVEL6":"D6","L6":"D6","R6":"D6","CHILD6":"D6",
-    "NOTES":"NOTES","NOTE":"NOTES","NOTESFIELD":"NOTES","COMMENT":"NOTES","COMMENTS":"NOTES",
+    # Map all note-like headers to canonical 'Notes' (proper case)
+    "NOTES":"Notes","NOTE":"Notes","NOTESFIELD":"Notes","COMMENT":"Notes","COMMENTS":"Notes",
 }
 
 def coerce_rows_to_canonical(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -51,9 +52,8 @@ def coerce_rows_to_canonical(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]
     missing = [k for k in CANONICAL_HEADER if k not in have]
 
     if missing:
-        # Fallback by position: consume headers left-to-right for D0..D6, then Notes
-        # Find candidate headers with data-like names (exclude obvious non-data like EMPTY/UNNAMED)
-        usable = [h for h in raw_headers]
+        # Fallback by position: assign only from headers that did not map via synonyms
+        usable = [h for h in raw_headers if not mapped.get(h)]
         # Assign remaining D0..D6 first
         pos_idx = 0
         for dk in ["D0","D1","D2","D3","D4","D5","D6"]:
@@ -61,12 +61,13 @@ def coerce_rows_to_canonical(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]
                 continue
             if pos_idx < len(usable):
                 mapped[usable[pos_idx]] = dk
+                have.add(dk)
                 pos_idx += 1
-        # If Notes is still missing, assign next position as Notes
-        if "Notes" not in have:
-            if pos_idx < len(usable):
-                mapped[usable[pos_idx]] = "Notes"
-                pos_idx += 1
+        # If Notes is still missing, assign next available unmapped header as Notes
+        if "Notes" not in have and pos_idx < len(usable):
+            mapped[usable[pos_idx]] = "Notes"
+            have.add("Notes")
+            pos_idx += 1
 
     # Now produce canonical row dicts
     out: List[Dict[str, Any]] = []

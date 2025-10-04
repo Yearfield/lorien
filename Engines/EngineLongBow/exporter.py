@@ -137,21 +137,58 @@ class ExportEngine:
         return resp
 
     def _write_xlsx(self, rows_iter: Iterable[List[Any]]) -> Response:
+        """
+        Produce a *real* Excel workbook using xlsxwriter.
+        - Bold header
+        - Freeze header row
+        - Auto-filter on header row
+        - Reasonable column widths (best-effort, no heavy measurement)
+        """
         import xlsxwriter
         buf = io.BytesIO()
         wb = xlsxwriter.Workbook(buf, {"in_memory": True})
         ws = wb.add_worksheet("Export")
+
         header = self._csv_header()
+
+        # Formats
+        fmt_header = wb.add_format({"bold": True})
+        fmt_wrap = wb.add_format({"text_wrap": True})
+
+        # Write header
         for c, name in enumerate(header):
-            ws.write(0, c, name)
+            ws.write(0, c, name, fmt_header)
+
+        # Data rows
         r = 1
+        max_len = [len(h) for h in header]  # track rough widths
         for row in rows_iter:
             for c, val in enumerate(row):
-                ws.write(r, c, val)
+                ws.write(r, c, val if val is not None else "", fmt_wrap if c >= 7 else None)
+                ln = len(str(val)) if val is not None else 0
+                if ln > max_len[c]:
+                    max_len[c] = ln
             r += 1
+
+        # Basic UX: freeze header, auto-filter
+        ws.freeze_panes(1, 0)
+        ws.autofilter(0, 0, max(0, r - 1), len(header) - 1)
+
+        # Column widths: 1 char ~ 1 unit; cap to avoid huge columns
+        for c, ln in enumerate(max_len):
+            width = min(max(8, ln + 2), 60)
+            ws.set_column(c, c, width)
+
         wb.close()
         buf.seek(0)
-        resp = Response(buf.read(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        content = buf.read()
+
+        resp = Response(
+            content,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
         fname = self.opt.filename or "lorien_export.xlsx"
+        if not fname.lower().endswith(".xlsx"):
+            fname = f"{fname}.xlsx"
         resp.headers["Content-Disposition"] = f'attachment; filename="{fname}"'
         return resp

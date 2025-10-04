@@ -71,6 +71,13 @@ def export_csv(
     if root_labels:
         root_label_set = {x.strip() for x in root_labels.split(",") if x.strip()}
     
+    # Check if xlsxwriter is available for XLSX exports
+    if format == "xlsx":
+        try:
+            import xlsxwriter  # noqa:F401
+        except ImportError:
+            raise HTTPException(status_code=500, detail="XLSX export requires 'xlsxwriter'. Please install it on the server.")
+    
     # Create export options
     opts = ExportOptions(
         fmt=format,
@@ -89,6 +96,12 @@ def export_csv(
 @router.get("/tree/export.xlsx", name="tree_export_xlsx")
 @router.head("/tree/export.xlsx")
 def export_xlsx(conn: sqlite3.Connection = Depends(get_db_connection)):
+    # Check if xlsxwriter is available for XLSX exports
+    try:
+        import xlsxwriter  # noqa:F401
+    except ImportError:
+        raise HTTPException(status_code=500, detail="XLSX export requires 'xlsxwriter'. Please install it on the server.")
+    
     # Use ExportEngine for XLSX export with default options
     opts = ExportOptions(fmt="xlsx")
     engine = ExportEngine(conn, opts)

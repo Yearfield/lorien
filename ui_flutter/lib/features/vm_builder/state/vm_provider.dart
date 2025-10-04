@@ -29,6 +29,9 @@ class VmState extends ChangeNotifier {
   bool filterOnlyRed = false;
   List<Map<String, dynamic>> childrenWithMeta = []; // children with red_flag info
   bool exporting = false;
+  
+  // Undo functionality
+  Map<String, dynamic>? lastDeleteSnapshot;
 
   Future<void> loadRoots() async {
     isBusy = true; bannerError = null; notifyListeners();
@@ -239,8 +242,10 @@ class VmState extends ChangeNotifier {
     notifyListeners();
     try {
       final rootId = crumbs.first['id'] as int;
-      await repo.exportCsv(rootId: rootId);
-      toast?.call('Export saved to Downloads');
+      final savedPath = await repo.exportCsv(rootId: rootId);
+      if (savedPath != null) {
+        toast?.call('Export saved: $savedPath');
+      }
     } catch (e) {
       toast?.call('Export failed: $e');
     } finally {
@@ -345,6 +350,41 @@ class VmState extends ChangeNotifier {
       // downstream UI will call a method to load children for currentParentId
     } catch (e) {
       bannerError = e.toString();
+    } finally {
+      isBusy = false; notifyListeners();
+    }
+  }
+
+  Future<void> deleteNodeWithUndo(int nodeId, {required int parentId}) async {
+    try {
+      isBusy = true; bannerError = null; notifyListeners();
+      // 1) get snapshot
+      final dry = await repo.deleteNodeDryRun(nodeId);
+      final snap = (dry['snapshot'] as Map<String, dynamic>);
+      // 2) apply delete
+      await repo.deleteNodeApply(nodeId);
+      // 3) stash snapshot for undo and refresh children
+      lastDeleteSnapshot = snap;
+      await reloadChildren();
+    } catch (e) {
+      bannerError = 'Delete failed: $e';
+    } finally {
+      isBusy = false; notifyListeners();
+    }
+  }
+
+  Future<bool> undoLastDelete({required int parentId}) async {
+    final snap = lastDeleteSnapshot;
+    if (snap == null) return false;
+    try {
+      isBusy = true; bannerError = null; notifyListeners();
+      await repo.restoreSubtree(snap);
+      lastDeleteSnapshot = null;
+      await reloadChildren();
+      return true;
+    } catch (e) {
+      bannerError = 'Undo failed: $e';
+      return false;
     } finally {
       isBusy = false; notifyListeners();
     }

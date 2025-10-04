@@ -84,7 +84,7 @@ def import_rows(conn: sqlite3.Connection, rows: List[Dict[str, Any]], opts: Impo
             ).fetchone()
             if row:
                 return row[0]
-            # compute slot deterministically 1..5
+            # compute slot deterministically 1..N (no hard cap)
             if parent_id not in slot_cache:
                 # initialize from DB
                 slot_cache[parent_id] = {}
@@ -92,17 +92,15 @@ def import_rows(conn: sqlite3.Connection, rows: List[Dict[str, Any]], opts: Impo
                     "SELECT LOWER(TRIM(label)) AS labn, slot FROM nodes WHERE parent_id=? ORDER BY slot",
                     (parent_id,)
                 ):
-                    if srow[0] and srow[1]:
+                    if srow[0] and srow[1] is not None:
                         slot_cache[parent_id][srow[0]] = int(srow[1])
             mapping = slot_cache[parent_id]
             if labn in mapping:
                 slot = mapping[labn]
             else:
-                # next available 1..5
-                used = set(mapping.values())
-                slot = next((i for i in range(1,6) if i not in used), None)
-                if slot is None:
-                    raise RuntimeError("value_error.max_children: parent already has 5 distinct children (see /import/preview for details)")
+                # next available = 1 + max used (or 1)
+                used = [v for v in mapping.values() if isinstance(v, int)]
+                slot = (max(used) + 1) if used else 1
                 mapping[labn] = slot
             cur = conn.execute(
                 "INSERT INTO nodes (parent_id, depth, slot, label) VALUES (?, ?, ?, ?)",

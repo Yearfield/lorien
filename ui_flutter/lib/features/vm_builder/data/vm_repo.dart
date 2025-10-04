@@ -3,8 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
-import 'package:path/path.dart' as path;
-import 'package:path_provider/path_provider.dart';
+import 'package:file_picker/file_picker.dart';
 
 class VmRepo {
   final String base; // e.g., http://127.0.0.1:8000/api/v1
@@ -142,32 +141,34 @@ class VmRepo {
     return (data['items'] as List).cast<Map<String, dynamic>>();
   }
 
-  Future<void> exportCsv({int? rootId}) async {
+  Future<String?> exportCsv({int? rootId}) async {
     final qs = [
       'format=csv',
-      if (rootId != null) 'root_id=$rootId',
+      if (rootId != null) 'root_ids=$rootId',
     ].join('&');
     final uri = Uri.parse('$base/tree/export?$qs');
+
+    // Prompt user for save location
+    final ts = DateTime.now().toIso8601String().replaceAll(':', '-');
+    final suggested = 'lorien_export_$ts.csv';
+    final savePath = await FilePicker.platform.saveFile(
+      dialogTitle: 'Save Export File',
+      fileName: suggested,
+      type: FileType.custom,
+      allowedExtensions: ['csv'],
+    );
+    if (savePath == null) {
+      // user canceled
+      return null;
+    }
+
     final r = await http.get(uri);
     if (r.statusCode != 200) {
       throw Exception('export failed: ${r.statusCode} ${r.body}');
     }
-
-    Directory? dl;
-    try {
-      dl = await getDownloadsDirectory();
-    } catch (_) {
-      dl = null;
-    }
-    // Fallbacks
-    dl ??= Directory(Platform.environment['XDG_DOWNLOAD_DIR'] ?? Platform.environment['HOME'] ?? Directory.current.path);
-    if (!await dl.exists()) {
-      dl = Directory(Directory.current.path);
-    }
-
-    final ts = DateTime.now().toIso8601String().replaceAll(':', '-');
-    final file = File(path.join(dl.path, 'lorien_export_$ts.csv'));
+    final file = File(savePath);
     await file.writeAsBytes(r.bodyBytes);
+    return savePath;
   }
 
   Future<Map<String, dynamic>> createRoot(String label) async {
@@ -175,5 +176,36 @@ class VmRepo {
     final r = await http.post(uri, headers: {'Content-Type': 'application/json'}, body: jsonEncode({'label': label}));
     if (r.statusCode != 201) throw Exception('create root failed: ${r.statusCode} ${r.body}');
     return jsonDecode(r.body) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> deleteNodeDryRun(int nodeId) async {
+    final uri = Uri.parse('$base/tree/node/$nodeId?dry_run=true');
+    final res = await http.delete(uri);
+    if (res.statusCode != 200) {
+      throw Exception('delete dry run failed: ${res.statusCode} ${res.body}');
+    }
+    return jsonDecode(res.body) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> deleteNodeApply(int nodeId) async {
+    final uri = Uri.parse('$base/tree/node/$nodeId?dry_run=false');
+    final res = await http.delete(uri);
+    if (res.statusCode != 200) {
+      throw Exception('delete apply failed: ${res.statusCode} ${res.body}');
+    }
+    return jsonDecode(res.body) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> restoreSubtree(Map<String, dynamic> snapshot) async {
+    final uri = Uri.parse('$base/tree/subtree/restore');
+    final res = await http.post(
+      uri, 
+      headers: {'Content-Type': 'application/json'}, 
+      body: jsonEncode({'snapshot': snapshot})
+    );
+    if (res.statusCode != 200) {
+      throw Exception('restore failed: ${res.statusCode} ${res.body}');
+    }
+    return jsonDecode(res.body) as Map<String, dynamic>;
   }
 }

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -422,31 +422,24 @@ class _ExportCardState extends State<_ExportCard> {
             Row(
               children: [
                 FilledButton.icon(
-                  icon: const Icon(Icons.ios_share),
+                  icon: const Icon(Icons.download),
                   label: const Text('Export'),
                   onPressed: _loadingRoots ? null : () async {
                     final url = _buildUrl(filenameHint: 'lorien_export.$_fmt');
                     final uri = Uri.parse(url);
                     try {
-                      final ok = await launchUrl(uri, mode: LaunchMode.platformDefault);
-                      if (ok) {
+                      final savedPath = await _saveExportWithDialog(uri);
+                      if (!mounted) return;
+                      if (savedPath != null) {
                         setState(() => _lastExport = DateTime.now());
-                        return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Export saved to $savedPath')),
+                        );
                       }
-                    } catch (_) {
-                      // fall through to direct download
-                    }
-                    // Fallback: direct HTTP download to ~/Downloads or temp dir
-                    final saved = await _downloadToDisk(url, suggestedName: 'lorien_export.$_fmt');
-                    if (!mounted) return;
-                    if (saved != null) {
-                      setState(() => _lastExport = DateTime.now());
+                    } catch (e) {
+                      if (!mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Export saved: $saved')),
-                      );
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Export failed: could not save file')),
+                        SnackBar(content: Text('Export error: $e')),
                       );
                     }
                   },
@@ -493,36 +486,92 @@ class _ExportCardState extends State<_ExportCard> {
     return '${ApiConfig.base}/tree/export?$qp';
   }
 
-  Future<String?> _downloadToDisk(String url, {required String suggestedName}) async {
+  /// HEAD -> infer filename/extension -> Save As -> streamed GET -> write bytes
+  Future<String?> _saveExportWithDialog(Uri uri) async {
+    // 1) HEAD to get headers (filename, content-type)
+    String contentType = '';
+    String? serverFilename;
     try {
-      final resp = await http.get(Uri.parse(url));
-      if (resp.statusCode != 200) return null;
-      // Try ~/Downloads, else temp dir
-      final home = Platform.environment['HOME'] ?? '';
-      final downloads = home.isNotEmpty ? Directory(p.join(home, 'Downloads')) : null;
-      Directory outDir;
-      if (downloads != null && downloads.existsSync()) {
-        outDir = downloads;
-      } else {
-        outDir = await Directory.systemTemp.createTemp('lorien_export_');
+      final head = await http.head(uri);
+      if (head.statusCode == 200) {
+        contentType = (head.headers['content-type'] ?? '').toLowerCase();
+        serverFilename = _filenameFromDisposition(head.headers['content-disposition']);
       }
-      // If server suggested a filename via Content-Disposition, prefer it
-      String fname = suggestedName;
-      final disp = resp.headers['content-disposition'] ?? '';
-      final m = RegExp(r'filename="?([^"]+)"?', caseSensitive: false).firstMatch(disp);
-      if (m != null && m.groupCount >= 1) {
-        final serverName = m.group(1);
-        if (serverName != null && serverName.trim().isNotEmpty) {
-          fname = serverName.trim();
+    } catch (_) {
+      // ignore; we'll proceed without HEAD
+    }
+
+    // 2) Decide extension & suggested name
+    final isXlsx = contentType.startsWith('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') || uri.queryParameters['format'] == 'xlsx';
+    final ext = isXlsx ? 'xlsx' : 'csv';
+    String suggested = serverFilename ?? 'lorien_export.$ext';
+    if (!suggested.toLowerCase().endsWith('.$ext')) {
+      suggested = '$suggested.$ext';
+    }
+
+    // 3) Ask user where to save
+    final savePath = await FilePicker.platform.saveFile(
+      dialogTitle: 'Save Export File',
+      fileName: suggested,
+      type: FileType.custom,
+      allowedExtensions: [ext],
+    );
+    if (savePath == null) {
+      return null; // user cancelled
+    }
+    var finalPath = savePath;
+    if (!finalPath.toLowerCase().endsWith('.$ext')) {
+      finalPath = '$finalPath.$ext';
+    }
+
+    // 4) Streamed GET and write to disk as bytes
+    final req = http.Request('GET', uri);
+    final resp = await req.send();
+    if (resp.statusCode != 200) {
+      final body = await resp.stream.bytesToString();
+      throw Exception('Export failed: ${resp.statusCode} $body');
+    }
+    // Create file + ensure directory
+    final outFile = File(finalPath);
+    await outFile.parent.create(recursive: true);
+    final sink = outFile.openWrite();
+
+    // Optionally peek first 4 bytes for XLSX magic "PK" (do not consume twice)
+    // We'll buffer first chunk ourselves
+    List<int>? firstChunk;
+    await for (final chunk in resp.stream) {
+      firstChunk ??= chunk;
+      sink.add(chunk);
+    }
+    await sink.flush();
+    await sink.close();
+
+    // 5) Self-check for XLSX magic if we think it's xlsx
+    try {
+      if (isXlsx) {
+        final raf = await outFile.open(mode: FileMode.read);
+        final bytes = await raf.read(4);
+        await raf.close();
+        final magic = String.fromCharCodes(bytes.take(2));
+        if (magic != 'PK') {
+          // Not a blocker, but helpful warning in console
+          // ignore: avoid_print
+          print('Warning: XLSX file does not start with PK; saved anyway at $finalPath');
         }
       }
-      final outPath = p.join(outDir.path, fname);
-      final file = File(outPath);
-      await file.writeAsBytes(resp.bodyBytes, flush: true);
-      return outPath;
     } catch (_) {
-      return null;
+      // ignore self-check failures
     }
+    return finalPath;
+  }
+
+  String? _filenameFromDisposition(String? dispo) {
+    if (dispo == null || dispo.isEmpty) return null;
+    final m = RegExp(r'filename\*?=("{0,1})([^";]+)\1', caseSensitive: false).firstMatch(dispo);
+    if (m != null && m.groupCount >= 2) {
+      return m.group(2);
+    }
+    return null;
   }
 }
 

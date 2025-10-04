@@ -2,6 +2,36 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Label-Only Conflicts & Enhanced Export] - 2025-01-03
+
+### Added
+- **Conflicts API**: New `/api/v1/conflicts/scan` and `/api/v1/conflicts/resolve` endpoints
+  - Label-only conflict detection across all depths (ignores depth grouping)
+  - Cross-depth resolution: applies selected children to all parents with matching label
+  - Dry run preview with diff calculation before applying changes
+  - Max depth enforcement: prevents adding children to D6 parents
+- **Home Dashboard**: Complete redesign with three main cards
+  - Conflicts Card: scan, select union children (≤5), dry run, apply resolution
+  - Export Card: CSV/XLSX selection, advanced filters (depth, roots, only_red, include_meta)
+  - New Submission Card: placeholder for future bulk workflows
+- **Enhanced Export**: Native file picker integration with proper file extensions
+  - Save dialog with server-suggested filenames and content-type detection
+  - URL copy functionality for shareable export links
+  - XLSX magic number validation for download integrity
+- **Advanced Export Filters**: `max_depth`, `only_red`, `include_meta`, `root_ids` parameters
+
+### Changed
+- **Conflicts Resolution**: Now groups by normalized label only (case-insensitive, trimmed)
+- **API Response Format**: Conflicts scan returns one entry per label with depth info in parents array
+- **UI State Management**: Migrated to flutter_riverpod for conflicts provider
+- **Export Workflow**: Stream-based download with proper error handling and file validation
+
+### Technical Improvements
+- **Backend**: Transactional conflicts resolution with proper rollback on errors
+- **Frontend**: Riverpod provider pattern for conflicts state management
+- **Testing**: Comprehensive integration tests for conflicts API (5 tests passing)
+- **Error Handling**: Enhanced validation with specific error types (max_children, max_depth)
+
 ## [VM-Core Refresh] - 2025-09-30
 
 ### Added/Changed
