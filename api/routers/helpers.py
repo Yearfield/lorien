@@ -19,15 +19,15 @@ def _norm_header(name: str) -> str:
     return s
 
 _SYN = {
-    "D0":"D0","DEPTH0":"D0","LEVEL0":"D0","L0":"D0","R0":"D0","ROOT":"D0",
-    "D1":"D1","DEPTH1":"D1","LEVEL1":"D1","L1":"D1","R1":"D1","CHILD1":"D1",
-    "D2":"D2","DEPTH2":"D2","LEVEL2":"D2","L2":"D2","R2":"D2","CHILD2":"D2",
-    "D3":"D3","DEPTH3":"D3","LEVEL3":"D3","L3":"D3","R3":"D3","CHILD3":"D3",
-    "D4":"D4","DEPTH4":"D4","LEVEL4":"D4","L4":"D4","R4":"D4","CHILD4":"D4",
-    "D5":"D5","DEPTH5":"D5","LEVEL5":"D5","L5":"D5","R5":"D5","CHILD5":"D5",
-    "D6":"D6","DEPTH6":"D6","LEVEL6":"D6","L6":"D6","R6":"D6","CHILD6":"D6",
+    "D0":"D0","DEPTH0":"D0","LEVEL0":"D0","L0":"D0","R0":"D0","ROOT":"D0","VITALMEASUREMENT":"D0",
+    "D1":"D1","DEPTH1":"D1","LEVEL1":"D1","L1":"D1","R1":"D1","CHILD1":"D1","NODE1":"D1",
+    "D2":"D2","DEPTH2":"D2","LEVEL2":"D2","L2":"D2","R2":"D2","CHILD2":"D2","NODE2":"D2",
+    "D3":"D3","DEPTH3":"D3","LEVEL3":"D3","L3":"D3","R3":"D3","CHILD3":"D3","NODE3":"D3",
+    "D4":"D4","DEPTH4":"D4","LEVEL4":"D4","L4":"D4","R4":"D4","CHILD4":"D4","NODE4":"D4",
+    "D5":"D5","DEPTH5":"D5","LEVEL5":"D5","L5":"D5","R5":"D5","CHILD5":"D5","NODE5":"D5",
+    "D6":"D6","DEPTH6":"D6","LEVEL6":"D6","L6":"D6","R6":"D6","CHILD6":"D6","NODE6":"D6","DIAGNOSTICTRIAGE":"D6","DIAGTRIAGE":"D6",
     # Map all note-like headers to canonical 'Notes' (proper case)
-    "NOTES":"Notes","NOTE":"Notes","NOTESFIELD":"Notes","COMMENT":"Notes","COMMENTS":"Notes",
+    "NOTES":"Notes","NOTE":"Notes","NOTESFIELD":"Notes","COMMENT":"Notes","COMMENTS":"Notes","ACTIONS":"Notes","ACTION":"Notes",
 }
 
 def coerce_rows_to_canonical(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -80,32 +80,27 @@ def coerce_rows_to_canonical(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]
         out.append(canon)
     return out
 
-def parse_csv_or_xlsx(file_content: bytes, filename: str) -> List[Dict[str, Any]]:
+def parse_csv_or_xlsx(file_content: bytes, filename: str) -> Tuple[List[List[str]], List[Dict[str, Any]]]:
     """
-    Parse CSV or XLSX file content and return as list of dictionaries.
+    Parse CSV or XLSX file content and return both raw rows and header-mapped dictionaries.
     
     Args:
         file_content: Raw file bytes
         filename: Original filename for format detection
         
     Returns:
-        List of dictionaries with column headers as keys
+        Tuple of (raw_rows, list of dictionaries with column headers as keys)
     """
-    # Use existing read_file function to get rows as list of lists
     rows = read_file(file_content, filename)
-    
+
     if not rows:
-        return []
-    
-    # First row is header
+        return [], []
+
     header = rows[0]
-    
-    # Convert remaining rows to dictionaries
-    result = []
+
+    mapped: List[Dict[str, Any]] = []
     for row in rows[1:]:
-        # Pad row to match header length
         padded_row = row + [''] * (len(header) - len(row))
-        row_dict = dict(zip(header, padded_row))
-        result.append(row_dict)
-    
-    return result
+        mapped.append(dict(zip(header, padded_row)))
+
+    return rows, mapped

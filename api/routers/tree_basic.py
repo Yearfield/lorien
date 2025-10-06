@@ -24,7 +24,14 @@ class CreateRootBody(BaseModel):
 @router.get("/roots")
 def list_roots(conn: sqlite3.Connection = Depends(get_db_connection)):
     cur = conn.execute("SELECT id, label FROM nodes WHERE depth=0 ORDER BY id")
-    data = [{"id": r[0], "label": r[1]} for r in cur.fetchall()]
+    data = []
+    for r in cur.fetchall():
+        raw_label = r[1] or ""
+        data.append({
+            "id": r[0],
+            "label": raw_label.lower(),
+            "display_label": raw_label,
+        })
     return {"items": data, "total": len(data)}
 
 @router.post("/roots", status_code=201)
@@ -49,18 +56,23 @@ def put_children(payload: PutChildrenRequest, conn: sqlite3.Connection = Depends
     labels = validate_child_labels_and_limit(payload.children, limit=5)
 
     try:
+        parent_row = conn.execute("SELECT depth FROM nodes WHERE id=?", (parent_id,)).fetchone()
+        if not parent_row:
+            raise HTTPException(status_code=404, detail="parent not found")
+        parent_depth = parent_row[0]
+        if parent_depth >= 5:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=[{"loc": ["parent_id"], "msg": "cannot add children beyond depth 6", "type": "value_error.max_depth"}],
+            )
+
         # Remove current children
         conn.execute("DELETE FROM nodes WHERE parent_id=?", (parent_id,))
 
         # Insert new children with sequential slots starting at 1
         assigned_slot = 1
         for lab in labels:
-            # fetch parent depth
-            cur = conn.execute("SELECT depth FROM nodes WHERE id=?", (parent_id,))
-            row = cur.fetchone()
-            if not row:
-                raise HTTPException(status_code=404, detail="parent not found")
-            depth = row[0] + 1
+            depth = parent_depth + 1
             try:
                 conn.execute(
                     "INSERT INTO nodes (parent_id, depth, slot, label) VALUES (?,?,?,?)",
@@ -100,6 +112,18 @@ def delete_root(root_id: int, conn: sqlite3.Connection = Depends(get_db_connecti
         raise HTTPException(status_code=422, detail="not a root")
     conn.execute("DELETE FROM nodes WHERE id = ?", (root_id,))
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.delete("/root")
+def delete_root_legacy(root_id: int = Query(..., alias="root_id"), conn: sqlite3.Connection = Depends(get_db_connection)):
+    """Legacy delete endpoint accepting `root_id` as query param and returning json payload."""
+    row = conn.execute("SELECT id, depth, parent_id FROM nodes WHERE id = ?", (root_id,)).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="root not found")
+    if row[1] != 0 or row[2] is not None:
+        raise HTTPException(status_code=422, detail="not a root")
+    conn.execute("DELETE FROM nodes WHERE id = ?", (root_id,))
+    return {"ok": True, "root_id": root_id}
 
 @router.get("/node")
 def get_node(node_id: int, conn: sqlite3.Connection = Depends(get_db_connection)):
@@ -153,7 +177,28 @@ def clone_candidates(label: str = Query(...), repo: TreeRepository = Depends(get
 @router.post("/clone")
 def clone_subtree(source_id: int = Body(..., embed=True), dest_parent_id: int = Body(..., embed=True), repo: TreeRepository = Depends(get_repository)):
     """Clone a subtree from source_id to dest_parent_id."""
-    created = repo.clone_subtree(source_id, dest_parent_id)
+    try:
+        created = repo.clone_subtree(source_id, dest_parent_id)
+    except ValueError as exc:
+        msg = str(exc)
+        if msg == "dest_parent_not_found":
+            raise HTTPException(status_code=404, detail="destination parent not found")
+        if msg == "dest_parent_at_max_depth":
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=[{"loc": ["dest_parent_id"], "msg": "destination parent cannot accept children at depth 6", "type": "value_error.max_depth"}],
+            )
+        if msg == "depth_limit_exceeded":
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=[{"loc": ["source_id"], "msg": "cloned subtree would exceed depth limit", "type": "value_error.max_depth"}],
+            )
+        if msg == "max_children_exceeded":
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=[{"loc": ["dest_parent_id"], "msg": "destination parent already has 5 children", "type": "value_error.max_children"}],
+            )
+        raise
     if created == 0:
         raise HTTPException(status_code=404, detail="source not found")
     return {"ok": True, "created": created}

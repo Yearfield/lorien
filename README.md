@@ -39,7 +39,16 @@ flutter pub get
 flutter run -d linux --dart-define=API_BASE=http://127.0.0.1:8000/api/v1
 ```
 
-Links
+## Recent Updates
+
+### Label-Only Conflicts & Enhanced Export (2025-01-03)
+- **Conflicts Resolution**: Label-only grouping across all depths with cross-depth resolution
+- **Home Dashboard**: Comprehensive dashboard with conflicts, export, and submission sections
+- **Enhanced Export**: Advanced filtering (max_depth, only_red, include_meta, root_ids) with native file picker
+- **API Improvements**: New conflicts endpoints, enhanced export filters, comprehensive health checks
+- **UI Enhancements**: Riverpod state management, improved error handling, busy states
+
+## Documentation Links
 - Dev Quickstart: ./Dev_Quickstart.md
 - Architecture: ./docs/Architecture.md
 - API: ./docs/API.md

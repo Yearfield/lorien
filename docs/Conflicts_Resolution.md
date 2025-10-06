@@ -10,6 +10,7 @@ The Conflicts Resolution system identifies and resolves inconsistencies in decis
 - Conflicts are detected by grouping parents with identical normalized labels (case-insensitive, trimmed whitespace)
 - Depth is ignored for conflict detection - parents at different depths with the same label are considered together
 - Each conflict group appears once in the scan results, with all occurrences listed in the `parents` array
+- Parents at depth ≥ 6 (which cannot host additional children) are reported separately in `skipped_parents` so they do not block updates for shallower parents
 
 ### Conflict Detection Criteria
 A label is considered conflicted if either:
@@ -33,12 +34,15 @@ GET /api/v1/conflicts/scan
 [
   {
     "label": "hypertension",
-    "occurrences": 3,
+    "occurrences": 4,
     "union_children": ["headache", "nausea", "vomiting", "chest pain", "myalgia", "dizziness"],
     "parents": [
       {"parent_id": 12, "depth": 1, "children": ["headache", "nausea", "vomiting"]},
       {"parent_id": 44, "depth": 2, "children": ["headache", "chest pain", "myalgia"]},
       {"parent_id": 67, "depth": 3, "children": ["dizziness", "nausea", "vomiting"]}
+    ],
+    "skipped_parents": [
+      {"parent_id": 91, "depth": 6, "children": ["existing child"], "reason": "max_depth"}
     ]
   }
 ]
@@ -79,6 +83,9 @@ POST /api/v1/conflicts/resolve
       "removed": ["dizziness"],
       "added": ["headache", "chest pain", "myalgia"]
     }
+  ],
+  "skipped_parents": [
+    {"parent_id": 91, "depth": 6, "children": ["existing child"], "reason": "max_depth"}
   ]
 }
 ```
@@ -104,7 +111,7 @@ POST /api/v1/conflicts/resolve
   "detail": [
     {
       "loc": ["label"],
-      "msg": "parent at max depth; cannot add children beyond D6",
+      "msg": "all parents at max depth; cannot add children beyond D6",
       "type": "value_error.max_depth"
     }
   ]
@@ -122,6 +129,7 @@ POST /api/v1/conflicts/resolve
 - Tap on a conflict in the list to open detail panel
 - Header shows: `Resolve: fever`
 - Occurrences list shows each parent with depth: `D3 • Parent #12: headache, nausea, vomiting`
+- If any parents are skipped due to max depth, a highlighted box lists them with the reason and their existing children
 
 ### 3. Choose Union Children
 - Union chips display all possible child labels from all occurrences
@@ -136,7 +144,7 @@ POST /api/v1/conflicts/resolve
 ### 5. Apply Resolution
 - Click "Apply" to commit the changes
 - System applies selected children to all parents with matching label
-- Conflicts list refreshes automatically after successful resolution
+- Conflicts list refreshes automatically after successful resolution; parents skipped because of max depth remain unchanged and will no longer block lower-depth fixes
 
 ## Best Practices
 
@@ -190,6 +198,5 @@ POST /api/v1/conflicts/resolve
 **Problem**: "chest pain" at D2 and D4 have different follow-up questions
 **Resolution**: Apply consistent follow-up questions across all depths
 **Result**: Medical decision tree maintains consistency regardless of depth
-
 
 

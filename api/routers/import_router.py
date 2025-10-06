@@ -2,13 +2,11 @@ from fastapi import APIRouter, UploadFile, File, HTTPException, Query, Depends
 from fastapi.responses import JSONResponse
 
 from api.dependencies import get_db_connection
-from Engines.EngineLongBow import ingest_file, apply_import, apply_import_with_metadata, FROZEN_HEADER
-from Engines.EngineLongBow.ingest import read_file, extract_paths
-from Engines.EngineLongBow.importer import import_rows, ImportOptions
+from Engines.EngineLongBow import apply_import_with_metadata
 from Engines.EngineLongBow.import_analyzer import analyze_max_children
 from .helpers import parse_csv_or_xlsx, coerce_rows_to_canonical, CANONICAL_HEADER
 import sqlite3
-from typing import Dict, Any, List, Tuple, Optional
+from typing import Dict, Any, List, Optional
 from collections import defaultdict
 
 router = APIRouter()
@@ -46,7 +44,8 @@ async def import_preview(
     """Preview import without writing to database - shows detected paths."""
     try:
         file_content = await file.read()
-        rows = parse_csv_or_xlsx(file_content, file.filename)
+        filename = file.filename or "upload.csv"
+        raw_rows, rows = parse_csv_or_xlsx(file_content, filename)
     except Exception as e:
         raise HTTPException(
             status_code=400,
@@ -62,6 +61,8 @@ async def import_preview(
     try:
         # Header coercion already applied above
         issues = []
+        canonical_paths = [[(r.get(f"D{d}") or "") for d in range(7)] for r in rows]
+        issues.extend(_group_overfive_within_file(canonical_paths))
         # Basic path checks
         for idx, r in enumerate(rows, start=2):
             # Check if row has any non-empty values
@@ -90,7 +91,7 @@ async def import_preview(
 
 @router.post("/import")
 async def import_apply(
-    mode: str = Query(default="append", regex="^(append|replace)$"),
+    mode: str = Query(default="append", pattern="^(append|replace)$"),
     enforce_five: bool = Query(default=False),  # IMPORT DOES NOT ENFORCE by default
     file: UploadFile = File(...),
     conn: sqlite3.Connection = Depends(get_db_connection),
@@ -100,7 +101,8 @@ async def import_apply(
     """
     try:
         blob = await file.read()
-        rows = parse_csv_or_xlsx(blob, file.filename)
+        filename = file.filename or "upload.csv"
+        raw_rows, rows = parse_csv_or_xlsx(blob, filename)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"parse_error: {e}")
 
@@ -113,11 +115,57 @@ async def import_apply(
         raise HTTPException(status_code=400, detail=f"bad_header: {e}")
 
     try:
-        # Import never enforces ≤5; it just writes. We attach preview-style warnings for visibility.
-        warnings = analyze_max_children(conn, rows, mode=mode)
-        result = import_rows(conn, rows, ImportOptions(mode=mode, enforce_five=False))
-        result["warnings"] = warnings  # surfaced to UI, but not an error
-        return result
+        # Import enforces ≤5 only when caller opts in; warnings always returned for visibility.
+        canonical_paths = [[(r.get(f"D{d}") or "") for d in range(7)] for r in rows]
+        warnings = _group_overfive_within_file(canonical_paths)
+        db_warnings = analyze_max_children(conn, rows, mode=mode)
+        warnings.extend(db_warnings)
+
+        if enforce_five and any(w.get("type") == "value_error.max_children" for w in db_warnings):
+            # Abort import and return structured 422 so clients can surface the issue
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "ok": False,
+                    "error": "value_error.max_children",
+                    "detail": db_warnings,
+                },
+            )
+
+        paths_with_meta = []
+        for row in rows:
+            path: List[str] = []
+            for key in ["D0", "D1", "D2", "D3", "D4", "D5"]:
+                value = (row.get(key) or "").strip()
+                if not value:
+                    break
+                path.append(value)
+            if not path:
+                continue
+            d6_value = (row.get("D6") or "").strip() or None
+            notes_value = (row.get("Notes") or "").strip() or None
+            paths_with_meta.append({
+                "path": path,
+                "metadata": {"d6": d6_value, "notes": notes_value},
+            })
+
+        import_result = apply_import_with_metadata(paths_with_meta, mode, conn)
+
+        response = {
+            "ok": True,
+            "inserted": import_result.inserted_nodes,
+            "parents_touched": import_result.parents_touched,
+            "warnings": warnings,
+        }
+
+        # Provide root count for caller parity
+        try:
+            root_count = conn.execute("SELECT COUNT(*) FROM nodes WHERE depth=0").fetchone()[0]
+        except Exception:
+            root_count = 0
+        response["roots"] = int(root_count)
+
+        return response
     except RuntimeError as e:
         # Known validation issue (≤5, malformed path, etc.)
         raise HTTPException(status_code=422, detail=str(e))

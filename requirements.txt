@@ -3,6 +3,7 @@ fastapi
 uvicorn
 pydantic
 pandas
+XlsxWriter
 openpyxl
 python-multipart
 httpx

@@ -97,7 +97,31 @@ def test_data(temp_db):
     })
     assert r.status_code == 200, r.text
 
-    return {"client": client, "parents": [parent1, parent2, parent3]}
+    # Root 4 with a deep hypertension parent at depth 6 (max depth)
+    r = client.post("/api/v1/tree/roots", json={"label": "Vital Measurement D"})
+    assert r.status_code == 201, r.text
+    root4 = r.json()["id"]
+    current_parent = root4
+    for label in ["level1", "level2", "level3", "level4", "level5"]:
+        r = client.put("/api/v1/tree/children", json={
+            "parent_id": current_parent,
+            "children": [{"label": label}]
+        })
+        assert r.status_code == 200, r.text
+        current_parent = _get_child_id_by_label(client, current_parent, label)
+
+    r = client.put("/api/v1/tree/children", json={
+        "parent_id": current_parent,
+        "children": [{"label": "hypertension"}]
+    })
+    assert r.status_code == 200, r.text
+    deep_parent = _get_child_id_by_label(client, current_parent, "hypertension")
+
+    return {
+        "client": client,
+        "parents": [parent1, parent2, parent3],
+        "deep_parent": deep_parent,
+    }
 
 def test_scan_conflicts(test_data):
     client = test_data["client"]
@@ -115,6 +139,10 @@ def test_scan_conflicts(test_data):
         assert "depth" in parent
         assert "parent_id" in parent
         assert "children" in parent
+    assert "skipped_parents" in grp
+    assert len(grp["skipped_parents"]) >= 1
+    for skipped in grp["skipped_parents"]:
+        assert skipped.get("reason") == "max_depth"
 
 def test_resolve_conflict_dry_run(test_data):
     client = test_data["client"]
@@ -128,7 +156,12 @@ def test_resolve_conflict_dry_run(test_data):
     body = r.json()
     assert body["updated_parents"] >= 3
     assert body["children_per_parent"] == 5
+    assert len(body.get("skipped_parents", [])) >= 1
     assert isinstance(body["parents"], list) and body["parents"]
+    assert "skipped_parents" in body
+    assert len(body["skipped_parents"]) >= 1
+    for skipped in body["skipped_parents"]:
+        assert skipped.get("reason") == "max_depth"
 
 def test_resolve_conflict_too_many_children(test_data):
     client = test_data["client"]
@@ -153,6 +186,9 @@ def test_resolve_conflict_apply(test_data):
     }
     r = client.post("/api/v1/conflicts/resolve", json=payload)
     assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["updated_parents"] >= 3
+    assert len(body.get("skipped_parents", [])) >= 1
     # After apply, scan should show no conflict for this group
     r = client.get("/api/v1/conflicts/scan")
     assert r.status_code == 200
@@ -169,3 +205,39 @@ def test_resolve_conflict_case_insensitive(test_data):
     }
     r = client.post("/api/v1/conflicts/resolve", json=payload)
     assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["updated_parents"] >= 3
+    assert body["children_per_parent"] == 5
+    assert len(body.get("skipped_parents", [])) >= 1
+
+
+def test_resolve_conflict_all_parents_max_depth(temp_db):
+    client = TestClient(app)
+
+    r = client.post("/api/v1/tree/roots", json={"label": "Vital Measurement Z"})
+    assert r.status_code == 201, r.text
+    root = r.json()["id"]
+
+    current_parent = root
+    for label in ["d1", "d2", "d3", "d4", "d5"]:
+        r = client.put("/api/v1/tree/children", json={
+            "parent_id": current_parent,
+            "children": [{"label": label}]
+        })
+        assert r.status_code == 200, r.text
+        current_parent = _get_child_id_by_label(client, current_parent, label)
+
+    max_depth_label = "Max Depth Only"
+    r = client.put("/api/v1/tree/children", json={
+        "parent_id": current_parent,
+        "children": [{"label": max_depth_label}]
+    })
+    assert r.status_code == 200, r.text
+
+    r = client.post("/api/v1/conflicts/resolve", json={
+        "label": max_depth_label,
+        "selected_children": ["new child"],
+        "dry_run": False,
+    })
+    assert r.status_code == 422, r.text
+    assert "all parents at max depth" in r.text

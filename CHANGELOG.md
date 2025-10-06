@@ -31,6 +31,11 @@ All notable changes to this project will be documented in this file.
 - **Frontend**: Riverpod provider pattern for conflicts state management
 - **Testing**: Comprehensive integration tests for conflicts API (5 tests passing)
 - **Error Handling**: Enhanced validation with specific error types (max_children, max_depth)
+- **Documentation**: Complete API documentation overhaul with comprehensive examples
+  - Updated API.md with all endpoints, parameters, and response formats
+  - Enhanced UI_Guide.md with detailed workflow descriptions
+  - Added Conflicts_Resolution.md with comprehensive usage guide
+  - Updated README.md with recent features and quick start examples
 
 ## [VM-Core Refresh] - 2025-09-30
 

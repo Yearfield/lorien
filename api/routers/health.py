@@ -22,26 +22,31 @@ async def health_check(conn: sqlite3.Connection = Depends(get_db_connection)):
         200 with health status, version, database info, and feature flags
     """
     try:
-        db_path = get_db_path()
-        wal = conn.execute("PRAGMA journal_mode").fetchone()[0]
-        # migration marker (exists if migrations applied)
-        tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
-        nodes = conn.execute("SELECT COUNT(*) FROM nodes").fetchone()[0] if "nodes" in tables else 0
-        # Check LLM feature flag
-        llm_enabled = os.getenv("LLM_ENABLED", "false").lower() == "true"
-        
+        db_stats = _check_database_health(conn)
+        llm_enabled = (await _check_features())["llm"]
+        status_value = "ok" if db_stats.get("integrity", "ok").lower() == "ok" else "degraded"
+
         return {
+            "ok": status_value == "ok",
+            "status": status_value,
             "version": __version__,
-            "db": {"path": db_path, "journal_mode": wal, "tables": len(tables), "nodes": nodes},
-            "llm": llm_enabled,
-            "status": "ok"
+            "db": {
+                "path": db_stats["path"],
+                "journal_mode": db_stats["journal_mode"],
+                "tables": db_stats["tables"],
+                "nodes": db_stats["nodes"],
+                "integrity": db_stats["integrity"],
+                "objects": db_stats.get("objects", 0),
+            },
+            "features": {"llm": llm_enabled},
         }
     except Exception as e:
         return {
+            "ok": False,
+            "status": "error",
             "version": __version__,
             "db": {"path": None, "journal_mode": None, "tables": 0, "nodes": 0},
-            "llm": False,
-            "status": "error",
+            "features": {"llm": False},
             "error": str(e)
         }
 
@@ -61,53 +66,38 @@ async def health_metrics():
     metrics_data = await _get_runtime_metrics()
     return metrics_data
 
-async def _check_database_health(conn: sqlite3.Connection) -> Dict[str, Any]:
+def _check_database_health(conn: sqlite3.Connection) -> Dict[str, Any]:
     """Check database configuration and health."""
     try:
         # Get database configuration
         cursor = conn.cursor()
-        
-        # Check WAL mode
         cursor.execute("PRAGMA journal_mode")
         journal_mode = cursor.fetchone()[0]
-        
-        # Check foreign keys
-        cursor.execute("PRAGMA foreign_keys")
-        foreign_keys = cursor.fetchone()[0]
-        
-        # Check page size
-        cursor.execute("PRAGMA page_size")
-        page_size = cursor.fetchone()[0]
-        
-        # Check integrity
+
+        table_names = [row[0] for row in cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()]
+        object_names = [row[0] for row in cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type IN ('table','view','trigger')"
+        ).fetchall()]
+
+        node_count = 0
+        if "nodes" in table_names:
+            node_count = cursor.execute("SELECT COUNT(*) FROM nodes").fetchone()[0]
+
         cursor.execute("PRAGMA integrity_check")
         integrity = cursor.fetchone()[0]
-        
-        # Count database objects (tables, views, triggers)
-        cursor.execute("SELECT COUNT(*) FROM sqlite_master WHERE type IN ('table', 'view', 'trigger')")
-        object_count = cursor.fetchone()[0]
-        
-        # Report the actual DB path in use
-        db_path = get_db_path()
-        
+
         return {
-            "wal": journal_mode == "wal",
-            "foreign_keys": bool(foreign_keys),
-            "page_size": page_size,
+            "path": get_db_path(),
+            "journal_mode": (journal_mode or "").lower(),
+            "tables": sum(1 for name in table_names if name),
+            "nodes": node_count,
             "integrity": integrity,
-            "objects": object_count,
-            "path": db_path
+            "objects": sum(1 for name in object_names if name),
         }
     except Exception as e:
-        return {
-            "wal": False,
-            "foreign_keys": False,
-            "page_size": 0,
-            "integrity": "error",
-            "objects": 0,
-            "path": None,
-            "error": str(e)
-        }
+        raise RuntimeError(f"database check failed: {e}") from e
 
 async def _check_features() -> Dict[str, bool]:
     """Check feature availability."""

@@ -13,6 +13,11 @@ def _norm(s: str) -> str:
     """Normalize string: trim whitespace and convert to lowercase."""
     return (s or "").strip().lower()
 
+
+def _clean(s: str) -> str:
+    """Trim whitespace but preserve original casing."""
+    return (s or "").strip()
+
 @router.get("/conflicts/scan")
 def scan_conflicts(conn: sqlite3.Connection = Depends(get_db_connection)) -> List[Dict[str, Any]]:
     """
@@ -23,49 +28,81 @@ def scan_conflicts(conn: sqlite3.Connection = Depends(get_db_connection)) -> Lis
       - the union of all immediate child labels across occurrences is > 5.
     """
     # Load all parents (id, depth, label)
-    rows = conn.execute("SELECT id, depth, LOWER(TRIM(label)) AS parent_label FROM nodes").fetchall()
-    by_label: Dict[str, List[Dict[str, int]]] = {}
-    for pid, depth, plab in rows:
-        if not plab:
+    rows = conn.execute("SELECT id, depth, label FROM nodes").fetchall()
+    grouped: Dict[str, Dict[str, Any]] = {}
+    for pid, depth, label in rows:
+        cleaned = _clean(label)
+        norm_label = _norm(cleaned)
+        if not norm_label:
             continue
-        by_label.setdefault(plab, []).append({"parent_id": pid, "depth": depth})
+        bucket = grouped.setdefault(norm_label, {"label": cleaned, "entries": []})
+        if not bucket.get("label"):
+            bucket["label"] = cleaned
+        bucket["entries"].append({"parent_id": pid, "depth": depth})
 
     results: List[Dict[str, Any]] = []
-    for plab, entries in by_label.items():
+    for norm_label, data in grouped.items():
+        entries = data["entries"]
         if not entries:
             continue
-        occ = []
-        union = set()
-        for e in entries:
-            pid = e["parent_id"]
-            depth = e["depth"]
-            kids = conn.execute(
-                "SELECT LOWER(TRIM(label)) FROM nodes WHERE parent_id=?", (pid,)
-            ).fetchall()
-            childset = sorted({r[0] for r in kids if r[0]})
-            if childset:
-                union.update(childset)
-            occ.append({"parent_id": pid, "depth": depth, "children": childset})
 
-        # Non-conflict quick exit
-        if len(occ) <= 1 and len(union) <= 5:
+        occurrences: List[Dict[str, Any]] = []
+        skipped_occurrences: List[Dict[str, Any]] = []
+        union_map: Dict[str, str] = {}
+        child_sets: List[set] = []
+
+        for entry in entries:
+            pid = entry["parent_id"]
+            depth = entry["depth"]
+            child_rows = conn.execute(
+                "SELECT label FROM nodes WHERE parent_id = ? ORDER BY slot ASC, id ASC",
+                (pid,),
+            ).fetchall()
+
+            child_map: Dict[str, str] = {}
+            ordered_children: List[str] = []
+            for (child_label,) in child_rows:
+                cleaned_child = _clean(child_label)
+                if not cleaned_child:
+                    continue
+                norm_child = _norm(cleaned_child)
+                if norm_child in child_map:
+                    continue
+                child_map[norm_child] = cleaned_child
+                ordered_children.append(cleaned_child)
+            depth_value = depth if depth is not None else 0
+            base_payload: Dict[str, Any] = {
+                "parent_id": pid,
+                "depth": depth_value,
+                "children": ordered_children,
+            }
+
+            if depth_value >= 6:
+                skipped_occurrences.append({**base_payload, "reason": "max_depth"})
+                continue
+
+            occurrences.append(base_payload)
+            child_sets.append(set(child_map.keys()))
+            for norm_child, cleaned_child in child_map.items():
+                union_map.setdefault(norm_child, cleaned_child)
+
+        if not occurrences:
             continue
 
-        # Detect any difference across occurrences
-        diff = False
-        if len(occ) >= 2:
-            s0 = set(occ[0]["children"])
-            for o in occ[1:]:
-                if set(o["children"]) != s0:
-                    diff = True
-                    break
-        union_children = sorted(list(union))
-        if diff or len(union_children) > 5:
+        # Determine if there is any divergence between occurrences
+        has_diff = False
+        if len(child_sets) >= 2:
+            baseline = child_sets[0]
+            has_diff = any(child_set != baseline for child_set in child_sets[1:])
+
+        union_children = [union_map[key] for key in sorted(union_map.keys())]
+        if has_diff or len(union_children) > 5:
             results.append({
-                "label": plab,
-                "occurrences": len(occ),
+                "label": data["label"],
+                "occurrences": len(occurrences) + len(skipped_occurrences),
                 "union_children": union_children,
-                "parents": occ,  # each has parent_id, depth, children[]
+                "parents": occurrences,
+                "skipped_parents": skipped_occurrences,
             })
     # Sort by label for deterministic UI
     results.sort(key=lambda x: x["label"])
@@ -86,13 +123,17 @@ def resolve_conflict(
     selected_raw = payload.get("selected_children", [])
     
     # Normalize and dedupe selected children while preserving order
-    selected = []
+    selected_pairs = []  # (normalized, cleaned)
     seen = set()
     for s in selected_raw:
-        normalized = _norm(str(s))
-        if normalized and normalized not in seen:
-            seen.add(normalized)
-            selected.append(normalized)
+        cleaned = _clean(str(s))
+        normed = _norm(cleaned)
+        if normed and normed not in seen:
+            seen.add(normed)
+            selected_pairs.append((normed, cleaned))
+
+    selected = [clean for _, clean in selected_pairs]
+    selected_norms = {norm for norm, _ in selected_pairs}
     
     # Enforce ≤5 children limit
     if len(selected) > 5:
@@ -109,45 +150,56 @@ def resolve_conflict(
     
     # All parents across ALL depths matching the label
     parent_rows = conn.execute("""
-        SELECT id FROM nodes 
+        SELECT id, depth FROM nodes 
         WHERE LOWER(TRIM(label)) = ?
     """, (label,)).fetchall()
-    
-    parent_ids = [r[0] for r in parent_rows]
-    
-    # Pre-read parent depths for max-depth guard
-    parent_depths = {}
-    for pid in parent_ids:
-        depth_row = conn.execute("SELECT depth FROM nodes WHERE id = ?", (pid,)).fetchone()
-        parent_depths[pid] = depth_row[0] if depth_row else None
-    
-    # Check if any parent is at max depth (D6) and would need D7 children
-    for pid in parent_ids:
-        pdepth = parent_depths.get(pid)
-        if pdepth is not None and pdepth >= 6 and len(selected) > 0:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=[{
-                    "loc": ["label"],
-                    "msg": "parent at max depth; cannot add children beyond D6",
-                    "type": "value_error.max_depth"
-                }]
-            )
-    
+
+    parent_depths: Dict[int, int] = {}
+    parent_ids: List[int] = []
+    skipped_parents: List[Dict[str, Any]] = []
+
+    for pid, depth in parent_rows:
+        depth_value = depth if depth is not None else 0
+        parent_depths[pid] = depth_value
+        if len(selected) > 0 and depth_value >= 6:
+            skipped_parents.append({
+                "parent_id": pid,
+                "depth": depth_value,
+                "reason": "max_depth",
+            })
+            continue
+        parent_ids.append(pid)
+
+    if not parent_ids:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=[{
+                "loc": ["label"],
+                "msg": "all parents at max depth; cannot add children beyond D6",
+                "type": "value_error.max_depth"
+            }]
+        )
+
     parents_diff = []
-    
+
     # Calculate diffs for each parent
     for pid in parent_ids:
         current_rows = conn.execute("""
-            SELECT LOWER(TRIM(label)) 
+            SELECT label 
             FROM nodes 
             WHERE parent_id = ? AND label IS NOT NULL AND TRIM(label) != ''
         """, (pid,)).fetchall()
-        
-        current_children = sorted({r[0] for r in current_rows if r[0]})
-        to_add = [s for s in selected if s not in current_children]
-        to_remove = [s for s in current_children if s not in selected]
-        
+
+        current_map: Dict[str, str] = {}
+        for (lab,) in current_rows:
+            cleaned = _clean(lab)
+            normed = _norm(cleaned)
+            if normed and normed not in current_map:
+                current_map[normed] = cleaned
+
+        to_add = [clean for norm, clean in selected_pairs if norm not in current_map]
+        to_remove = [current_map[norm] for norm in current_map if norm not in selected_norms]
+
         parents_diff.append({
             "parent_id": pid, 
             "removed": to_remove, 
@@ -158,7 +210,8 @@ def resolve_conflict(
         return {
             "updated_parents": len(parent_ids),
             "children_per_parent": len(selected),
-            "parents": parents_diff
+            "parents": parents_diff,
+            "skipped_parents": skipped_parents,
         }
     
     # Apply changes transactionally
@@ -203,5 +256,6 @@ def resolve_conflict(
     return {
         "updated_parents": len(parent_ids),
         "children_per_parent": len(selected),
-        "parents": parents_diff
+        "parents": parents_diff,
+        "skipped_parents": skipped_parents,
     }

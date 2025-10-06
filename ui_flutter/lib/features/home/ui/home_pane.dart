@@ -155,8 +155,17 @@ class _ConflictDetail extends ConsumerWidget {
       );
     }
     
-    final union = List<String>.from(conflict['union_children'] as List);
+    final union = conflictsState.unionOptions.isNotEmpty
+        ? List<String>.from(conflictsState.unionOptions)
+        : List<String>.from(conflict['union_children'] as List);
     final parents = List<Map<String, dynamic>>.from(conflict['parents'] as List);
+    final skippedParents = conflict['skipped_parents'] is List
+        ? List<Map<String, dynamic>>.from(conflict['skipped_parents'] as List)
+        : <Map<String, dynamic>>[];
+    final hasEligibleParents = parents.isNotEmpty;
+    final canSubmit = hasEligibleParents &&
+        conflictsState.unionSelected.isNotEmpty &&
+        conflictsState.unionSelected.length <= 5;
     
     return Card(
       child: Padding(
@@ -207,18 +216,57 @@ class _ConflictDetail extends ConsumerWidget {
                 ),
               ),
             ),
+            if (skippedParents.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Skipped due to max depth (${skippedParents.length})',
+                      style: TextStyle(
+                        color: Colors.orange.shade800,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    for (final skip in skippedParents)
+                      ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(
+                          Icons.block,
+                          size: 20,
+                          color: Colors.orange.shade700,
+                        ),
+                        title: Text('D${skip["depth"]} • Parent #${skip["parent_id"]}'),
+                        subtitle: Text(
+                          (skip['children'] is List && (skip['children'] as List).isNotEmpty)
+                              ? (skip['children'] as List).join(', ')
+                              : 'Existing children unchanged',
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
             Row(
               children: [
                 OutlinedButton.icon(
                   icon: const Icon(Icons.visibility),
                   label: const Text('Dry run'),
-                  onPressed: conflictsState.unionSelected.isEmpty || conflictsState.unionSelected.length > 5
-                      ? null
-                      : () async {
+                  onPressed: canSubmit
+                      ? () async {
                           final result = await conflictsState.dryRun();
                           if (result == null) return;
-                          
+
                           if (context.mounted) {
                             showDialog(
                               context: context,
@@ -236,26 +284,80 @@ class _ConflictDetail extends ConsumerWidget {
                               ),
                             );
                           }
+                        }
+                      : null,
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.add),
+                  label: const Text('Add child'),
+                  onPressed: conflictsState.isBusy || !hasEligibleParents
+                      ? null
+                      : () async {
+                          final controller = TextEditingController();
+                          final newLabel = await showDialog<String>(
+                            context: context,
+                            builder: (dialogContext) => AlertDialog(
+                              title: const Text('Add child'),
+                              content: TextField(
+                                controller: controller,
+                                autofocus: true,
+                                decoration: const InputDecoration(
+                                  labelText: 'Child label',
+                                  hintText: 'Enter child name',
+                                ),
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.of(dialogContext).pop(),
+                                  child: const Text('Cancel'),
+                                ),
+                                TextButton(
+                                  onPressed: () => Navigator.of(dialogContext).pop(controller.text),
+                                  child: const Text('Add'),
+                                ),
+                              ],
+                            ),
+                          );
+                          controller.dispose();
+
+                          if (newLabel == null) {
+                            return;
+                          }
+
+                          final added = conflictsState.addUnionChild(newLabel);
+                          if (!added && context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Child already exists or label is empty'),
+                              ),
+                            );
+                          }
                         },
                 ),
                 const SizedBox(width: 8),
                 FilledButton.icon(
                   icon: const Icon(Icons.check),
                   label: const Text('Apply'),
-                  onPressed: conflictsState.unionSelected.isEmpty || conflictsState.unionSelected.length > 5
-                      ? null
-                      : () async {
+                  onPressed: canSubmit
+                      ? () async {
                           final result = await conflictsState.apply();
                           if (result == null) return;
-                          
+
                           if (context.mounted) {
+                            final updatedCount = (result['updated_parents'] as int?) ?? 0;
+                            final skippedCount = (result['skipped_parents'] is List)
+                                ? (result['skipped_parents'] as List).length
+                                : 0;
+                            final message = skippedCount > 0
+                                ? 'Updated $updatedCount parents; skipped $skippedCount at max depth'
+                                : 'Resolved and updated $updatedCount parents';
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Resolved and updated parents'),
-                              ),
+                              SnackBar(content: Text(message)),
                             );
                           }
-                        },
+                        }
+                      : null,
                 ),
               ],
             ),

@@ -110,7 +110,17 @@ class ExportEngine:
                     continue
                 kids = self._children_of(nid)
                 if not kids:
-                    row = path + [""]
+                    row = [(value or "") for value in path]
+                    meta_row = self.conn.execute(
+                        "SELECT d6, notes FROM path_meta WHERE leaf_id = ?",
+                        (nid,),
+                    ).fetchone()
+                    notes_value = ""
+                    if meta_row:
+                        d6_value = meta_row[0] or ""
+                        notes_value = meta_row[1] or ""
+                        row[6] = d6_value or row[6]
+                    row.append(notes_value)
                     if self.opt.include_meta:
                         row += [nid, ppid, depth, slot, created, updated]
                     yield row

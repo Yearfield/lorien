@@ -1,5 +1,6 @@
 from typing import List, Dict, Optional, Tuple
 import sqlite3
+from collections import deque
 
 
 class TreeRepository:
@@ -116,53 +117,104 @@ class TreeRepository:
         """
         return [{"id": r[0], "label": r[1], "depth": r[2], "child_count": r[3]} for r in self.conn.execute(q, (label,))]
 
-    def _next_slot(self, parent_id: int) -> int:
-        """Get the next available slot number for a parent."""
-        row = self.conn.execute("SELECT COALESCE(MAX(slot), 0) FROM nodes WHERE parent_id = ?", (parent_id,)).fetchone()
-        return int(row[0]) + 1
-
     def clone_subtree(self, source_root_id: int, new_parent_id: int) -> int:
         """
         Copy source_root_id and its descendants under new_parent_id, preserving relative order.
         Assign new slots incrementally under each newly created parent.
         Returns number of nodes created (including copied root).
         """
-        # fetch subtree breadth-first
-        q = "SELECT id, parent_id, label, depth, slot FROM nodes WHERE id = ?"
-        root = self.conn.execute(q, (source_root_id,)).fetchone()
-        if not root:
+        root_row = self.conn.execute(
+            "SELECT id, parent_id, label, depth, slot FROM nodes WHERE id = ?",
+            (source_root_id,),
+        ).fetchone()
+        if not root_row:
             return 0
 
-        # gather children map
-        children_map = {}
-        for row in self.conn.execute("SELECT id, parent_id, label, depth, slot FROM nodes ORDER BY parent_id, slot, id"):
-            pid = row[1]
-            if pid is None:
-                continue
-            children_map.setdefault(pid, []).append(row)
+        dest_row = self.conn.execute(
+            "SELECT depth FROM nodes WHERE id = ?",
+            (new_parent_id,),
+        ).fetchone()
+        if not dest_row:
+            raise ValueError("dest_parent_not_found")
 
-        # BFS clone
-        old_to_new = {}
-        queue = [(root[0], new_parent_id)]  # (old_id, new_parent_for_copy)
-        created = 0
-        while queue:
-            old_id, parent_for_new = queue.pop(0)
-            old = self.conn.execute(q, (old_id,)).fetchone()
-            if not old:
-                continue
-            new_slot = self._next_slot(parent_for_new)
-            new_depth = self.conn.execute("SELECT depth FROM nodes WHERE id = ?", (parent_for_new,)).fetchone()
-            new_depth = (new_depth[0] + 1) if new_depth else 0
-            self.conn.execute(
-                "INSERT INTO nodes (parent_id, depth, slot, label) VALUES (?,?,?,?)",
-                (parent_for_new, new_depth, new_slot, old[2]),
+        dest_depth = dest_row[0]
+        if dest_depth >= 5:
+            raise ValueError("dest_parent_at_max_depth")
+
+        subtree_rows = self.conn.execute(
+            """
+            WITH RECURSIVE sub AS (
+              SELECT id, parent_id, label, depth, slot FROM nodes WHERE id = ?
+              UNION ALL
+              SELECT n.id, n.parent_id, n.label, n.depth, n.slot
+              FROM nodes n
+              JOIN sub s ON n.parent_id = s.id
             )
-            new_id = self.conn.execute("SELECT last_insert_rowid()").fetchone()[0]
-            old_to_new[old_id] = new_id
+            SELECT id, parent_id, label, depth, slot
+            FROM sub
+            ORDER BY parent_id, slot, id
+            """,
+            (source_root_id,),
+        ).fetchall()
+
+        if not subtree_rows:
+            return 0
+
+        node_lookup = {row[0]: row for row in subtree_rows}
+        source_root_depth = root_row[3]
+
+        # Ensure resulting depths stay within bounds
+        for node in subtree_rows:
+            offset = node[3] - source_root_depth
+            new_depth = dest_depth + 1 + offset
+            if new_depth > 6:
+                raise ValueError("depth_limit_exceeded")
+
+        # Ensure destination parent has capacity for new immediate children
+        existing_children = self.conn.execute(
+            "SELECT COUNT(*) FROM nodes WHERE parent_id = ?",
+            (new_parent_id,),
+        ).fetchone()[0]
+        direct_children_to_add = sum(1 for node in subtree_rows if node[1] == source_root_id)
+        if existing_children + direct_children_to_add > 5:
+            raise ValueError("max_children_exceeded")
+
+        children_map: Dict[int, List[int]] = {}
+        for node in subtree_rows:
+            parent_id = node[1]
+            if parent_id is None:
+                continue
+            children_map.setdefault(parent_id, []).append(node[0])
+
+        queue = deque([(source_root_id, new_parent_id)])
+        created = 0
+        child_counts: Dict[int, int] = {new_parent_id: existing_children}
+
+        while queue:
+            current_old_id, parent_for_new = queue.popleft()
+            node = node_lookup.get(current_old_id)
+            if not node:
+                continue
+
+            offset = node[3] - source_root_depth
+            new_depth = dest_depth + 1 + offset
+
+            current_count = child_counts.get(parent_for_new, 0) + 1
+            if current_count > 5:
+                raise ValueError("max_children_exceeded")
+            child_counts[parent_for_new] = current_count
+            slot = current_count
+
+            cursor = self.conn.execute(
+                "INSERT INTO nodes (parent_id, depth, slot, label) VALUES (?,?,?,?)",
+                (parent_for_new, new_depth, slot, node[2]),
+            )
+            new_id = cursor.lastrowid
             created += 1
 
-            for child in children_map.get(old_id, []):
-                queue.append((child[0], new_id))
+            child_counts[new_id] = 0
+            for child_old_id in children_map.get(current_old_id, []):
+                queue.append((child_old_id, new_id))
 
         return created
 
