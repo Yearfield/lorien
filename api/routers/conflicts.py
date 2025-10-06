@@ -262,12 +262,17 @@ def resolve_conflict(
             "skipped_parents": skipped_parents,
         }
 
-    # Apply changes transactionally
+    # Apply changes transactionally - simple DELETE then INSERT approach
     conn.isolation_level = None
     conn.execute("BEGIN IMMEDIATE")
     try:
-        for pid, ops in parent_operations:
-            parent_depth = parent_depths.get(pid, 0)
+        for pid in parent_ids:
+            # Verify parent still exists and get fresh depth
+            parent_row = conn.execute("SELECT id, depth FROM nodes WHERE id = ?", (pid,)).fetchone()
+            if not parent_row:
+                continue  # Skip if parent no longer exists
+            
+            parent_depth = parent_row[1]
             child_depth = parent_depth + 1
 
             if child_depth > 6:
@@ -280,44 +285,15 @@ def resolve_conflict(
                     }]
                 )
 
-            delete_ids = ops["delete_ids"]
-            if delete_ids:
-                conn.executemany(
-                    "DELETE FROM nodes WHERE id = ?",
-                    [(cid,) for cid in delete_ids],
-                )
-
-            updates = ops["updates"]
-            if updates:
-                slot_case = " ".join(["WHEN ? THEN ?" for _ in updates])
-                label_case = " ".join(["WHEN ? THEN ?" for _ in updates])
-
-                params: List[Any] = []
-                for update in updates:
-                    params.extend([update["id"], update["slot"]])
-                for update in updates:
-                    params.extend([update["id"], update["label"]])
-
-                ids = [update["id"] for update in updates]
-                params.extend(ids)
-
-                placeholders = ",".join(["?"] * len(ids))
-                query = f"""
-                    UPDATE nodes
-                    SET slot = CASE id {slot_case} ELSE slot END,
-                        label = CASE id {label_case} ELSE label END
-                    WHERE id IN ({placeholders})
-                """
-                conn.execute(query, params)
-
-            for insert in ops["inserts"]:
-                conn.execute(
-                    """
-                    INSERT INTO nodes (parent_id, depth, slot, label)
+            # Delete ALL existing children first (this will cascade delete grandchildren too)
+            conn.execute("DELETE FROM nodes WHERE parent_id = ?", (pid,))
+            
+            # Insert new children with sequential slots starting at 1
+            for i, child_label in enumerate(selected, start=1):
+                conn.execute("""
+                    INSERT INTO nodes (parent_id, depth, slot, label) 
                     VALUES (?, ?, ?, ?)
-                    """,
-                    (pid, child_depth, insert["slot"], insert["label"]),
-                )
+                """, (pid, child_depth, i, child_label))
 
         conn.execute("COMMIT")
     except Exception as e:
