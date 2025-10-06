@@ -1,20 +1,25 @@
-"""
-Health check router for the decision tree API.
-"""
+"""Health and readiness endpoints for the decision tree API."""
 
-from fastapi import APIRouter, Depends, HTTPException
-from typing import Dict, Any
+import asyncio
+from contextlib import closing
+import logging
 import os
 import sqlite3
+from pathlib import Path
+from typing import Any, Dict, List
+
+from fastapi import APIRouter, Depends, HTTPException
 
 from ..dependencies import get_db_connection
 from ..settings import get_db_path
 from core.version import __version__
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(tags=["health"])
 
 @router.get("/health")
-async def health_check(conn: sqlite3.Connection = Depends(get_db_connection)):
+def health_check(conn: sqlite3.Connection = Depends(get_db_connection)):
     """
     Comprehensive health check endpoint.
 
@@ -23,8 +28,11 @@ async def health_check(conn: sqlite3.Connection = Depends(get_db_connection)):
     """
     try:
         db_stats = _check_database_health(conn)
-        llm_enabled = (await _check_features())["llm"]
+        feature_flags = _check_features()
+        llm_enabled = feature_flags["llm"]
         status_value = "ok" if db_stats.get("integrity", "ok").lower() == "ok" else "degraded"
+        if status_value == "ok" and feature_flags.get("llm_requested") and not llm_enabled:
+            status_value = "degraded"
 
         return {
             "ok": status_value == "ok",
@@ -32,22 +40,24 @@ async def health_check(conn: sqlite3.Connection = Depends(get_db_connection)):
             "version": __version__,
             "db": {
                 "path": db_stats["path"],
+                "exists": db_stats["exists"],
                 "journal_mode": db_stats["journal_mode"],
                 "tables": db_stats["tables"],
                 "nodes": db_stats["nodes"],
                 "integrity": db_stats["integrity"],
                 "objects": db_stats.get("objects", 0),
             },
-            "features": {"llm": llm_enabled},
+            "features": feature_flags,
         }
-    except Exception as e:
+    except Exception as exc:  # pragma: no cover - defensive logging
+        logger.exception("Health check failed")
         return {
             "ok": False,
             "status": "error",
             "version": __version__,
-            "db": {"path": None, "journal_mode": None, "tables": 0, "nodes": 0},
-            "features": {"llm": False},
-            "error": str(e)
+            "db": {"path": None, "exists": False, "journal_mode": None, "tables": 0, "nodes": 0, "objects": 0},
+            "features": {"llm": False, "llm_requested": False, "analytics": False},
+            "error": str(exc),
         }
 
 
@@ -59,83 +69,125 @@ async def health_metrics():
     Only available when ANALYTICS_ENABLED=true.
     Returns 404 when analytics is disabled.
     """
-    analytics_enabled = os.getenv("ANALYTICS_ENABLED", "false").lower() == "true"
+    analytics_enabled = _env_flag_enabled("ANALYTICS_ENABLED")
     if not analytics_enabled:
         raise HTTPException(status_code=404, detail="Analytics disabled")
 
-    metrics_data = await _get_runtime_metrics()
+    metrics_data = await asyncio.to_thread(_collect_runtime_metrics)
     return metrics_data
 
 def _check_database_health(conn: sqlite3.Connection) -> Dict[str, Any]:
     """Check database configuration and health."""
     try:
-        # Get database configuration
-        cursor = conn.cursor()
-        cursor.execute("PRAGMA journal_mode")
-        journal_mode = cursor.fetchone()[0]
+        with closing(conn.execute("PRAGMA journal_mode")) as cursor:
+            journal_row = cursor.fetchone()
+        journal_mode = (journal_row[0] if journal_row else "").lower()
 
-        table_names = [row[0] for row in cursor.execute(
-            "SELECT name FROM sqlite_master WHERE type='table'"
-        ).fetchall()]
-        object_names = [row[0] for row in cursor.execute(
-            "SELECT name FROM sqlite_master WHERE type IN ('table','view','trigger')"
-        ).fetchall()]
+        table_names = _fetch_names(conn, "table")
+        object_names = _fetch_names(conn, "table", "view", "trigger")
 
-        node_count = 0
-        if "nodes" in table_names:
-            node_count = cursor.execute("SELECT COUNT(*) FROM nodes").fetchone()[0]
+        node_count = _safe_count_nodes(conn) if "nodes" in table_names else 0
 
-        cursor.execute("PRAGMA integrity_check")
-        integrity = cursor.fetchone()[0]
+        with closing(conn.execute("PRAGMA integrity_check")) as cursor:
+            integrity_row = cursor.fetchone()
+        integrity = integrity_row[0] if integrity_row else "unknown"
+
+        db_path = Path(get_db_path())
 
         return {
-            "path": get_db_path(),
-            "journal_mode": (journal_mode or "").lower(),
-            "tables": sum(1 for name in table_names if name),
+            "path": str(db_path),
+            "exists": db_path.exists(),
+            "journal_mode": journal_mode,
+            "tables": len([name for name in table_names if name]),
             "nodes": node_count,
             "integrity": integrity,
-            "objects": sum(1 for name in object_names if name),
+            "objects": len([name for name in object_names if name]),
         }
-    except Exception as e:
-        raise RuntimeError(f"database check failed: {e}") from e
+    except Exception as exc:
+        raise RuntimeError(f"database check failed: {exc}") from exc
 
-async def _check_features() -> Dict[str, bool]:
+
+def _check_features() -> Dict[str, bool]:
     """Check feature availability."""
-    # Check if LLM is enabled via environment variable
-    llm_enabled = os.getenv("LLM_ENABLED", "false").lower() == "true"
-    
-    # Check if LLM model file exists (if enabled)
-    if llm_enabled:
-        model_path = os.getenv("LLM_MODEL_PATH", "llm/models/model.gguf")
-        llm_enabled = os.path.exists(model_path)
-    
+    llm_gate_enabled = _env_flag_enabled("LLM_ENABLED")
+    if llm_gate_enabled:
+        model_path = Path(os.getenv("LLM_MODEL_PATH", "llm/models/model.gguf"))
+        llm_active = model_path.is_file()
+        if not llm_active:
+            logger.warning("LLM feature flagged on but model missing at %s", model_path)
+    else:
+        llm_active = False
+
+    analytics_enabled = _env_flag_enabled("ANALYTICS_ENABLED")
+
     return {
-        "llm": llm_enabled
+        "llm": llm_active,
+        "llm_requested": llm_gate_enabled,
+        "analytics": analytics_enabled,
     }
 
-async def _get_runtime_metrics() -> Dict[str, Any]:
+
+def _collect_runtime_metrics() -> Dict[str, Any]:
     """Get runtime metrics (non-PHI counters only)."""
     try:
-        # Count rows in the primary table using a fresh connection
-        from ..settings import get_db_path
-        conn = sqlite3.connect(get_db_path())
-        try:
-            cursor = conn.cursor()
-            cursor.execute("SELECT COUNT(*) FROM nodes")
-            node_count = cursor.fetchone()[0]
-        finally:
-            conn.close()
+        with closing(sqlite3.connect(get_db_path())) as conn:
+            with closing(conn.cursor()) as cursor:
+                if _table_exists(cursor, "nodes"):
+                    cursor.execute("SELECT COUNT(*) FROM nodes")
+                    row = cursor.fetchone()
+                    node_count = row[0] if row else 0
+                else:
+                    node_count = 0
 
         return {
             "telemetry": {},  # No metrics module available
             "table_counts": {"nodes": node_count},
         }
-    except Exception as e:
+    except Exception as exc:
+        logger.warning("Runtime metrics unavailable: %s", exc)
         return {
-            "error": str(e),
+            "error": str(exc),
             "telemetry": {},
-            "table_counts": {},
+            "table_counts": {"nodes": 0},
         }
+
+
+def _fetch_names(conn: sqlite3.Connection, *object_types: str) -> List[str]:
+    """Return names of SQLite objects for the given types."""
+    placeholders = ",".join("?" for _ in object_types)
+    query = (
+        "SELECT name FROM sqlite_master WHERE type IN (" + placeholders + ")"
+    )
+    with closing(conn.execute(query, object_types)) as cursor:
+        return [row[0] for row in cursor.fetchall()]
+
+
+def _safe_count_nodes(conn: sqlite3.Connection) -> int:
+    """Count nodes table entries with defensive error handling."""
+    try:
+        with closing(conn.execute("SELECT COUNT(*) FROM nodes")) as cursor:
+            row = cursor.fetchone()
+        return row[0] if row else 0
+    except sqlite3.OperationalError as exc:
+        logger.warning("Failed to count nodes: %s", exc)
+        return 0
+
+
+def _table_exists(cursor: sqlite3.Cursor, table_name: str) -> bool:
+    """Check if a table exists using the provided cursor."""
+    cursor.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+        (table_name,),
+    )
+    return cursor.fetchone() is not None
+
+
+def _env_flag_enabled(name: str, default: bool = False) -> bool:
+    """Return True when the environment toggle is set to a truthy value."""
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 @router.get("/live")
 def live() -> Dict[str, Any]:

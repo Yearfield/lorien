@@ -12,7 +12,7 @@ Key contracts
 - Transactional import: `POST /api/v1/import?mode=append|replace&enforce_five=true` rolls back on violations (422 with offending parents)
 - Conflicts resolution: label-only grouping across all depths with cross-depth resolution capabilities
 - Enhanced export: CSV/XLSX with filters (max_depth, only_red, include_meta, root_ids)
-- Health: `/api/v1/live`, `/api/v1/ready`, enhanced `/api/v1/health` (version, DB path, journal mode, table count, node count)
+- Health: `/api/v1/live`, `/api/v1/ready`, enhanced `/api/v1/health` (version, DB path + `exists`, journal mode, table count, node count, analytics/LLM feature flags)
 
 Quick start
 ```bash

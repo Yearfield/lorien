@@ -22,20 +22,27 @@ D0,D1,D2,D3,D4,D5,D6,Notes
     "version": "6.8.0-beta.1",
     "db": {
       "path": "/path/app.db",
+      "exists": true,
       "journal_mode": "wal",
       "tables": 5,
       "nodes": 123,
       "integrity": "ok",
       "objects": 14
     },
-    "features": {"llm": false}
+    "features": {
+      "llm": false,
+      "llm_requested": false,
+      "analytics": false
+    }
   }
   ```
+  - `llm_requested` mirrors the environment toggle; when true but `llm=false`, health degrades to `"status": "degraded"` to signal missing model assets.
+  - `analytics` tracks the `ANALYTICS_ENABLED` flag; the health metrics endpoint is only available when this value is `true`.
 
 ### Health Metrics (Optional)
 - `GET /api/v1/health/metrics` → Telemetry data (requires `ANALYTICS_ENABLED=true`)
-  - Returns 404 when analytics is disabled
-  - Returns non-PHI counters and metrics
+  - Returns 404 when analytics is disabled (`ANALYTICS_ENABLED=false`)
+  - Runs count collection off the main event loop and always returns a `nodes` counter (0 on failure)
 
 Examples:
 ```bash
@@ -56,10 +63,11 @@ curl -sS http://127.0.0.1:8000/api/v1/health/metrics | jq
       "header": ["D0","D1","D2","D3","D4","D5","D6","Notes"],
       "stats": {"found_paths": 42},
       "errors": [
-        {"row": 12, "msg": "parent (...) would exceed 5 children (preview)", "type": "value_error.max_children"}
+        {"row": 12, "msg": "parent 'Hypertension' would exceed 5 children with 'Severe' (preview)", "type": "value_error.max_children"}
       ]
     }
     ```
+  - Depth validation is schema-aware. If future headers extend beyond `D6`, preview errors report the actual deepest allowed column (e.g., `"depth exceeds D7"`).
 
 ### Apply Import
 - `POST /api/v1/import?mode=append|replace&enforce_five=true` (multipart `file`)
@@ -84,6 +92,7 @@ curl -sS http://127.0.0.1:8000/api/v1/health/metrics | jq
       "detail": [{"parent_id": 7, "parent_label": "...", "count": 6, "msg": "parent ends with >5 children"}]
     }
     ```
+  - Warnings bundle both in-file heuristics and database lookups; repeated rows for the same parent/child combination are de-duplicated.
 
 Examples:
 ```bash

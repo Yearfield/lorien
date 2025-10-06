@@ -1,15 +1,26 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, Query, Depends
+import re
+import sqlite3
+from collections import defaultdict
+from typing import Any, Dict, Iterable, List, Literal
+
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import JSONResponse
 
 from api.dependencies import get_db_connection
 from Engines.EngineLongBow import apply_import_with_metadata
 from Engines.EngineLongBow.import_analyzer import analyze_max_children
-from .helpers import parse_csv_or_xlsx, coerce_rows_to_canonical, CANONICAL_HEADER
-import sqlite3
-from typing import Dict, Any, List, Optional
-from collections import defaultdict
+from .helpers import CANONICAL_HEADER, coerce_rows_to_canonical, parse_csv_or_xlsx
 
 router = APIRouter()
+
+_DEPTH_PATTERN = re.compile(r"D(\d+)$")
+DEPTH_COLUMNS = sorted(
+    [column for column in CANONICAL_HEADER if _DEPTH_PATTERN.fullmatch(column)],
+    key=lambda column: int(_DEPTH_PATTERN.fullmatch(column).group(1)),
+)
+MAX_DEPTH_INDEX = int(_DEPTH_PATTERN.fullmatch(DEPTH_COLUMNS[-1]).group(1)) if DEPTH_COLUMNS else 0
+MAX_DEPTH_LABEL = DEPTH_COLUMNS[-1] if DEPTH_COLUMNS else "D0"
+
 
 def _group_overfive_within_file(paths: List[List[str]], limit: int = 5) -> List[Dict[str, Any]]:
     """
@@ -19,21 +30,50 @@ def _group_overfive_within_file(paths: List[List[str]], limit: int = 5) -> List[
     """
     # Build mapping: parent_tuple -> set(child_labels) and rows exceeding limit
     parent_children = defaultdict(set)
-    violations = []  # (row_idx, parent_key, child_label)
-    for i, p in enumerate(paths, start=2):  # row 1 = header
-        # p is like ["D0","D1",...,"D6"] (may contain None/"")
-        last_parent_idx = max([idx for idx, val in enumerate(p[:-1]) if (val or "").strip()] or [-1])
-        if last_parent_idx < 0:
+    violations: List[Dict[str, Any]] = []
+    reported_rows = set()
+    for row_number, path in enumerate(paths, start=2):  # row 1 = header
+        cleaned = [(segment or "").strip() for segment in path]
+        parent_candidates = [idx for idx, value in enumerate(cleaned[:-1]) if value]
+        if not parent_candidates:
             continue
-        parent_key = tuple((p[j] or "").strip() for j in range(last_parent_idx + 1))
-        child_label = (p[last_parent_idx + 1] or "").strip()
+        last_parent_idx = parent_candidates[-1]
+        if last_parent_idx + 1 >= len(cleaned):
+            continue
+        child_label = cleaned[last_parent_idx + 1]
         if not child_label:
             continue
+        parent_key = tuple(cleaned[: last_parent_idx + 1])
         pc = parent_children[parent_key]
         pc.add(child_label.lower())
-        if len(pc) > limit:
-            violations.append({"row": i, "msg": f"parent {parent_key} would exceed {limit} children (preview)", "type": "value_error.max_children"})
+        if len(pc) > limit and row_number not in reported_rows:
+            parent_display = " > ".join(parent_key)
+            violations.append(
+                {
+                    "row": row_number,
+                    "msg": f"parent '{parent_display}' would exceed {limit} children with '{child_label}' (preview)",
+                    "type": "value_error.max_children",
+                }
+            )
+            reported_rows.add(row_number)
     return violations
+
+
+def _canonical_paths(rows: Iterable[Dict[str, Any]]) -> List[List[str]]:
+    """Return canonical depth-only slices for downstream heuristics."""
+    return [[(row.get(column) or "").strip() for column in DEPTH_COLUMNS] for row in rows]
+
+
+def _row_exceeds_depth(row: Dict[str, Any]) -> bool:
+    if not DEPTH_COLUMNS:
+        return False
+    for key, value in row.items():
+        match = _DEPTH_PATTERN.fullmatch(key)
+        if not match or not (value or "").strip():
+            continue
+        if int(match.group(1)) > MAX_DEPTH_INDEX:
+            return True
+    return False
 
 
 @router.post("/import/preview")
@@ -45,7 +85,7 @@ async def import_preview(
     try:
         file_content = await file.read()
         filename = file.filename or "upload.csv"
-        raw_rows, rows = parse_csv_or_xlsx(file_content, filename)
+        _, rows = parse_csv_or_xlsx(file_content, filename)
     except Exception as e:
         raise HTTPException(
             status_code=400,
@@ -57,20 +97,20 @@ async def import_preview(
         rows = coerce_rows_to_canonical(rows)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"bad_header: {e}")
-    
+
     try:
         # Header coercion already applied above
         issues = []
-        canonical_paths = [[(r.get(f"D{d}") or "") for d in range(7)] for r in rows]
+        canonical_paths = _canonical_paths(rows)
         issues.extend(_group_overfive_within_file(canonical_paths))
         # Basic path checks
         for idx, r in enumerate(rows, start=2):
             # Check if row has any non-empty values
-            has_content = any((r.get(f"D{d}") or "").strip() for d in range(7))
+            has_content = any((r.get(column) or "").strip() for column in DEPTH_COLUMNS)
             if has_content and (r.get("D0") or "").strip() == "":
                 issues.append({"row": idx, "msg": "path must start at D0 (root)", "type": "value_error.path"})
-            if any((r.get(f"D{d}") or "").strip() for d in range(7, 10)):  # future-proof
-                issues.append({"row": idx, "msg": "depth exceeds D6", "type": "value_error.max_depth"})
+            if _row_exceeds_depth(r):  # future-proof
+                issues.append({"row": idx, "msg": f"depth exceeds {MAX_DEPTH_LABEL}", "type": "value_error.max_depth"})
         # Max-children preflight (append considered against DB)
         max_children = analyze_max_children(conn, rows, mode="append")
         
@@ -91,7 +131,7 @@ async def import_preview(
 
 @router.post("/import")
 async def import_apply(
-    mode: str = Query(default="append", pattern="^(append|replace)$"),
+    mode: Literal["append", "replace"] = Query(default="append"),
     enforce_five: bool = Query(default=False),  # IMPORT DOES NOT ENFORCE by default
     file: UploadFile = File(...),
     conn: sqlite3.Connection = Depends(get_db_connection),
@@ -102,7 +142,7 @@ async def import_apply(
     try:
         blob = await file.read()
         filename = file.filename or "upload.csv"
-        raw_rows, rows = parse_csv_or_xlsx(blob, filename)
+        _, rows = parse_csv_or_xlsx(blob, filename)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"parse_error: {e}")
 
@@ -116,7 +156,7 @@ async def import_apply(
 
     try:
         # Import enforces ≤5 only when caller opts in; warnings always returned for visibility.
-        canonical_paths = [[(r.get(f"D{d}") or "") for d in range(7)] for r in rows]
+        canonical_paths = _canonical_paths(rows)
         warnings = _group_overfive_within_file(canonical_paths)
         db_warnings = analyze_max_children(conn, rows, mode=mode)
         warnings.extend(db_warnings)
@@ -135,14 +175,14 @@ async def import_apply(
         paths_with_meta = []
         for row in rows:
             path: List[str] = []
-            for key in ["D0", "D1", "D2", "D3", "D4", "D5"]:
+            for key in DEPTH_COLUMNS[:-1]:
                 value = (row.get(key) or "").strip()
                 if not value:
                     break
                 path.append(value)
             if not path:
                 continue
-            d6_value = (row.get("D6") or "").strip() or None
+            d6_value = (row.get(DEPTH_COLUMNS[-1]) or "").strip() or None
             notes_value = (row.get("Notes") or "").strip() or None
             paths_with_meta.append({
                 "path": path,
