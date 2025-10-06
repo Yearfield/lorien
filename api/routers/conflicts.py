@@ -4,7 +4,7 @@ Conflicts router for detecting and resolving tree conflicts.
 
 from fastapi import APIRouter, Depends, HTTPException, status
 import sqlite3
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 from ..dependencies import get_db_connection
 
 router = APIRouter(tags=["conflicts"])
@@ -133,7 +133,6 @@ def resolve_conflict(
             selected_pairs.append((normed, cleaned))
 
     selected = [clean for _, clean in selected_pairs]
-    selected_norms = {norm for norm, _ in selected_pairs}
     
     # Enforce ≤5 children limit
     if len(selected) > 5:
@@ -181,31 +180,80 @@ def resolve_conflict(
         )
 
     parents_diff = []
+    parent_operations: List[Tuple[int, Dict[str, Any]]] = []
 
     # Calculate diffs for each parent
     for pid in parent_ids:
         current_rows = conn.execute("""
-            SELECT label 
+            SELECT id, label, slot
             FROM nodes 
             WHERE parent_id = ? AND label IS NOT NULL AND TRIM(label) != ''
+            ORDER BY slot ASC, id ASC
         """, (pid,)).fetchall()
 
-        current_map: Dict[str, str] = {}
-        for (lab,) in current_rows:
+        unmatched_children: List[Dict[str, Any]] = []
+        available: Dict[str, List[Dict[str, Any]]] = {}
+
+        for child_id, lab, slot in current_rows:
             cleaned = _clean(lab)
             normed = _norm(cleaned)
-            if normed and normed not in current_map:
-                current_map[normed] = cleaned
+            entry = {
+                "id": child_id,
+                "slot": slot,
+                "cleaned": cleaned,
+                "norm": normed,
+            }
+            if not normed:
+                unmatched_children.append(entry)
+                continue
+            available.setdefault(normed, []).append(entry)
 
-        to_add = [clean for norm, clean in selected_pairs if norm not in current_map]
-        to_remove = [current_map[norm] for norm in current_map if norm not in selected_norms]
+        updates: List[Dict[str, Any]] = []
+        inserts: List[Dict[str, Any]] = []
+        added_labels: List[str] = []
+        removed_labels: List[str] = []
+
+        for idx, (norm, clean) in enumerate(selected_pairs, start=1):
+            bucket = available.get(norm)
+            if bucket:
+                match_entry = bucket.pop(0)
+                updates.append({
+                    "id": match_entry["id"],
+                    "slot": idx,
+                    "current_slot": match_entry["slot"],
+                    "label": clean,
+                })
+                if match_entry["cleaned"] != clean:
+                    removed_labels.append(match_entry["cleaned"])
+                    added_labels.append(clean)
+            else:
+                inserts.append({"slot": idx, "label": clean})
+                added_labels.append(clean)
+
+        delete_entries: List[Dict[str, Any]] = []
+
+        for bucket in available.values():
+            for child in bucket:
+                delete_entries.append(child)
+                removed_labels.append(child["cleaned"])
+
+        for child in unmatched_children:
+            if child not in delete_entries:
+                delete_entries.append(child)
+                removed_labels.append(child["cleaned"])
 
         parents_diff.append({
-            "parent_id": pid, 
-            "removed": to_remove, 
-            "added": to_add
+            "parent_id": pid,
+            "removed": removed_labels,
+            "added": added_labels,
         })
-    
+
+        parent_operations.append((pid, {
+            "delete_ids": [child["id"] for child in delete_entries],
+            "updates": updates,
+            "inserts": inserts,
+        }))
+
     if dry_run:
         return {
             "updated_parents": len(parent_ids),
@@ -213,22 +261,15 @@ def resolve_conflict(
             "parents": parents_diff,
             "skipped_parents": skipped_parents,
         }
-    
+
     # Apply changes transactionally
     conn.isolation_level = None
     conn.execute("BEGIN IMMEDIATE")
     try:
-        for pid in parent_ids:
-            # Delete existing children
-            conn.execute("DELETE FROM nodes WHERE parent_id = ?", (pid,))
-            
-            # Insert new children at depth+1 with sequential slots
-            # Get the parent's depth first
-            parent_depth_row = conn.execute("SELECT depth FROM nodes WHERE id = ?", (pid,)).fetchone()
-            parent_depth = parent_depth_row[0] if parent_depth_row else 0
+        for pid, ops in parent_operations:
+            parent_depth = parent_depths.get(pid, 0)
             child_depth = parent_depth + 1
-            
-            # Additional guard: ensure we don't exceed max depth
+
             if child_depth > 6:
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -238,13 +279,46 @@ def resolve_conflict(
                         "type": "value_error.max_depth"
                     }]
                 )
-            
-            for i, child_label in enumerate(selected, start=1):
-                conn.execute("""
-                    INSERT INTO nodes (parent_id, depth, slot, label) 
+
+            delete_ids = ops["delete_ids"]
+            if delete_ids:
+                conn.executemany(
+                    "DELETE FROM nodes WHERE id = ?",
+                    [(cid,) for cid in delete_ids],
+                )
+
+            updates = ops["updates"]
+            if updates:
+                slot_case = " ".join(["WHEN ? THEN ?" for _ in updates])
+                label_case = " ".join(["WHEN ? THEN ?" for _ in updates])
+
+                params: List[Any] = []
+                for update in updates:
+                    params.extend([update["id"], update["slot"]])
+                for update in updates:
+                    params.extend([update["id"], update["label"]])
+
+                ids = [update["id"] for update in updates]
+                params.extend(ids)
+
+                placeholders = ",".join(["?"] * len(ids))
+                query = f"""
+                    UPDATE nodes
+                    SET slot = CASE id {slot_case} ELSE slot END,
+                        label = CASE id {label_case} ELSE label END
+                    WHERE id IN ({placeholders})
+                """
+                conn.execute(query, params)
+
+            for insert in ops["inserts"]:
+                conn.execute(
+                    """
+                    INSERT INTO nodes (parent_id, depth, slot, label)
                     VALUES (?, ?, ?, ?)
-                """, (pid, child_depth, i, child_label))
-        
+                    """,
+                    (pid, child_depth, insert["slot"], insert["label"]),
+                )
+
         conn.execute("COMMIT")
     except Exception as e:
         conn.execute("ROLLBACK")
