@@ -54,3 +54,22 @@ examples/
 coverage.xml
 htmlcov/
 .pytest_cache/
+.ruff_cache/
+.bench/
+.tmp/
+
+# Generated audit/report artifacts
+AUDIT_REPORT.md
+docs_audit_report.*
+import_response.json
+=3.2.0
+
+# Generated CSV/XLSX samples
+calc_export*.csv
+tree_export.csv
+test_data_*.xlsx
+test_over_five.csv
+test_dict.json
+
+# Platform-specific app caches
+C:\\Users\\*/
