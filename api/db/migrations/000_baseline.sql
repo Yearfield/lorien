@@ -30,4 +30,3 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_parent_slot_unique
 -- Helpful indexes
 CREATE INDEX IF NOT EXISTS idx_nodes_parent_id ON nodes(parent_id);
 CREATE INDEX IF NOT EXISTS idx_nodes_depth_label ON nodes(depth, label);
-

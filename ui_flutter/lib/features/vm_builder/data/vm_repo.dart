@@ -101,14 +101,23 @@ class VmRepo {
     return jsonDecode(res.body) as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> nextUnderfilled({int? rootId, int? afterId}) async {
+  Future<Map<String, dynamic>?> nextUnderfilled({int? rootId, int? afterId}) async {
     final q = <String>[];
     if (rootId != null) q.add('root_id=$rootId');
     if (afterId != null) q.add('after_id=$afterId');
     final uri = Uri.parse('$base/tree/next-underfilled${q.isEmpty ? '' : '?'+q.join('&')}');
     final r = await http.get(uri);
-    if (r.statusCode != 200) throw Exception('next-underfilled failed');
-    return jsonDecode(r.body) as Map<String, dynamic>;
+    if (r.statusCode == 204) {
+      return null;
+    }
+    if (r.statusCode != 200) {
+      throw Exception('next-underfilled failed: ${r.statusCode} ${r.body}');
+    }
+    final data = jsonDecode(r.body);
+    if (data is Map<String, dynamic>) {
+      return data;
+    }
+    return null;
   }
 
   Future<void> setEdgeFlag(int parentId, int childId, bool red) async {
@@ -199,8 +208,8 @@ class VmRepo {
   Future<Map<String, dynamic>> restoreSubtree(Map<String, dynamic> snapshot) async {
     final uri = Uri.parse('$base/tree/subtree/restore');
     final res = await http.post(
-      uri, 
-      headers: {'Content-Type': 'application/json'}, 
+      uri,
+      headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'snapshot': snapshot})
     );
     if (res.statusCode != 200) {

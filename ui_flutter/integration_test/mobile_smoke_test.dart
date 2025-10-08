@@ -152,7 +152,7 @@ void main() {
 
     testWidgets('performance is acceptable on mobile', (tester) async {
       await tester.binding.setSurfaceSize(const Size(375, 667));
-      
+
       final stopwatch = Stopwatch()..start();
       app.main();
       await tester.pumpAndSettle();
@@ -203,12 +203,12 @@ void main() {
 
         // Verify core functionality works
         expect(find.text('Workspace'), findsOneWidget);
-        
+
         // Test navigation
         await tester.tap(find.text('Outcomes'));
         await tester.pumpAndSettle();
         expect(find.text('Outcomes'), findsOneWidget);
-        
+
         await tester.tap(find.text('Workspace'));
         await tester.pumpAndSettle();
         expect(find.text('Workspace'), findsOneWidget);

@@ -2,11 +2,11 @@
 LLM Service with Dependency Injection and Health Checking
 """
 
-import os
-from pathlib import Path
-from datetime import datetime, timezone
-from typing import Tuple, Dict, Any
 import logging
+import os
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
 
 from .providers.null_provider import NullProvider
 
@@ -20,7 +20,7 @@ def _env_bool(key: str, default: str = "false") -> bool:
 
 def _checked_at() -> str:
     """Return ISO-8601 UTC timestamp with Z suffix."""
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
 def resolve_provider(name: str, model: str | None = None):
@@ -54,7 +54,7 @@ class LLMService:
         self.model_path = os.getenv("LLM_MODEL_PATH", "")
         self.provider = resolve_provider(self.provider_name, model=self.model_path or None)
 
-    def health(self) -> Tuple[int, Dict[str, Any]]:
+    def health(self) -> tuple[int, dict[str, Any]]:
         """
         Check LLM service health.
 
@@ -69,17 +69,19 @@ class LLMService:
                     "llm_enabled": False,
                     "ready": False,
                     "checks": checks,
-                    "checked_at": _checked_at()
+                    "checked_at": _checked_at(),
                 }
 
             # Optional file presence check
             if self.model_path:
                 exists = Path(self.model_path).exists()
-                checks.append({
-                    "name": "model_path",
-                    "ok": bool(exists),
-                    "details": self.model_path if exists else "not found"
-                })
+                checks.append(
+                    {
+                        "name": "model_path",
+                        "ok": bool(exists),
+                        "details": self.model_path if exists else "not found",
+                    }
+                )
                 if not exists:
                     return 503, {
                         "ok": False,
@@ -88,16 +90,12 @@ class LLMService:
                         "provider": self.provider_name,
                         "model": self.model_path,
                         "checks": checks,
-                        "checked_at": _checked_at()
+                        "checked_at": _checked_at(),
                     }
 
             prov = self.provider.health() or {}
             ready = bool(prov.get("ok"))
-            checks.append({
-                "name": "provider",
-                "ok": ready,
-                "details": prov
-            })
+            checks.append({"name": "provider", "ok": ready, "details": prov})
 
             status = 200 if ready else 503
             body = {
@@ -107,19 +105,15 @@ class LLMService:
                 "provider": prov.get("provider", self.provider_name),
                 "model": prov.get("model", self.model_path),
                 "checks": checks,
-                "checked_at": _checked_at()
+                "checked_at": _checked_at(),
             }
             return status, body
 
         except Exception:
             log.exception("LLM health error")
-            return 500, {
-                "ok": False,
-                "error": "internal",
-                "checked_at": _checked_at()
-            }
+            return 500, {"ok": False, "error": "internal", "checked_at": _checked_at()}
 
-    def suggest(self, prompt: str) -> Dict[str, str]:
+    def suggest(self, prompt: str) -> dict[str, str]:
         """
         Generate suggestions via provider.
 

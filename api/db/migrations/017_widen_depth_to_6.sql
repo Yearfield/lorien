@@ -64,7 +64,7 @@ SELECT
   p.id AS parent_id,
   TRIM(
     GROUP_CONCAT(
-      CASE 
+      CASE
         WHEN NOT EXISTS (SELECT 1 FROM nodes c WHERE c.parent_id = p.id AND c.slot = 1) THEN '1'
         WHEN NOT EXISTS (SELECT 1 FROM nodes c WHERE c.parent_id = p.id AND c.slot = 2) THEN '2'
         WHEN NOT EXISTS (SELECT 1 FROM nodes c WHERE c.parent_id = p.id AND c.slot = 3) THEN '3'

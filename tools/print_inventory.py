@@ -1,4 +1,6 @@
-import os, pathlib, json, argparse
+import argparse
+import json
+import pathlib
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
@@ -13,6 +15,7 @@ KEEP_DIRS = [
 SKIP_DIRS = {"__pycache__", ".venv", "venv", "site-packages", "build", "dist"}
 SKIP_SUFFIXES = {".pyc"}
 
+
 def list_tree(base):
     base_path = ROOT / base
     items = []
@@ -26,6 +29,7 @@ def list_tree(base):
             items.append(str(p.relative_to(ROOT)))
     return sorted(items)
 
+
 def build_summary():
     summary = {}
     for d in KEEP_DIRS:
@@ -38,6 +42,7 @@ def build_summary():
             routes.append(line.strip())
     summary["api.routes"] = routes
     return summary
+
 
 def pretty(summary: dict):
     print("PROJECT INVENTORY")
@@ -64,6 +69,7 @@ def pretty(summary: dict):
         else:
             print(f"  - {items}")
 
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--pretty", action="store_true")
@@ -73,6 +79,7 @@ def main():
         pretty(summary)
     else:
         print(json.dumps(summary, indent=2))
+
 
 if __name__ == "__main__":
     main()

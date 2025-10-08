@@ -1,9 +1,14 @@
-import json, os, datetime, textwrap, sys
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+import datetime
+import os
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from tools.audit._util import ROOT, run
-from tools.audit.scan_backend import collect_routes, dual_mount_map
-from tools.audit.scan_flutter import scan as scan_flutter, ui_presence
 from tools.audit.check_feature_matrix import feature_gaps
+from tools.audit.scan_backend import collect_routes, dual_mount_map
+from tools.audit.scan_flutter import scan as scan_flutter
+from tools.audit.scan_flutter import ui_presence
+
 
 def main():
     routes = collect_routes()
@@ -13,12 +18,14 @@ def main():
     gaps = feature_gaps(dual, routes)
 
     # pytest summary (best effort)
-    code, out, err = run(["pytest","-q"])
+    code, out, err = run(["pytest", "-q"])
     pytest_summary = (out + "\n" + err).strip()
 
     # Build markdown
     md = []
-    md.append(f"# Wiring Audit Report\n\nGenerated: `{datetime.datetime.utcnow().isoformat(timespec='seconds')}Z`")
+    md.append(
+        f"# Wiring Audit Report\n\nGenerated: `{datetime.datetime.utcnow().isoformat(timespec='seconds')}Z`"
+    )
     md.append("\n## Backend routes (sample)")
     md.append("| Path | Methods | Name |")
     md.append("| --- | --- | --- |")
@@ -29,7 +36,11 @@ def main():
     md.append("| --- | --- | --- | --- |")
     for bp, st in sorted(dual.items()):
         md.append(f"| {bp} | {st['bare']} | {st['v1']} | {', '.join(st['examples'][:2])} |")
-    md.append("\n**Missing dual-mount for:**\n\n- " + "\n- ".join(gaps["dual_mount_missing"]) if gaps["dual_mount_missing"] else "\nAll routes dual-mounted ✅")
+    md.append(
+        "\n**Missing dual-mount for:**\n\n- " + "\n- ".join(gaps["dual_mount_missing"])
+        if gaps["dual_mount_missing"]
+        else "\nAll routes dual-mounted ✅"
+    )
 
     md.append("\n## Required features coverage")
     if gaps["missing_endpoints"]:
@@ -60,6 +71,7 @@ def main():
     with open(out_path, "w", encoding="utf-8") as f:
         f.write("\n".join(md))
     print(f"Wrote {out_path}")
+
 
 if __name__ == "__main__":
     main()

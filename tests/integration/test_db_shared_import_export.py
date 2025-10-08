@@ -1,5 +1,8 @@
-import os, pytest
+import os
+
+import pytest
 from fastapi.testclient import TestClient
+
 from api.app import app
 from api.db.migrate import apply_migrations
 
@@ -7,12 +10,14 @@ CSV = """D0,D1,D2,D3,D4,D5,D6,Notes
 Root A,child1,,,,,
 """
 
+
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     db = tmp_path / "shared.db"
     os.environ["LORIEN_DB_PATH"] = str(db)
     apply_migrations(str(db))
     return TestClient(app)
+
 
 def test_import_then_export_same_db(client: TestClient):
     # import

@@ -35,14 +35,14 @@ void main() {
 
       // Verify mobile layout is applied
       expect(find.text('Workspace'), findsOneWidget);
-      
+
       // Test tablet size
       await tester.binding.setSurfaceSize(const Size(768, 1024));
       await tester.pumpAndSettle();
 
       // Verify tablet layout is applied
       expect(find.text('Workspace'), findsOneWidget);
-      
+
       // Test desktop size
       await tester.binding.setSurfaceSize(const Size(1200, 800));
       await tester.pumpAndSettle();
@@ -146,7 +146,7 @@ void main() {
       if (textFields.evaluate().isNotEmpty) {
         await tester.tap(textFields.first);
         await tester.pumpAndSettle();
-        
+
         // Verify keyboard appears
         expect(find.byType(TextField), findsWidgets);
       }
@@ -167,7 +167,7 @@ void main() {
 
     testWidgets('mobile performance is acceptable', (tester) async {
       await tester.binding.setSurfaceSize(const Size(375, 667));
-      
+
       final stopwatch = Stopwatch()..start();
       app.main();
       await tester.pumpAndSettle();
@@ -240,12 +240,12 @@ void main() {
 
         // Verify core functionality works
         expect(find.text('Workspace'), findsOneWidget);
-        
+
         // Test navigation
         await tester.tap(find.text('Outcomes'));
         await tester.pumpAndSettle();
         expect(find.text('Outcomes'), findsOneWidget);
-        
+
         await tester.tap(find.text('Workspace'));
         await tester.pumpAndSettle();
         expect(find.text('Workspace'), findsOneWidget);

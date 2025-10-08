@@ -19,13 +19,13 @@ class MyApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsProvider);
-    
+
     return provider.ChangeNotifierProvider(
       create: (_) => HealthState(),
       child: MaterialApp(
         title: 'Lorien',
         theme: ThemeData(
-          useMaterial3: true, 
+          useMaterial3: true,
           colorSchemeSeed: Colors.blue,
           brightness: Brightness.light,
         ),

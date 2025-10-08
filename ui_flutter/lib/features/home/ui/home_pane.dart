@@ -29,7 +29,7 @@ class _HomeDashboard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final conflictsState = ref.watch(conflictsProvider);
-    
+
     return Stack(
       children: [
         SingleChildScrollView(
@@ -63,7 +63,7 @@ class _ConflictsCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final conflictsState = ref.watch(conflictsProvider);
-    
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -145,7 +145,7 @@ class _ConflictDetail extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final conflictsState = ref.watch(conflictsProvider);
     final conflict = conflictsState.selectedConflict;
-    
+
     if (conflict == null) {
       return const Card(
         child: Padding(
@@ -154,7 +154,7 @@ class _ConflictDetail extends ConsumerWidget {
         ),
       );
     }
-    
+
     final union = conflictsState.unionOptions.isNotEmpty
         ? List<String>.from(conflictsState.unionOptions)
         : List<String>.from(conflict['union_children'] as List);
@@ -166,7 +166,7 @@ class _ConflictDetail extends ConsumerWidget {
     final canSubmit = hasEligibleParents &&
         conflictsState.unionSelected.isNotEmpty &&
         conflictsState.unionSelected.length <= 5;
-    
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),

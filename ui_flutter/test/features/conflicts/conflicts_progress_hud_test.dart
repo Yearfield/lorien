@@ -29,7 +29,7 @@ void main() {
       );
 
       final notifier = container.read(conflictsListProvider.notifier);
-      
+
       // Mock initial response with 10 conflicts
       when(mockRepository.listConflicts(
         limit: anyNamed('limit'),
@@ -55,7 +55,7 @@ void main() {
 
       // Load conflicts
       await notifier.loadConflicts();
-      
+
       // Check initial state
       expect(notifier.state.totalConflictsInitial, 10);
       expect(notifier.state.currentCount, 10);
@@ -72,7 +72,7 @@ void main() {
 
       final listNotifier = container.read(conflictsListProvider.notifier);
       final groupNotifier = container.read(conflictsGroupProvider.notifier);
-      
+
       // Mock initial response with 10 conflicts
       when(mockRepository.listConflicts(
         limit: anyNamed('limit'),
@@ -98,13 +98,13 @@ void main() {
 
       // Load initial conflicts
       await listNotifier.loadConflicts();
-      
+
       // Mock resolve group (successful)
       when(mockRepository.resolveGroup(
         keepId: anyNamed('keepId'),
         chosen: anyNamed('chosen'),
       )).thenAnswer((_) async {});
-      
+
       // Mock refresh after resolve (one fewer conflict)
       when(mockRepository.listConflicts(
         limit: anyNamed('limit'),
@@ -133,10 +133,10 @@ void main() {
         selectedGroupNodeId: 1,
         selectedLabels: {'Label1', 'Label2', 'Label3', 'Label4', 'Label5'},
       );
-      
+
       // Resolve group
       await groupNotifier.resolveGroup();
-      
+
       // Check updated state
       expect(listNotifier.state.totalConflictsInitial, 10);
       expect(listNotifier.state.currentCount, 9);
@@ -152,13 +152,13 @@ void main() {
       );
 
       final notifier = container.read(conflictsListProvider.notifier);
-      
+
       // Set up state with 5 resolved out of 10 total
       notifier.state = notifier.state.copyWith(
         totalConflictsInitial: 10,
         currentCount: 5,
       );
-      
+
       expect(notifier.state.resolvedCount, 5);
       expect(notifier.state.progress, 0.5); // 5/10 = 0.5
     });
@@ -171,13 +171,13 @@ void main() {
       );
 
       final notifier = container.read(conflictsListProvider.notifier);
-      
+
       // Set up state with all conflicts resolved
       notifier.state = notifier.state.copyWith(
         totalConflictsInitial: 10,
         currentCount: 0,
       );
-      
+
       expect(notifier.state.resolvedCount, 10);
       expect(notifier.state.progress, 1.0); // 10/10 = 1.0
     });
@@ -190,28 +190,28 @@ void main() {
       );
 
       final notifier = container.read(conflictsListProvider.notifier);
-      
+
       // Test with no initial total (fallback to current count)
       notifier.state = notifier.state.copyWith(
         totalConflictsInitial: null,
         currentCount: 5,
       );
-      
+
       expect(notifier.state.resolvedCount, 0); // No resolved when no initial total
       expect(notifier.state.progress, 1.0); // 1.0 when total is 0
-      
+
       // Test with more resolved than total (should clamp)
       notifier.state = notifier.state.copyWith(
         totalConflictsInitial: 10,
         currentCount: 3, // This would give 7 resolved, but we'll test edge case
       );
-      
+
       // Manually set a state that would give more resolved than total
       notifier.state = ConflictsListState(
         totalConflictsInitial: 5,
         currentCount: 10, // This would give -5 resolved, should clamp to 0
       );
-      
+
       expect(notifier.state.resolvedCount, 0); // Should clamp to 0
       expect(notifier.state.progress, 0.0); // Should be 0.0
     });
@@ -229,7 +229,7 @@ void main() {
         totalConflictsInitial: 10,
         currentCount: 7,
       );
-      
+
       // Build a simple widget that uses the progress HUD
       await tester.pumpWidget(
         ProviderScope(
@@ -257,7 +257,7 @@ void main() {
           ),
         ),
       );
-      
+
       // Verify progress bar and text are displayed
       expect(find.byType(LinearProgressIndicator), findsOneWidget);
       expect(find.text('Resolved 3 of 10'), findsOneWidget);

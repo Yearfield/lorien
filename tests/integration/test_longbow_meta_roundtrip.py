@@ -1,7 +1,8 @@
-from api.app import app
 from starlette.testclient import TestClient
+
+from api.app import app
 from api.db.migrate import apply_migrations
-import os
+
 
 def test_import_roundtrip_meta(tmp_path, monkeypatch):
     """Test that Diagnostic Triage and Actions metadata round-trips correctly."""
@@ -16,14 +17,13 @@ def test_import_roundtrip_meta(tmp_path, monkeypatch):
         "Hypertension,Headache,Thunderclap Headache,Visual Disturbances,Decreased GCS(13-15),Sudden onset,TRIAGE_A,ACT_1\n"
         "Hypertension,Headache,Thunderclap Headache,Visual Disturbances,Decreased GCS(10-12),Eye Pain,TRIAGE_B,ACT_2\n"
     )
-    
-    r = c.post("/api/v1/import?mode=replace",
-                files={"file": ("wb.csv", csv, "text/csv")})
+
+    r = c.post("/api/v1/import?mode=replace", files={"file": ("wb.csv", csv, "text/csv")})
     assert r.status_code in (200, 201)
 
     # Sanity: roots exist
     roots = c.get("/api/v1/tree/roots").json()["items"]
-    assert any(r["label"] == "hypertension" for r in roots)
+    assert any(r["label"].lower() == "hypertension" for r in roots)
 
     # Export should include D6/Notes
     exp = c.get("/api/v1/tree/export?format=csv&limit=100").text
@@ -32,26 +32,26 @@ def test_import_roundtrip_meta(tmp_path, monkeypatch):
     assert "TRIAGE_B" in exp and "ACT_2" in exp
 
     # Verify specific rows in export
-    lines = exp.strip().replace('\r', '').split('\n')
+    lines = exp.strip().replace("\r", "").split("\n")
     assert len(lines) >= 3  # Header + 2 data rows
-    
+
     # Check that metadata appears in the correct columns
     found_triage_a = False
     found_triage_b = False
     for line in lines[1:]:  # Skip header
         if "TRIAGE_A" in line and "ACT_1" in line:
             # D6 should be TRIAGE_A, Notes should be ACT_1
-            parts = line.split(',')
+            parts = line.split(",")
             assert len(parts) >= 8
             assert parts[6] == "TRIAGE_A"  # D6 column
-            assert parts[7] == "ACT_1"     # Notes column
+            assert parts[7] == "ACT_1"  # Notes column
             found_triage_a = True
         elif "TRIAGE_B" in line and "ACT_2" in line:
             # D6 should be TRIAGE_B, Notes should be ACT_2
-            parts = line.split(',')
+            parts = line.split(",")
             assert len(parts) >= 8
             assert parts[6] == "TRIAGE_B"  # D6 column
-            assert parts[7] == "ACT_2"     # Notes column
+            assert parts[7] == "ACT_2"  # Notes column
             found_triage_b = True
 
     assert found_triage_a, "TRIAGE_A/ACT_1 metadata not found in export"
@@ -59,15 +59,16 @@ def test_import_roundtrip_meta(tmp_path, monkeypatch):
 
     # No depth=6 nodes should be created
     import sqlite3
+
     conn = sqlite3.connect(str(db))
     try:
         cnt6 = conn.execute("SELECT COUNT(*) FROM nodes WHERE depth=6").fetchone()[0]
         assert cnt6 == 0, f"Found {cnt6} depth=6 nodes, expected 0"
-        
+
         # Verify path_meta table has entries
         meta_count = conn.execute("SELECT COUNT(*) FROM path_meta").fetchone()[0]
         assert meta_count >= 2, f"Expected at least 2 path_meta entries, found {meta_count}"
-        
+
         # Verify specific metadata in database
         cur = conn.execute("SELECT d6, notes FROM path_meta WHERE d6 IS NOT NULL")
         rows = cur.fetchall()

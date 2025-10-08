@@ -8,4 +8,3 @@ CREATE INDEX IF NOT EXISTS idx_nodes_depth ON nodes(depth);
 CREATE INDEX IF NOT EXISTS idx_nodes_label_norm ON nodes( lower(trim(label)) );
 
 COMMIT;
-

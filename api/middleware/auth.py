@@ -1,16 +1,23 @@
 """
-Authentication middleware for optional token-based access control.
+Unified authentication middleware - AUTHORITATIVE version.
 
-Provides simple token-based authentication for write endpoints while
-keeping read endpoints open by default.
+Provides comprehensive token-based authentication for all protected endpoints.
+This is the single source of truth for authentication in the Lorien API.
+
+Authentication is controlled via the AUTH_TOKEN environment variable:
+- If AUTH_TOKEN is not set: authentication is disabled (dev mode)
+- If AUTH_TOKEN is set: all write operations require Bearer token authentication
+- Read operations (GET, HEAD, OPTIONS) are always public
+- Health and readiness probes are always public
 """
 
-import os
 import logging
-from typing import Optional
-from fastapi import HTTPException, Request, Depends
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+import os
+
+from fastapi import Request
+from fastapi.security import HTTPBearer
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import JSONResponse
 from starlette.types import ASGIApp
 
 logger = logging.getLogger(__name__)
@@ -18,101 +25,156 @@ logger = logging.getLogger(__name__)
 # Security scheme for OpenAPI docs
 security = HTTPBearer(auto_error=False)
 
-class AuthMiddleware(BaseHTTPMiddleware):
-    """Middleware for optional token-based authentication."""
-    
-    def __init__(self, app: ASGIApp, auth_token: Optional[str] = None):
-        super().__init__(app)
-        self.auth_token = auth_token or os.getenv("AUTH_TOKEN")
-        self.auth_enabled = self.auth_token is not None
-        
-        # Define write endpoints that require authentication
-        self.write_endpoints = {
-            # Tree operations
-            "/tree/children",
-            "/tree/children/",
-            "/api/v1/tree/children",
-            "/api/v1/tree/children/",
 
-            # Import operations
-            "/api/v1/import",
-            "/api/v1/import/",
-            "/api/v1/import/preview",
-            "/api/v1/import/preview/",
-        }
-    
+class AuthMiddleware(BaseHTTPMiddleware):
+    """
+    Authoritative authentication middleware for the Lorien API.
+
+    This middleware enforces token-based authentication for all write operations
+    across the entire API surface. It is the single source of truth for auth.
+    """
+
+    # Public endpoints that never require authentication
+    PUBLIC_ENDPOINTS: set[str] = {
+        "/health",
+        "/live",
+        "/ready",
+        "/api/v1/health",
+        "/api/v1/live",
+        "/api/v1/ready",
+        "/docs",
+        "/redoc",
+        "/openapi.json",
+    }
+
+    # Read-only HTTP methods that don't require authentication
+    READ_METHODS: set[str] = {"GET", "HEAD", "OPTIONS"}
+
+    def __init__(self, app: ASGIApp):
+        super().__init__(app)
+        self._log_startup_status()
+
+    def _log_startup_status(self):
+        """Log authentication status at startup."""
+        if self.is_enabled():
+            logger.info("✓ Authentication enabled - write operations require valid Bearer token")
+        else:
+            logger.warning(
+                "⚠ Authentication DISABLED - set AUTH_TOKEN environment variable to enable"
+            )
+
+    @staticmethod
+    def is_enabled() -> bool:
+        """Check if authentication is enabled via AUTH_TOKEN environment variable."""
+        return os.getenv("AUTH_TOKEN") is not None
+
+    @staticmethod
+    def get_token() -> str | None:
+        """Get the current auth token from environment."""
+        return os.getenv("AUTH_TOKEN")
+
+    def _is_public_endpoint(self, path: str) -> bool:
+        """Check if the endpoint is public (never requires auth)."""
+        return any(path.startswith(endpoint) for endpoint in self.PUBLIC_ENDPOINTS)
+
+    def _requires_authentication(self, request: Request) -> bool:
+        """Determine if a request requires authentication."""
+        # Public endpoints are always accessible
+        if self._is_public_endpoint(request.url.path):
+            return False
+
+        # Read-only methods are always accessible
+        if request.method in self.READ_METHODS:
+            return False
+
+        # All write operations require authentication when enabled
+        return True
+
     async def dispatch(self, request: Request, call_next):
-        """Process request and check authentication for write endpoints."""
-        # Check environment variable at runtime
-        current_auth_token = os.getenv("AUTH_TOKEN")
-        if not current_auth_token:
+        """
+        Process request and enforce authentication for protected endpoints.
+
+        Flow:
+        1. Check if auth is enabled (via AUTH_TOKEN env var)
+        2. If disabled, allow all requests
+        3. If enabled, check if request requires auth
+        4. If required, validate Bearer token
+        5. If valid, proceed; otherwise return 401
+        """
+        # If auth is not enabled, allow all requests
+        if not self.is_enabled():
             return await call_next(request)
-        
-        # Check if this is a write endpoint
-        path = request.url.path
-        method = request.method
-        
-        # GET requests are always allowed
-        if method == "GET":
+
+        # Check if this request requires authentication
+        if not self._requires_authentication(request):
             return await call_next(request)
-        
-        # Check if path matches any write endpoint pattern
-        requires_auth = any(
-            path.startswith(endpoint) for endpoint in self.write_endpoints
-        )
-        
-        if not requires_auth:
-            return await call_next(request)
-        
+
         # Extract and validate token
         auth_header = request.headers.get("Authorization")
         if not auth_header:
-            raise HTTPException(
-                status_code=401,
-                detail={
-                    "error": "authentication_required",
-                    "message": "Authorization header required for write operations"
-                }
+            logger.warning(
+                f"Authentication required but missing: {request.method} {request.url.path}"
             )
-        
+            return JSONResponse(
+                status_code=401,
+                content={
+                    "detail": {
+                        "error": "authentication_required",
+                        "message": "Authorization header required for write operations",
+                        "hint": "Include 'Authorization: Bearer <token>' header",
+                    }
+                },
+            )
+
         if not auth_header.startswith("Bearer "):
-            raise HTTPException(
+            logger.warning(f"Invalid auth format: {request.method} {request.url.path}")
+            return JSONResponse(
                 status_code=401,
-                detail={
-                    "error": "invalid_auth_format",
-                    "message": "Authorization header must be 'Bearer <token>'"
-                }
+                content={
+                    "detail": {
+                        "error": "invalid_auth_format",
+                        "message": "Authorization header must use Bearer token format",
+                        "expected_format": "Bearer <token>",
+                    }
+                },
             )
-        
+
         token = auth_header[7:]  # Remove "Bearer " prefix
-        
-        if token != current_auth_token:
-            raise HTTPException(
+        expected_token = self.get_token()
+
+        if token != expected_token:
+            logger.warning(f"Invalid token attempt: {request.method} {request.url.path}")
+            return JSONResponse(
                 status_code=401,
-                detail={
-                    "error": "invalid_token",
-                    "message": "Invalid authentication token"
-                }
+                content={
+                    "detail": {
+                        "error": "invalid_token",
+                        "message": "Invalid authentication token",
+                    }
+                },
             )
-        
-        # Log successful authentication
-        logger.info(f"Authenticated write operation: {method} {path}")
-        
+
+        # Log successful authentication (at debug level to avoid noise)
+        logger.debug(f"✓ Authenticated: {request.method} {request.url.path}")
+
         return await call_next(request)
 
-def get_auth_token() -> Optional[str]:
-    """Get the current auth token from environment."""
-    return os.getenv("AUTH_TOKEN")
+
+def get_auth_token() -> str | None:
+    """
+    Get the current auth token from environment.
+
+    Returns:
+        Current AUTH_TOKEN value or None if not set
+    """
+    return AuthMiddleware.get_token()
+
 
 def is_auth_enabled() -> bool:
-    """Check if authentication is enabled."""
-    return get_auth_token() is not None
+    """
+    Check if authentication is enabled.
 
-def require_auth() -> bool:
-    """Dependency to require authentication for specific endpoints."""
-    if not is_auth_enabled():
-        return True  # Allow if auth is disabled
-    
-    # This would be used in endpoint dependencies
-    # The actual token validation is handled by the middleware
-    return True
+    Returns:
+        True if AUTH_TOKEN is set, False otherwise
+    """
+    return AuthMiddleware.is_enabled()

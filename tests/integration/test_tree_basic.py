@@ -1,7 +1,8 @@
-from api.app import app
 from starlette.testclient import TestClient
+
+from api.app import app
 from api.db.migrate import apply_migrations
-import os
+
 
 def test_roots_children_put(tmp_path, monkeypatch):
     db = tmp_path / "app.db"
@@ -22,20 +23,22 @@ def test_roots_children_put(tmp_path, monkeypatch):
     assert rc.json()["total"] == 0
 
     # Add 3 children
-    rput = c.put("/api/v1/tree/children", json={
-        "parent_id": root_id,
-        "children": [{"label": "A"}, {"label": "B"}, {"label": "C"}]
-    })
+    rput = c.put(
+        "/api/v1/tree/children",
+        json={"parent_id": root_id, "children": [{"label": "A"}, {"label": "B"}, {"label": "C"}]},
+    )
     assert rput.status_code == 200
 
     rc2 = c.get(f"/api/v1/tree/children?parent_id={root_id}")
     labels = [x["label"] for x in rc2.json()["items"]]
-    assert labels == ["A","B","C"]
+    assert labels == ["A", "B", "C"]
+
 
 def test_delete_root_cascades(tmp_path, monkeypatch):
-    from api.main import app
     from starlette.testclient import TestClient
+
     from api.db.migrate import apply_migrations
+    from api.main import app
 
     db = tmp_path / "app.db"
     monkeypatch.setenv("LORIEN_DB_PATH", str(db))

@@ -55,7 +55,7 @@ class HealthStateNotifier extends StateNotifier<HealthState> {
 
   Future<void> loadHealthStatus() async {
     state = state.copyWith(isLoading: true, error: null);
-    
+
     try {
       final healthResponse = await _healthService.getHealthStatus();
       state = state.copyWith(
@@ -74,7 +74,7 @@ class HealthStateNotifier extends StateNotifier<HealthState> {
 
   Future<void> refreshHealthStatus() async {
     state = state.copyWith(isRefreshing: true, error: null);
-    
+
     try {
       final healthResponse = await _healthService.getHealthStatus();
       state = state.copyWith(

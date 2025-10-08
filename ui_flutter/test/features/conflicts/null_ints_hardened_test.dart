@@ -34,13 +34,13 @@ void main() {
 
       // Test that the repository can parse the response without crashing
       final result = ConflictsPage.fromJson(mockResponse);
-      
+
       // Verify that null values are handled gracefully (converted to 0)
       expect(result.total, equals(0));
       expect(result.limit, equals(0));
       expect(result.offset, equals(0));
       expect(result.items.length, equals(1));
-      
+
       final item = result.items.first;
       expect(item.parentId, equals(0));
       expect(item.depth, equals(0));
@@ -78,7 +78,7 @@ void main() {
 
       // Test that the repository can parse the response without crashing
       final result = GroupPayload.fromJson(mockGroupResponse);
-      
+
       // Verify that null values are handled gracefully (converted to 0)
       expect(result.summary.uniqueChildren, equals(0));
       expect(result.summary.totalChildren, equals(0));
@@ -94,7 +94,7 @@ void main() {
       };
 
       final result = ConflictsPage.fromJson(mockResponse);
-      
+
       // Verify the response is parsed correctly
       expect(result.items, isEmpty);
       expect(result.total, equals(0));

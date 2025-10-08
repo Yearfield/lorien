@@ -2,6 +2,11 @@ site_name: Lorien
 nav:
   - Home: README.md
   - Quickstart: Dev_Quickstart.md
+  - Development:
+      - Overview: docs/DEVELOPMENT.md
+      - Contributing: docs/CONTRIBUTING.md
+      - Code Quality: docs/Code_Quality.md
+      - CI/CD Pipeline: docs/CI.md
   - Overview: docs/ProjectOverview.md
   - Architecture: docs/Architecture.md
   - API: docs/API.md
@@ -12,6 +17,7 @@ nav:
   - Backup & Restore: docs/Backup_Restore.md
   - LLM: docs/LLM_README.md
   - Safety: docs/Medical_Safety.md
+  - Dependencies: docs/Dependencies.md
   - Changelog: CHANGELOG.md
 theme:
   name: material

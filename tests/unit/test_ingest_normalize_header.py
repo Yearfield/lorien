@@ -1,5 +1,7 @@
 import pytest
-from Engines.EngineLongBow.ingest import normalize_header, HeaderMismatchError, CANON
+
+from Engines.EngineLongBow.ingest import CANON, HeaderMismatchError, normalize_header
+
 
 def test_normalize_header_canonical():
     """Test that canonical header passes through unchanged."""
@@ -7,17 +9,38 @@ def test_normalize_header_canonical():
     result = normalize_header(canonical)
     assert result == canonical
 
+
 def test_normalize_header_synonyms():
     """Test that synonym headers are normalized correctly."""
-    synonym_header = ["Vital Measurement", "Node 1", "Node 2", "Node 3", "Node 4", "Node 5", "Diagnostic Triage", "Actions"]
+    synonym_header = [
+        "Vital Measurement",
+        "Node 1",
+        "Node 2",
+        "Node 3",
+        "Node 4",
+        "Node 5",
+        "Diagnostic Triage",
+        "Actions",
+    ]
     result = normalize_header(synonym_header)
     assert result == CANON
 
+
 def test_normalize_header_mixed_case_spaces():
     """Test that mixed case and extra spaces are handled."""
-    messy_header = ["  vital measurement  ", "NODE 1", "node  2", "Node 3", "node4", "Node 5", "DIAGNOSTIC TRIAGE", "actions  "]
+    messy_header = [
+        "  vital measurement  ",
+        "NODE 1",
+        "node  2",
+        "Node 3",
+        "node4",
+        "Node 5",
+        "DIAGNOSTIC TRIAGE",
+        "actions  ",
+    ]
     result = normalize_header(messy_header)
     assert result == CANON
+
 
 def test_normalize_header_shuffled_raises():
     """Test that shuffled columns raise an error."""
@@ -25,6 +48,7 @@ def test_normalize_header_shuffled_raises():
     with pytest.raises(HeaderMismatchError) as exc_info:
         normalize_header(shuffled)
     assert "Columns must map to D0..D5, D6, Notes structure" in exc_info.value.hint
+
 
 def test_normalize_header_unknown_raises():
     """Test that unknown headers raise an error with helpful hint."""

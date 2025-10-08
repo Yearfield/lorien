@@ -5,13 +5,13 @@ import 'package:lorien/main.dart' as app;
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
-  
+
   group('Smoke Tests', () {
     testWidgets('Smoke: app launches and shows main screen', (tester) async {
       // Launch the app
       app.main();
       await tester.pumpAndSettle();
-      
+
       // Verify the app launched successfully
       expect(find.byType(MaterialApp), findsOneWidget);
     });
@@ -20,7 +20,7 @@ void main() {
       // Launch the app
       app.main();
       await tester.pumpAndSettle();
-      
+
       // Look for navigation elements (this is a basic smoke test)
       // In a real app, you would navigate to Edit Tree screen
       expect(find.byType(MaterialApp), findsOneWidget);

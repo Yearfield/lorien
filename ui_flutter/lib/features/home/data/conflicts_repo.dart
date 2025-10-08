@@ -30,14 +30,14 @@ class ConflictsRepo {
         'dry_run': dryRun,
       }),
     );
-    
+
     if (response.statusCode == 422) {
       throw Exception('Validation error: ${response.body}');
     }
     if (response.statusCode != 200) {
       throw Exception('Resolve failed: ${response.statusCode} ${response.body}');
     }
-    
+
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
 }

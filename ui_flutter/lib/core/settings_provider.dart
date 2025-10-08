@@ -187,11 +187,11 @@ class AppSettings {
       ),
       autoSave: json['autoSave'] ?? true,
       showConfirmations: json['showConfirmations'] ?? true,
-      exportSettings: json['exportSettings'] != null 
+      exportSettings: json['exportSettings'] != null
         ? ExportSettings.fromJson(json['exportSettings'] as Map<String, dynamic>)
         : const ExportSettings(),
       autoSaveDelayMs: json['autoSaveDelayMs'] ?? 1000,
-      debugSettings: json['debugSettings'] != null 
+      debugSettings: json['debugSettings'] != null
         ? DebugSettings.fromJson(json['debugSettings'] as Map<String, dynamic>)
         : const DebugSettings(),
     );
@@ -316,7 +316,7 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
   Future<void> updateApiBaseUrl(String url) async {
     // Basic URL validation
     if (url.isEmpty) return;
-    
+
     // Ensure URL ends with /api/v1 if not already
     String normalizedUrl = url.trim();
     if (!normalizedUrl.endsWith('/api/v1')) {
@@ -379,11 +379,11 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
       final settingsJson = json.encode(state.toJson());
       final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');
       final filename = 'lorien_settings_backup_$timestamp.json';
-      
+
       final directory = await getApplicationDocumentsDirectory();
       final file = File('${directory.path}/$filename');
       await file.writeAsString(settingsJson);
-      
+
       return file.path;
     } catch (e) {
       return null;
@@ -394,11 +394,11 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
     try {
       final file = File(filePath);
       if (!await file.exists()) return false;
-      
+
       final content = await file.readAsString();
       final settingsMap = json.decode(content) as Map<String, dynamic>;
       final restoredSettings = AppSettings.fromJson(settingsMap);
-      
+
       state = restoredSettings;
       await _saveSettings();
       return true;
@@ -412,11 +412,11 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
       final settingsJson = json.encode(state.toJson());
       final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');
       final filename = 'lorien_settings_export_$timestamp.json';
-      
+
       final directory = await getApplicationDocumentsDirectory();
       final file = File('${directory.path}/$filename');
       await file.writeAsString(settingsJson);
-      
+
       return file.path;
     } catch (e) {
       return null;
@@ -436,7 +436,7 @@ class ConnectionStatusNotifier extends StateNotifier<ConnectionStatus> {
 
   Future<void> testConnection() async {
     final apiBaseUrl = _settingsNotifier.state.apiBaseUrl;
-    
+
     try {
       state = state.copyWith(
         isConnected: false,
@@ -445,7 +445,7 @@ class ConnectionStatusNotifier extends StateNotifier<ConnectionStatus> {
       );
 
       final response = await _dio.get('$apiBaseUrl/health');
-      
+
       if (response.statusCode == 200) {
         final healthData = response.data as Map<String, dynamic>;
         final databaseStatus = DatabaseStatus.fromHealthData(healthData);
@@ -484,7 +484,7 @@ class ConnectionStatusNotifier extends StateNotifier<ConnectionStatus> {
             errorMessage = 'Network error: ${e.message}';
         }
       }
-      
+
       state = state.copyWith(
         isConnected: false,
         error: errorMessage,

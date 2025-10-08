@@ -1,17 +1,12 @@
 from __future__ import annotations
-import os
-import streamlit as st
-import requests
-import json
-from ui_streamlit.components import top_health_banner
-from ui_streamlit.settings import get_api_base_url
-from ui_streamlit.api_client import health_json, _get_base_url
 
-st.set_page_config(
-    page_title="Settings - Lorien",
-    page_icon="⚙️",
-    layout="wide"
-)
+import os
+
+import streamlit as st
+
+from ui_streamlit.api_client import health_json
+
+st.set_page_config(page_title="Settings - Lorien", page_icon="⚙️", layout="wide")
 
 st.title("⚙️ Settings")
 st.caption("Configure API connection and application settings")
@@ -31,7 +26,7 @@ if "API_BASE_URL" not in st.session_state:
 api_base_url = st.text_input(
     "API Base URL",
     value=st.session_state["API_BASE_URL"],
-    help="Base URL for the Lorien API (e.g., http://localhost:8000/api/v1)"
+    help="Base URL for the Lorien API (e.g., http://localhost:8000/api/v1)",
 )
 
 if api_base_url != st.session_state["API_BASE_URL"]:
@@ -43,24 +38,24 @@ st.subheader("🧪 Test Connection")
 if st.button("Test Connection", type="primary"):
     try:
         health_data, status_code, tested_url = health_json(timeout=5)
-        
+
         if health_data and status_code == 200:
             st.success(f"✅ Health 200 OK: {tested_url}")
-            
+
             # Show full response in code block
             st.code(f"Response from {tested_url}:\n{st.json(health_data)}")
-            
+
             # Show key metrics
             if health_data.get("version"):
                 st.metric("API Version", health_data["version"])
             if health_data.get("db", {}).get("foreign_keys"):
                 st.metric("Database", "Connected")
-                
+
         else:
             st.error(f"❌ Connection Failed: {tested_url}")
             if status_code > 0:
                 st.error(f"HTTP Status: {status_code}")
-                
+
     except Exception as e:
         st.error(f"❌ Connection Error: {str(e)[:100]}...")
         st.caption(f"Tested URL: {st.session_state['API_BASE_URL']}/health")
@@ -88,7 +83,7 @@ platform_tips = {
     "iOS Simulator": "Use `http://localhost:8000/api/v1` (localhost works on iOS sim)",
     "Physical Device": "Use `http://<your-LAN-IP>:8000/api/v1` (e.g., 192.168.1.100:8000)",
     "Web Browser": "Use `http://localhost:8000/api/v1` or your server's public IP",
-    "WSL2": "Use `http://localhost:8000/api/v1` (WSL2 forwards localhost to Windows)"
+    "WSL2": "Use `http://localhost:8000/api/v1` (WSL2 forwards localhost to Windows)",
 }
 
 for platform, tip in platform_tips.items():
@@ -112,7 +107,8 @@ with col2:
 
 # Help
 st.header("❓ Help")
-st.markdown("""
+st.markdown(
+    """
 **Troubleshooting:**
 1. **Connection Failed**: Check if API server is running (`uvicorn api.main:app --reload --port 8000`)
 2. **CORS Issues**: Set `CORS_ALLOW_ALL=true` in your environment
@@ -124,4 +120,5 @@ st.markdown("""
 2. Set the correct API Base URL above
 3. Test the connection
 4. Navigate to other pages to use the app
-""")
+"""
+)

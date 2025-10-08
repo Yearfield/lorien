@@ -31,8 +31,13 @@ class _VmBuilderScreenState extends State<VmBuilderScreen> {
     });
   }
 
+  @override
+  void dispose() {
+    _newChildCtrl.dispose();
+    super.dispose();
+  }
+
   Widget _importPanel(VmState s) {
-    String mode = 'replace'; // local default; if you want stateful, lift into VmState
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
@@ -51,16 +56,16 @@ class _VmBuilderScreenState extends State<VmBuilderScreen> {
                       children: [
                         Radio<String>(
                           value: 'replace',
-                          groupValue: mode,
-                          onChanged: s.importing ? null : (v) => setState(() => mode = v!),
+                          groupValue: s.importMode,
+                          onChanged: s.importing ? null : (v) => s.setImportMode(v),
                           materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
                         const Flexible(child: Text('Replace')),
                         const SizedBox(width: 8),
                         Radio<String>(
                           value: 'append',
-                          groupValue: mode,
-                          onChanged: s.importing ? null : (v) => setState(() => mode = v!),
+                          groupValue: s.importMode,
+                          onChanged: s.importing ? null : (v) => s.setImportMode(v),
                           materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
                         const Flexible(child: Text('Append')),
@@ -81,7 +86,7 @@ class _VmBuilderScreenState extends State<VmBuilderScreen> {
                     final f = result.files.single;
                     final bytes = f.bytes ?? Uint8List(0);
                     if (bytes.isEmpty) return;
-                    await s.importBytes(mode, bytes, f.name);
+                    await s.importBytes(s.importMode, bytes, f.name);
                   },
                   child: s.importing ? const SizedBox(
                     width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2),
@@ -107,13 +112,13 @@ class _VmBuilderScreenState extends State<VmBuilderScreen> {
       children: [
         Expanded(
           child: Wrap(
-            spacing: 8, 
+            spacing: 8,
             runSpacing: 4,
             children: s.crumbs.map((c) {
               final id = c['id'] as int;
               final label = c['label'] as String;
               return ActionChip(
-                label: Text(label), 
+                label: Text(label),
                 onPressed: () => s.jumpToCrumb(id)
               );
             }).toList(),
@@ -316,12 +321,12 @@ class _VmBuilderScreenState extends State<VmBuilderScreen> {
                               return ListTile(
                                 title: Row(
                                   children: [
-                                    if (redFlag) 
+                                    if (redFlag)
                                       Container(
-                                        width: 6, 
-                                        height: 6, 
+                                        width: 6,
+                                        height: 6,
                                         decoration: const BoxDecoration(
-                                          color: Colors.red, 
+                                          color: Colors.red,
                                           shape: BoxShape.circle
                                         ),
                                       ),
@@ -335,18 +340,18 @@ class _VmBuilderScreenState extends State<VmBuilderScreen> {
                                   children: [
                                     // Red flag icon
                                     IconButton(
-                                      icon: Icon(redFlag ? Icons.flag : Icons.outlined_flag, 
+                                      icon: Icon(redFlag ? Icons.flag : Icons.outlined_flag,
                                                color: redFlag ? Colors.red : null),
                                       tooltip: redFlag ? 'Unflag red' : 'Mark as red flag',
                                       onPressed: () => s.toggleEdgeFlag(child['id'] as int, redFlag),
                                     ),
                                     // Clone menu
                                     PopupMenuButton<String>(
-                                      onSelected: (v) { 
-                                        if (v == 'clone') s.tryCloneSubtreeForChildLabel(label); 
+                                      onSelected: (v) {
+                                        if (v == 'clone') s.tryCloneSubtreeForChildLabel(label);
                                       },
-                                      itemBuilder: (ctx) => [ 
-                                        const PopupMenuItem(value: 'clone', child: Text('Clone subtree here')) 
+                                      itemBuilder: (ctx) => [
+                                        const PopupMenuItem(value: 'clone', child: Text('Clone subtree here'))
                                       ],
                                     ),
                                     // Delete button

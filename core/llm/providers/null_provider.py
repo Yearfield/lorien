@@ -2,7 +2,7 @@
 Null LLM Provider - Ready/no-op implementation for testing and development.
 """
 
-from typing import Dict, Any
+from typing import Any
 
 
 class NullProvider:
@@ -22,20 +22,16 @@ class NullProvider:
         """
         self.model = model or "none"
 
-    def health(self) -> Dict[str, Any]:
+    def health(self) -> dict[str, Any]:
         """
         Return health status - always reports ready.
 
         Returns:
             Dict with ok=True and provider information
         """
-        return {
-            "ok": True,
-            "provider": self.name,
-            "model": self.model
-        }
+        return {"ok": True, "provider": self.name, "model": self.model}
 
-    def suggest(self, prompt: str) -> Dict[str, str]:
+    def suggest(self, prompt: str) -> dict[str, str]:
         """
         Generate deterministic stub suggestions for testing.
 
@@ -46,7 +42,4 @@ class NullProvider:
             Dict with diagnostic_triage and actions
         """
         # Basic deterministic stub for tests/dev
-        return {
-            "diagnostic_triage": "Acute appendicitis",
-            "actions": "Immediate surgical referral"
-        }
+        return {"diagnostic_triage": "Acute appendicitis", "actions": "Immediate surgical referral"}

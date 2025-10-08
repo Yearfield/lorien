@@ -6,7 +6,7 @@ void main() {
   group('MobileLayout', () {
     testWidgets('isMobile returns true for small screens', (tester) async {
       await tester.binding.setSurfaceSize(const Size(375, 667));
-      
+
       await tester.pumpWidget(
         MaterialApp(
           home: Builder(
@@ -23,7 +23,7 @@ void main() {
 
     testWidgets('isTablet returns true for medium screens', (tester) async {
       await tester.binding.setSurfaceSize(const Size(768, 1024));
-      
+
       await tester.pumpWidget(
         MaterialApp(
           home: Builder(
@@ -40,7 +40,7 @@ void main() {
 
     testWidgets('isDesktop returns true for large screens', (tester) async {
       await tester.binding.setSurfaceSize(const Size(1200, 800));
-      
+
       await tester.pumpWidget(
         MaterialApp(
           home: Builder(
@@ -57,7 +57,7 @@ void main() {
 
     testWidgets('getPadding returns appropriate padding for mobile', (tester) async {
       await tester.binding.setSurfaceSize(const Size(375, 667));
-      
+
       await tester.pumpWidget(
         MaterialApp(
           home: Builder(
@@ -73,7 +73,7 @@ void main() {
 
     testWidgets('getPadding returns appropriate padding for tablet', (tester) async {
       await tester.binding.setSurfaceSize(const Size(768, 1024));
-      
+
       await tester.pumpWidget(
         MaterialApp(
           home: Builder(
@@ -89,7 +89,7 @@ void main() {
 
     testWidgets('getPadding returns appropriate padding for desktop', (tester) async {
       await tester.binding.setSurfaceSize(const Size(1200, 800));
-      
+
       await tester.pumpWidget(
         MaterialApp(
           home: Builder(
@@ -105,7 +105,7 @@ void main() {
 
     testWidgets('getFontSize scales correctly for mobile', (tester) async {
       await tester.binding.setSurfaceSize(const Size(375, 667));
-      
+
       await tester.pumpWidget(
         MaterialApp(
           home: Builder(
@@ -121,7 +121,7 @@ void main() {
 
     testWidgets('getFontSize scales correctly for tablet', (tester) async {
       await tester.binding.setSurfaceSize(const Size(768, 1024));
-      
+
       await tester.pumpWidget(
         MaterialApp(
           home: Builder(
@@ -137,7 +137,7 @@ void main() {
 
     testWidgets('getFontSize scales correctly for desktop', (tester) async {
       await tester.binding.setSurfaceSize(const Size(1200, 800));
-      
+
       await tester.pumpWidget(
         MaterialApp(
           home: Builder(
@@ -153,7 +153,7 @@ void main() {
 
     testWidgets('getButtonHeight returns appropriate height for mobile', (tester) async {
       await tester.binding.setSurfaceSize(const Size(375, 667));
-      
+
       await tester.pumpWidget(
         MaterialApp(
           home: Builder(
@@ -169,7 +169,7 @@ void main() {
 
     testWidgets('getButtonHeight returns appropriate height for tablet', (tester) async {
       await tester.binding.setSurfaceSize(const Size(768, 1024));
-      
+
       await tester.pumpWidget(
         MaterialApp(
           home: Builder(
@@ -185,7 +185,7 @@ void main() {
 
     testWidgets('getButtonHeight returns appropriate height for desktop', (tester) async {
       await tester.binding.setSurfaceSize(const Size(1200, 800));
-      
+
       await tester.pumpWidget(
         MaterialApp(
           home: Builder(
@@ -201,7 +201,7 @@ void main() {
 
     testWidgets('getGridCrossAxisCount returns correct count for mobile', (tester) async {
       await tester.binding.setSurfaceSize(const Size(375, 667));
-      
+
       await tester.pumpWidget(
         MaterialApp(
           home: Builder(
@@ -217,7 +217,7 @@ void main() {
 
     testWidgets('getGridCrossAxisCount returns correct count for tablet', (tester) async {
       await tester.binding.setSurfaceSize(const Size(768, 1024));
-      
+
       await tester.pumpWidget(
         MaterialApp(
           home: Builder(
@@ -233,7 +233,7 @@ void main() {
 
     testWidgets('getGridCrossAxisCount returns correct count for desktop', (tester) async {
       await tester.binding.setSurfaceSize(const Size(1200, 800));
-      
+
       await tester.pumpWidget(
         MaterialApp(
           home: Builder(
@@ -251,7 +251,7 @@ void main() {
   group('ResponsiveWidget', () {
     testWidgets('shows mobile widget on mobile screen', (tester) async {
       await tester.binding.setSurfaceSize(const Size(375, 667));
-      
+
       await tester.pumpWidget(
         MaterialApp(
           home: ResponsiveWidget(
@@ -269,7 +269,7 @@ void main() {
 
     testWidgets('shows tablet widget on tablet screen', (tester) async {
       await tester.binding.setSurfaceSize(const Size(768, 1024));
-      
+
       await tester.pumpWidget(
         MaterialApp(
           home: ResponsiveWidget(
@@ -287,7 +287,7 @@ void main() {
 
     testWidgets('shows desktop widget on desktop screen', (tester) async {
       await tester.binding.setSurfaceSize(const Size(1200, 800));
-      
+
       await tester.pumpWidget(
         MaterialApp(
           home: ResponsiveWidget(
@@ -305,7 +305,7 @@ void main() {
 
     testWidgets('falls back to mobile when tablet not provided', (tester) async {
       await tester.binding.setSurfaceSize(const Size(768, 1024));
-      
+
       await tester.pumpWidget(
         MaterialApp(
           home: ResponsiveWidget(
@@ -323,7 +323,7 @@ void main() {
   group('ResponsiveBuilder', () {
     testWidgets('provides correct flags for mobile', (tester) async {
       await tester.binding.setSurfaceSize(const Size(375, 667));
-      
+
       await tester.pumpWidget(
         MaterialApp(
           home: ResponsiveBuilder(
@@ -340,7 +340,7 @@ void main() {
 
     testWidgets('provides correct flags for tablet', (tester) async {
       await tester.binding.setSurfaceSize(const Size(768, 1024));
-      
+
       await tester.pumpWidget(
         MaterialApp(
           home: ResponsiveBuilder(
@@ -357,7 +357,7 @@ void main() {
 
     testWidgets('provides correct flags for desktop', (tester) async {
       await tester.binding.setSurfaceSize(const Size(1200, 800));
-      
+
       await tester.pumpWidget(
         MaterialApp(
           home: ResponsiveBuilder(
@@ -376,7 +376,7 @@ void main() {
   group('ResponsiveText', () {
     testWidgets('scales font size for mobile', (tester) async {
       await tester.binding.setSurfaceSize(const Size(375, 667));
-      
+
       await tester.pumpWidget(
         MaterialApp(
           home: ResponsiveText(
@@ -392,7 +392,7 @@ void main() {
 
     testWidgets('scales font size for tablet', (tester) async {
       await tester.binding.setSurfaceSize(const Size(768, 1024));
-      
+
       await tester.pumpWidget(
         MaterialApp(
           home: ResponsiveText(
@@ -408,7 +408,7 @@ void main() {
 
     testWidgets('scales font size for desktop', (tester) async {
       await tester.binding.setSurfaceSize(const Size(1200, 800));
-      
+
       await tester.pumpWidget(
         MaterialApp(
           home: ResponsiveText(
@@ -426,7 +426,7 @@ void main() {
   group('ResponsiveButton', () {
     testWidgets('has appropriate height for mobile', (tester) async {
       await tester.binding.setSurfaceSize(const Size(375, 667));
-      
+
       await tester.pumpWidget(
         MaterialApp(
           home: ResponsiveButton(
@@ -439,7 +439,7 @@ void main() {
       // Check that the button exists and has the correct text
       expect(find.byType(ElevatedButton), findsOneWidget);
       expect(find.text('Test'), findsOneWidget);
-      
+
       // Verify the button is rendered (size will be determined by the layout)
       final button = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
       expect(button.style, isNotNull);
@@ -447,7 +447,7 @@ void main() {
 
     testWidgets('has appropriate height for tablet', (tester) async {
       await tester.binding.setSurfaceSize(const Size(768, 1024));
-      
+
       await tester.pumpWidget(
         MaterialApp(
           home: ResponsiveButton(
@@ -460,7 +460,7 @@ void main() {
       // Check that the button exists and has the correct text
       expect(find.byType(ElevatedButton), findsOneWidget);
       expect(find.text('Test'), findsOneWidget);
-      
+
       // Verify the button is rendered (size will be determined by the layout)
       final button = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
       expect(button.style, isNotNull);
@@ -468,7 +468,7 @@ void main() {
 
     testWidgets('has appropriate height for desktop', (tester) async {
       await tester.binding.setSurfaceSize(const Size(1200, 800));
-      
+
       await tester.pumpWidget(
         MaterialApp(
           home: ResponsiveButton(
@@ -481,7 +481,7 @@ void main() {
       // Check that the button exists and has the correct text
       expect(find.byType(ElevatedButton), findsOneWidget);
       expect(find.text('Test'), findsOneWidget);
-      
+
       // Verify the button is rendered (size will be determined by the layout)
       final button = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
       expect(button.style, isNotNull);

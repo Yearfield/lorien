@@ -27,10 +27,10 @@ void main() {
         'Diagnostic Triage',
         'Actions'
       ];
-      
+
       const header =
           'Vital Measurement,Node 1,Node 2,Node 3,Node 4,Node 5,Diagnostic Triage,Actions';
-      
+
       final actual = header.split(',');
       expect(actual, expected);
     });
@@ -38,7 +38,7 @@ void main() {
     test('Header contains no empty or null values', () {
       const header =
           'Vital Measurement,Node 1,Node 2,Node 3,Node 4,Node 5,Diagnostic Triage,Actions';
-      
+
       final columns = header.split(',');
       for (final column in columns) {
         expect(column.isNotEmpty, true, reason: 'Column should not be empty');
@@ -49,11 +49,11 @@ void main() {
     test('Header format is consistent for CSV and XLSX exports', () {
       const csvHeader =
           'Vital Measurement,Node 1,Node 2,Node 3,Node 4,Node 5,Diagnostic Triage,Actions';
-      
+
       // Simulate XLSX header (should be same as CSV)
       const xlsxHeader =
           'Vital Measurement,Node 1,Node 2,Node 3,Node 4,Node 5,Diagnostic Triage,Actions';
-      
+
       expect(csvHeader, xlsxHeader, reason: 'CSV and XLSX headers must be identical');
     });
   });

@@ -9,9 +9,9 @@ Runs timings before and after creating perf indexes.
 """
 
 import sqlite3
+import sys
 import time
 from pathlib import Path
-import sys
 
 # Ensure repo root is on sys.path for api imports
 ROOT = Path(__file__).resolve().parents[2]
@@ -20,7 +20,7 @@ if str(ROOT) not in sys.path:
 
 ROOTS = 10  # number of roots to generate
 BRANCH = 5  # branching factor per level
-DEPTH = 5   # maximum depth (children levels)
+DEPTH = 5  # maximum depth (children levels)
 
 
 def apply_migrations(db_path: str):
@@ -47,7 +47,7 @@ def seed_data(conn: sqlite3.Connection):
             label = f"VM {r}"
             cur.execute(
                 "INSERT INTO nodes(parent_id, depth, slot, label, is_leaf) VALUES (NULL, 0, NULL, ?, 0)",
-                (label,)
+                (label,),
             )
             root_id = cur.lastrowid
             root_ids.append(root_id)
@@ -61,7 +61,7 @@ def seed_data(conn: sqlite3.Connection):
                         nlabel = f"R{r}-D{d}-S{slot}"
                         cur.execute(
                             "INSERT INTO nodes(parent_id, depth, slot, label, is_leaf) VALUES (?,?,?,?,?)",
-                            (parent, d, slot, nlabel, 1 if d == DEPTH else 0)
+                            (parent, d, slot, nlabel, 1 if d == DEPTH else 0),
                         )
                         next_level.append(cur.lastrowid)
                 level_nodes = next_level
@@ -106,8 +106,7 @@ def bench(cur: sqlite3.Cursor, root_ids: list[int]):
     t0 = time.perf_counter()
     for _ in range(reps):
         row = cur.execute(
-            "SELECT id FROM nodes WHERE depth=0 AND lower(trim(label))=?",
-            (target_root_label,)
+            "SELECT id FROM nodes WHERE depth=0 AND lower(trim(label))=?", (target_root_label,)
         ).fetchone()
         assert row is not None
     results["root_label_norm_ms"] = (time.perf_counter() - t0) * 1000 / reps
@@ -131,7 +130,7 @@ def bench(cur: sqlite3.Cursor, root_ids: list[int]):
     for _ in range(reps):
         row = cur.execute(
             "SELECT id FROM nodes WHERE parent_id=? AND depth=? AND lower(trim(label))=?",
-            (parent, 3, target_child_label)
+            (parent, 3, target_child_label),
         ).fetchone()
         assert row is not None
     results["child_label_norm_ms"] = (time.perf_counter() - t0) * 1000 / reps
@@ -162,9 +161,11 @@ def main():
         create_perf_indexes(conn)
         after = bench(cur, roots)
 
-        print("Benchmark results (avg ms per op, {} roots, 5^{} tree):".format(ROOTS, DEPTH))
+        print(f"Benchmark results (avg ms per op, {ROOTS} roots, 5^{DEPTH} tree):")
         for k in sorted(before.keys()):
-            print(f"- {k}: before={before[k]:.3f} ms, after={after[k]:.3f} ms, delta={(before[k]-after[k]):.3f} ms")
+            print(
+                f"- {k}: before={before[k]:.3f} ms, after={after[k]:.3f} ms, delta={(before[k] - after[k]):.3f} ms"
+            )
     finally:
         conn.close()
 

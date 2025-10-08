@@ -239,7 +239,7 @@ void main() {
 
     testWidgets('handles tap correctly', (tester) async {
       bool tapped = false;
-      
+
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -257,7 +257,7 @@ void main() {
 
     testWidgets('respects enabled state', (tester) async {
       bool tapped = false;
-      
+
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(

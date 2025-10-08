@@ -67,27 +67,27 @@ class _SettingsPaneState extends ConsumerState<SettingsPane> {
                       },
                     ),
                     const SizedBox(height: 16),
-                    
+
                     // Connection Status
                     Row(
                       children: [
                         Icon(
-                          connectionStatus.isConnected 
-                            ? Icons.check_circle 
+                          connectionStatus.isConnected
+                            ? Icons.check_circle
                             : Icons.error,
-                          color: connectionStatus.isConnected 
-                            ? Colors.green 
+                          color: connectionStatus.isConnected
+                            ? Colors.green
                             : Colors.red,
                           size: 20,
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          connectionStatus.isConnected 
-                            ? 'Connected' 
+                          connectionStatus.isConnected
+                            ? 'Connected'
                             : 'Disconnected',
                           style: TextStyle(
-                            color: connectionStatus.isConnected 
-                              ? Colors.green 
+                            color: connectionStatus.isConnected
+                              ? Colors.green
                               : Colors.red,
                             fontWeight: FontWeight.w500,
                           ),
@@ -106,7 +106,7 @@ class _SettingsPaneState extends ConsumerState<SettingsPane> {
                         ],
                       ],
                     ),
-                    
+
                     if (connectionStatus.lastChecked != null) ...[
                       const SizedBox(height: 4),
                       Text(
@@ -114,9 +114,9 @@ class _SettingsPaneState extends ConsumerState<SettingsPane> {
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ],
-                    
+
                     const SizedBox(height: 16),
-                    
+
                     // Test Connection Button
                     SizedBox(
                       width: double.infinity,
@@ -130,7 +130,7 @@ class _SettingsPaneState extends ConsumerState<SettingsPane> {
                             _isTestingConnection = false;
                           });
                         },
-                        icon: _isTestingConnection 
+                        icon: _isTestingConnection
                           ? const SizedBox(
                               width: 16,
                               height: 16,
@@ -144,9 +144,9 @@ class _SettingsPaneState extends ConsumerState<SettingsPane> {
                 ),
               ),
             ),
-            
+
             const SizedBox(height: 24),
-            
+
             // Application Behavior Section
             _buildSectionHeader('Application Behavior', Icons.settings_applications),
             Card(
@@ -182,9 +182,9 @@ class _SettingsPaneState extends ConsumerState<SettingsPane> {
                 ),
               ),
             ),
-            
+
             const SizedBox(height: 24),
-            
+
             // Export Settings Section
             _buildSectionHeader('Export Settings', Icons.file_download),
             Card(
@@ -201,7 +201,7 @@ class _SettingsPaneState extends ConsumerState<SettingsPane> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    
+
                     // Encoding selection
                     ListTile(
                       title: const Text('Encoding'),
@@ -209,7 +209,7 @@ class _SettingsPaneState extends ConsumerState<SettingsPane> {
                       trailing: const Icon(Icons.arrow_forward_ios),
                       onTap: () => _showEncodingDialog(context, settingsNotifier, settings.exportSettings),
                     ),
-                    
+
                     // Delimiter selection
                     ListTile(
                       title: const Text('Delimiter'),
@@ -217,9 +217,9 @@ class _SettingsPaneState extends ConsumerState<SettingsPane> {
                       trailing: const Icon(Icons.arrow_forward_ios),
                       onTap: () => _showDelimiterDialog(context, settingsNotifier, settings.exportSettings),
                     ),
-                    
+
                     const Divider(),
-                    
+
                     // Export options
                     SwitchListTile(
                       title: const Text('Include Headers'),
@@ -243,9 +243,9 @@ class _SettingsPaneState extends ConsumerState<SettingsPane> {
                 ),
               ),
             ),
-            
+
             const SizedBox(height: 24),
-            
+
             // Appearance Section
             _buildSectionHeader('Appearance', Icons.palette),
             Card(
@@ -281,9 +281,9 @@ class _SettingsPaneState extends ConsumerState<SettingsPane> {
                 ),
               ),
             ),
-            
+
             const SizedBox(height: 24),
-            
+
             // Application Info Section
             _buildSectionHeader('Application Info', Icons.info),
             Card(
@@ -297,7 +297,7 @@ class _SettingsPaneState extends ConsumerState<SettingsPane> {
                       _buildInfoRow('API Version', connectionStatus.apiVersion!),
                     ],
                     _buildInfoRow('Platform', _getPlatformName()),
-                    
+
                     if (connectionStatus.databaseStatus != null) ...[
                       const Divider(),
                       const Text(
@@ -309,10 +309,10 @@ class _SettingsPaneState extends ConsumerState<SettingsPane> {
                       ),
                       const SizedBox(height: 8),
                       _buildInfoRow(
-                        'Status', 
+                        'Status',
                         connectionStatus.databaseStatus!.statusText,
-                        statusColor: connectionStatus.databaseStatus!.isHealthy 
-                          ? Colors.green 
+                        statusColor: connectionStatus.databaseStatus!.isHealthy
+                          ? Colors.green
                           : Colors.orange,
                       ),
                       if (connectionStatus.databaseStatus!.path != null)
@@ -330,7 +330,7 @@ class _SettingsPaneState extends ConsumerState<SettingsPane> {
                       if (connectionStatus.databaseStatus!.pageSize != null)
                         _buildInfoRow('Page Size', '${connectionStatus.databaseStatus!.pageSize} bytes'),
                     ],
-                    
+
                     if (connectionStatus.features != null && connectionStatus.features!.isNotEmpty) ...[
                       const Divider(),
                       const Text(
@@ -341,9 +341,9 @@ class _SettingsPaneState extends ConsumerState<SettingsPane> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      ...connectionStatus.features!.entries.map((entry) => 
+                      ...connectionStatus.features!.entries.map((entry) =>
                         _buildInfoRow(
-                          entry.key.toUpperCase(), 
+                          entry.key.toUpperCase(),
                           entry.value ? 'Enabled' : 'Disabled',
                           statusColor: entry.value ? Colors.green : Colors.grey,
                         ),
@@ -353,9 +353,9 @@ class _SettingsPaneState extends ConsumerState<SettingsPane> {
                 ),
               ),
             ),
-            
+
             const SizedBox(height: 24),
-            
+
             // Debug Options Section
             _buildSectionHeader('Debug Options', Icons.bug_report),
             Card(
@@ -421,9 +421,9 @@ class _SettingsPaneState extends ConsumerState<SettingsPane> {
                 ),
               ),
             ),
-            
+
             const SizedBox(height: 24),
-            
+
             // Data Management Section
             _buildSectionHeader('Data Management', Icons.storage),
             Card(
@@ -450,9 +450,9 @@ class _SettingsPaneState extends ConsumerState<SettingsPane> {
                 ),
               ),
             ),
-            
+
             const SizedBox(height: 24),
-            
+
             // Backup & Restore Section
             _buildSectionHeader('Backup & Restore', Icons.backup),
             Card(
@@ -487,9 +487,9 @@ class _SettingsPaneState extends ConsumerState<SettingsPane> {
                 ),
               ),
             ),
-            
+
             const SizedBox(height: 24),
-            
+
             // Actions Section
             _buildSectionHeader('Actions', Icons.settings),
             Card(
@@ -638,7 +638,7 @@ class _SettingsPaneState extends ConsumerState<SettingsPane> {
     int currentDelay,
   ) async {
     final controller = TextEditingController(text: currentDelay.toString());
-    
+
     final result = await showDialog<int>(
       context: context,
       builder: (context) => AlertDialog(
@@ -675,7 +675,7 @@ class _SettingsPaneState extends ConsumerState<SettingsPane> {
         ],
       ),
     );
-    
+
     if (result != null) {
       await settingsNotifier.updateAutoSaveDelay(result);
     }
@@ -712,7 +712,7 @@ class _SettingsPaneState extends ConsumerState<SettingsPane> {
         ],
       ),
     );
-    
+
     if (result != null) {
       final newSettings = currentSettings.copyWith(encoding: result);
       await settingsNotifier.updateExportSettings(newSettings);
@@ -750,7 +750,7 @@ class _SettingsPaneState extends ConsumerState<SettingsPane> {
         ],
       ),
     );
-    
+
     if (result != null) {
       final newSettings = currentSettings.copyWith(delimiter: result);
       await settingsNotifier.updateExportSettings(newSettings);
@@ -811,7 +811,7 @@ class _SettingsPaneState extends ConsumerState<SettingsPane> {
       'Clear Cache',
       'This will clear all cached data and temporary files. This action cannot be undone.',
     );
-    
+
     if (confirmed == true) {
       // Here you would implement actual cache clearing logic
       if (mounted) {
@@ -831,7 +831,7 @@ class _SettingsPaneState extends ConsumerState<SettingsPane> {
       'Reset All Data',
       'This will reset all settings and data to defaults. This action cannot be undone.',
     );
-    
+
     if (confirmed == true) {
       await settingsNotifier.clearAllData();
       _apiUrlController.text = ref.read(settingsProvider).apiBaseUrl;

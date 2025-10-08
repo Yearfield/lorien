@@ -1,5 +1,8 @@
-import os, pytest
+import os
+
+import pytest
 from fastapi.testclient import TestClient
+
 from api.app import app
 from api.db.migrate import apply_migrations
 
@@ -13,12 +16,14 @@ Root A,Parent,child5,,,,,
 Root A,Parent,child6,,,,,
 """
 
+
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     db = tmp_path / "over5.db"
     os.environ["LORIEN_DB_PATH"] = str(db)
     apply_migrations(str(db))
     return TestClient(app)
+
 
 def test_import_accepts_over_five_children(client: TestClient):
     files = {"file": ("x.csv", CSV, "text/csv")}

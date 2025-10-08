@@ -26,11 +26,11 @@ WHERE id IN (
 
 -- Create a view for monitoring retention status
 CREATE VIEW IF NOT EXISTS audit_retention_status AS
-SELECT 
+SELECT
     COUNT(*) as total_rows,
     MIN(ts) as oldest_record,
     MAX(ts) as newest_record,
-    CASE 
+    CASE
         WHEN COUNT(*) > 50000 THEN 'OVER_LIMIT'
         WHEN MIN(ts) < datetime('now','-30 days') THEN 'OVER_AGE'
         ELSE 'OK'

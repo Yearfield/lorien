@@ -1,15 +1,22 @@
 import re
 import sqlite3
 from collections import defaultdict
-from typing import Any, Dict, Iterable, List, Literal
+from collections.abc import Iterable
+from typing import Any, Literal
 
+import anyio
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import JSONResponse
 
 from api.dependencies import get_db_connection
+from api.observability import get_logger
+from api.observability.metrics import increment_counter, record_timer
 from Engines.EngineLongBow import apply_import_with_metadata
 from Engines.EngineLongBow.import_analyzer import analyze_max_children
+
 from .helpers import CANONICAL_HEADER, coerce_rows_to_canonical, parse_csv_or_xlsx
+
+logger = get_logger(__name__)
 
 router = APIRouter()
 
@@ -22,7 +29,7 @@ MAX_DEPTH_INDEX = int(_DEPTH_PATTERN.fullmatch(DEPTH_COLUMNS[-1]).group(1)) if D
 MAX_DEPTH_LABEL = DEPTH_COLUMNS[-1] if DEPTH_COLUMNS else "D0"
 
 
-def _group_overfive_within_file(paths: List[List[str]], limit: int = 5) -> List[Dict[str, Any]]:
+def _group_overfive_within_file(paths: list[list[str]], limit: int = 5) -> list[dict[str, Any]]:
     """
     Heuristic preview-only check: within the uploaded file, if any parent path
     (D0..Dk) produces >limit distinct child labels at Dk+1, flag rows.
@@ -30,7 +37,7 @@ def _group_overfive_within_file(paths: List[List[str]], limit: int = 5) -> List[
     """
     # Build mapping: parent_tuple -> set(child_labels) and rows exceeding limit
     parent_children = defaultdict(set)
-    violations: List[Dict[str, Any]] = []
+    violations: list[dict[str, Any]] = []
     reported_rows = set()
     for row_number, path in enumerate(paths, start=2):  # row 1 = header
         cleaned = [(segment or "").strip() for segment in path]
@@ -59,12 +66,12 @@ def _group_overfive_within_file(paths: List[List[str]], limit: int = 5) -> List[
     return violations
 
 
-def _canonical_paths(rows: Iterable[Dict[str, Any]]) -> List[List[str]]:
+def _canonical_paths(rows: Iterable[dict[str, Any]]) -> list[list[str]]:
     """Return canonical depth-only slices for downstream heuristics."""
     return [[(row.get(column) or "").strip() for column in DEPTH_COLUMNS] for row in rows]
 
 
-def _row_exceeds_depth(row: Dict[str, Any]) -> bool:
+def _row_exceeds_depth(row: dict[str, Any]) -> bool:
     if not DEPTH_COLUMNS:
         return False
     for key, value in row.items():
@@ -78,20 +85,43 @@ def _row_exceeds_depth(row: Dict[str, Any]) -> bool:
 
 @router.post("/import/preview")
 async def import_preview(
-    file: UploadFile = File(...),
-    conn: sqlite3.Connection = Depends(get_db_connection)
+    file: UploadFile = File(...), conn: sqlite3.Connection = Depends(get_db_connection)
 ):
     """Preview import without writing to database - shows detected paths."""
     try:
         file_content = await file.read()
         filename = file.filename or "upload.csv"
         _, rows = parse_csv_or_xlsx(file_content, filename)
+
+        logger.info(
+            "Import preview started",
+            extra_fields={
+                "filename": filename,
+                "file_size_bytes": len(file_content),
+                "rows_found": len(rows),
+            },
+        )
     except Exception as e:
+        logger.error(
+            "Import preview file read failed",
+            extra_fields={
+                "filename": file.filename or "unknown",
+                "error": str(e),
+            },
+            exc_info=True,
+        )
+        increment_counter("imports.preview_parse_error")
         raise HTTPException(
             status_code=400,
-            detail=[{"loc": ["body", "file"], "msg": f"Could not read file: {str(e)}", "type":"value_error.file_read"}]
+            detail=[
+                {
+                    "loc": ["body", "file"],
+                    "msg": f"Could not read file: {str(e)}",
+                    "type": "value_error.file_read",
+                }
+            ],
         )
-    
+
     # Coerce to canonical columns
     try:
         rows = coerce_rows_to_canonical(rows)
@@ -108,12 +138,31 @@ async def import_preview(
             # Check if row has any non-empty values
             has_content = any((r.get(column) or "").strip() for column in DEPTH_COLUMNS)
             if has_content and (r.get("D0") or "").strip() == "":
-                issues.append({"row": idx, "msg": "path must start at D0 (root)", "type": "value_error.path"})
+                issues.append(
+                    {"row": idx, "msg": "path must start at D0 (root)", "type": "value_error.path"}
+                )
             if _row_exceeds_depth(r):  # future-proof
-                issues.append({"row": idx, "msg": f"depth exceeds {MAX_DEPTH_LABEL}", "type": "value_error.max_depth"})
+                issues.append(
+                    {
+                        "row": idx,
+                        "msg": f"depth exceeds {MAX_DEPTH_LABEL}",
+                        "type": "value_error.max_depth",
+                    }
+                )
         # Max-children preflight (append considered against DB)
-        max_children = analyze_max_children(conn, rows, mode="append")
-        
+        max_children = await anyio.to_thread.run_sync(analyze_max_children, conn, rows, "append")
+
+        logger.info(
+            "Import preview completed",
+            extra_fields={
+                "found_paths": len(rows),
+                "issues_count": len(issues),
+                "max_children_warnings": len(max_children),
+            },
+        )
+
+        increment_counter("imports.preview_success")
+
         return JSONResponse(
             status_code=200,
             content={
@@ -126,8 +175,15 @@ async def import_preview(
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=[{"loc": ["body"], "msg": f"Import failed: {str(e)}", "type":"value_error.import_failed"}]
+            detail=[
+                {
+                    "loc": ["body"],
+                    "msg": f"Import failed: {str(e)}",
+                    "type": "value_error.import_failed",
+                }
+            ],
         )
+
 
 @router.post("/import")
 async def import_apply(
@@ -139,11 +195,36 @@ async def import_apply(
     """
     Apply import transactionally. If enforce_five=True, the import is rolled back if any parent ends with >5 children.
     """
+    import time
+
+    start_time = time.time()
+
     try:
         blob = await file.read()
         filename = file.filename or "upload.csv"
         _, rows = parse_csv_or_xlsx(blob, filename)
+
+        logger.info(
+            "Import started",
+            extra_fields={
+                "filename": filename,
+                "file_size_bytes": len(blob),
+                "rows_found": len(rows),
+                "mode": mode,
+                "enforce_five": enforce_five,
+            },
+        )
     except Exception as e:
+        logger.error(
+            "Import file parse failed",
+            extra_fields={
+                "filename": file.filename or "unknown",
+                "mode": mode,
+                "error": str(e),
+            },
+            exc_info=True,
+        )
+        increment_counter("imports.parse_error", tags={"mode": mode})
         raise HTTPException(status_code=400, detail=f"parse_error: {e}")
 
     if not rows:
@@ -158,7 +239,7 @@ async def import_apply(
         # Import enforces ≤5 only when caller opts in; warnings always returned for visibility.
         canonical_paths = _canonical_paths(rows)
         warnings = _group_overfive_within_file(canonical_paths)
-        db_warnings = analyze_max_children(conn, rows, mode=mode)
+        db_warnings = await anyio.to_thread.run_sync(analyze_max_children, conn, rows, mode)
         warnings.extend(db_warnings)
 
         if enforce_five and any(w.get("type") == "value_error.max_children" for w in db_warnings):
@@ -174,7 +255,7 @@ async def import_apply(
 
         paths_with_meta = []
         for row in rows:
-            path: List[str] = []
+            path: list[str] = []
             for key in DEPTH_COLUMNS[:-1]:
                 value = (row.get(key) or "").strip()
                 if not value:
@@ -184,12 +265,16 @@ async def import_apply(
                 continue
             d6_value = (row.get(DEPTH_COLUMNS[-1]) or "").strip() or None
             notes_value = (row.get("Notes") or "").strip() or None
-            paths_with_meta.append({
-                "path": path,
-                "metadata": {"d6": d6_value, "notes": notes_value},
-            })
+            paths_with_meta.append(
+                {
+                    "path": path,
+                    "metadata": {"d6": d6_value, "notes": notes_value},
+                }
+            )
 
-        import_result = apply_import_with_metadata(paths_with_meta, mode, conn)
+        import_result = await anyio.to_thread.run_sync(
+            apply_import_with_metadata, paths_with_meta, mode, conn
+        )
 
         response = {
             "ok": True,
@@ -200,18 +285,56 @@ async def import_apply(
 
         # Provide root count for caller parity
         try:
-            root_count = conn.execute("SELECT COUNT(*) FROM nodes WHERE depth=0").fetchone()[0]
+            cursor = await anyio.to_thread.run_sync(
+                conn.execute, "SELECT COUNT(*) FROM nodes WHERE depth=0"
+            )
+            root_count = (await anyio.to_thread.run_sync(cursor.fetchone))[0]
         except Exception:
             root_count = 0
         response["roots"] = int(root_count)
 
+        duration_ms = (time.time() - start_time) * 1000
+        logger.info(
+            "Import completed successfully",
+            extra_fields={
+                "filename": filename,
+                "mode": mode,
+                "inserted_nodes": import_result.inserted_nodes,
+                "parents_touched": import_result.parents_touched,
+                "warnings_count": len(warnings),
+                "duration_ms": round(duration_ms, 2),
+            },
+        )
+
+        increment_counter("imports.success", tags={"mode": mode})
+        record_timer("imports.duration", duration_ms, tags={"mode": mode})
+
         return response
     except RuntimeError as e:
         # Known validation issue (≤5, malformed path, etc.)
+        logger.warning(
+            "Import validation failed",
+            extra_fields={
+                "filename": filename,
+                "mode": mode,
+                "error": str(e),
+            },
+        )
+        increment_counter("imports.validation_error", tags={"mode": mode})
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
         # Surface sqlite constraint in a readable way
         msg = str(e)
+        logger.error(
+            "Import failed",
+            extra_fields={
+                "filename": filename,
+                "mode": mode,
+                "error": msg,
+            },
+            exc_info=True,
+        )
+        increment_counter("imports.error", tags={"mode": mode})
         if "CHECK constraint failed" in msg:
             raise HTTPException(status_code=422, detail=f"constraint_error: {msg}")
         raise HTTPException(status_code=500, detail=f"import_error: {msg}")

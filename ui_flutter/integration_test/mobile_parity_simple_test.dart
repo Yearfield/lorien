@@ -19,7 +19,7 @@ void main() {
 
     server = await io.serve(handler, InternetAddress.loopbackIPv4, 0);
     print('Fake API server running on port ${server.port}');
-    
+
     // Note: In a real test, you'd need to set the API base URL as an environment variable
     // For now, we'll just verify the app can launch
   });
@@ -32,7 +32,7 @@ void main() {
     testWidgets('app launches on mobile size', (tester) async {
       // Test mobile portrait size
       await tester.binding.setSurfaceSize(const Size(375, 667));
-      
+
       // Launch the app
       app.main();
       await tester.pumpAndSettle(const Duration(seconds: 5));
@@ -44,7 +44,7 @@ void main() {
     testWidgets('app launches on tablet size', (tester) async {
       // Test tablet portrait size
       await tester.binding.setSurfaceSize(const Size(768, 1024));
-      
+
       // Launch the app
       app.main();
       await tester.pumpAndSettle(const Duration(seconds: 5));
@@ -56,7 +56,7 @@ void main() {
     testWidgets('app launches on desktop size', (tester) async {
       // Test desktop size
       await tester.binding.setSurfaceSize(const Size(1200, 800));
-      
+
       // Launch the app
       app.main();
       await tester.pumpAndSettle(const Duration(seconds: 5));
@@ -90,7 +90,7 @@ void main() {
 
     testWidgets('performance is acceptable', (tester) async {
       await tester.binding.setSurfaceSize(const Size(375, 667));
-      
+
       final stopwatch = Stopwatch()..start();
       app.main();
       await tester.pumpAndSettle(const Duration(seconds: 5));

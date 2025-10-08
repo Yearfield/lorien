@@ -1,7 +1,9 @@
 from __future__ import annotations
+
 import streamlit as st
-from ui_streamlit.components import top_health_banner, error_message
-from ui_streamlit.api_client import get_triage, put_triage, get_children
+
+from ui_streamlit.api_client import get_children, get_triage, put_triage
+from ui_streamlit.components import error_message, top_health_banner
 
 st.set_page_config(page_title="Triage", layout="wide")
 st.title("Triage Management")
@@ -39,27 +41,25 @@ if st.button("Load Triage"):
 # Display and edit triage
 if "triage" in st.session_state:
     triage = st.session_state["triage"]
-    
+
     st.subheader("Current Triage Data")
     st.json(triage)
-    
+
     # Edit form
     st.subheader("Edit Triage")
     with st.form("edit_triage"):
         diagnostic_triage = st.text_area(
             "Diagnostic Triage",
             value=triage.get("diagnostic_triage", ""),
-            placeholder="Enter diagnostic triage information..."
+            placeholder="Enter diagnostic triage information...",
         )
-        
+
         actions = st.text_area(
-            "Actions",
-            value=triage.get("actions", ""),
-            placeholder="Enter actions to take..."
+            "Actions", value=triage.get("actions", ""), placeholder="Enter actions to take..."
         )
-        
+
         submitted = st.form_submit_button("Update Triage")
-        
+
         if submitted:
             try:
                 # Validate that at least one field is provided
@@ -72,24 +72,26 @@ if "triage" in st.session_state:
                         update_data["diagnostic_triage"] = diagnostic_triage.strip()
                     if actions.strip():
                         update_data["actions"] = actions.strip()
-                    
+
                     # Update triage
                     result = put_triage(node_id, update_data)
                     st.success("Triage updated successfully!")
                     st.json(result)
-                    
+
                     # Refresh triage data
                     st.session_state["triage"] = get_triage(node_id)
-                    
+
             except Exception as e:
                 error_message(e)
 else:
     st.info("Load triage data to edit.")
 
 # Leaf-only enforcement info
-st.info("""
+st.info(
+    """
 **Leaf-Only Policy:**
 - Triage editing is only available for leaf nodes (nodes with no children)
 - This ensures triage information is only applied to terminal decision points
 - Use the "Check Node Type" button to verify if a node is a leaf
-""")
+"""
+)

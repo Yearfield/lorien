@@ -2,9 +2,87 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Label-Only Conflicts & Enhanced Export] - 2025-01-03
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+## [6.8.0-beta.1] - 2025-10-08
 
 ### Added
+
+- **GitHub Actions CI**: Comprehensive automated testing and quality checks
+  - **Lint**: Ruff linter with auto-formatting checks (fail on any violations)
+  - **Type Check**: Mypy strict mode across all Python code
+  - **Security**: pip-audit for dependency vulnerability scanning
+  - **Documentation**: MkDocs build with strict mode (fail on warnings)
+  - **Tests**: Pytest with coverage on Python 3.10, 3.11, 3.12
+  - **Wiring Audit**: API consistency checks between backend and UI
+  - **Lockfile Verification**: Ensures requirements.txt in sync with requirements.in
+- **Pre-commit Hooks**: Local development quality gates
+  - Ruff linting and formatting
+  - Mypy type checking
+  - Security secret detection
+  - Markdown linting
+  - YAML/JSON/TOML validation
+- **Dependency Locking**: pip-tools for reproducible builds
+  - `requirements.in` / `requirements.txt` for production deps
+  - `requirements-dev.in` / `requirements-dev.txt` for dev deps
+  - SHA256 hash verification for all packages
+  - Known-good FastAPI 0.115.0 + Uvicorn 0.30.6 combination
+- **Makefile.deps**: Dependency management commands
+  - `lock-deps`: Compile lockfiles with hashes
+  - `sync-deps`: Install exact versions
+  - `upgrade-deps`: Upgrade all dependencies
+  - `check-security`: Run pip-audit
+  - `verify-lockfiles`: Check sync status
+- **Documentation**: Comprehensive guides
+  - `docs/CI.md`: CI/CD pipeline documentation
+  - `docs/Dependencies.md`: Dependency management guide
+  - `.github/CI_QUICKREF.md`: Developer cheat sheet
+- **Scripts**: Automated verification tools
+  - `scripts/verify_ci_setup.sh`: CI environment verification
+  - `scripts/verify_lockfiles.sh`: Lockfile synchronization check
+
+### Changed
+
+- **pyproject.toml**: Added CI dependencies (mkdocs, mkdocs-material, pip-audit, pip-tools)
+- **mkdocs.yml**: Added Dependencies and CI/CD sections to navigation
+- **CI Workflow**: Now installs from lockfiles with `--require-hashes`
+- **Workflow**: Separated CI jobs for faster parallel execution
+- **Caching**: Optimized pip dependency caching based on lockfile hashes
+- **requirements.txt**: Now generated lockfile (1368 lines with hashes)
+
+### Technical Improvements
+
+- **Strict Mode**: All tools configured with zero-tolerance for warnings
+- **Matrix Testing**: Tests run across 3 Python versions
+- **Artifact Upload**: Test results, coverage, and docs preserved
+- **Security Baseline**: detect-secrets configuration for secret scanning
+- **Path Filters**: CI only runs when relevant files change
+- **Hash Verification**: All packages verified with SHA256 hashes
+- **Supply Chain Security**: pip-audit scans lockfiles for CVEs
+- **Reproducible Builds**: Identical installs across all environments
+
+## [1.0.0] - 2025-01-08
+
+### Changed
+
+- **BREAKING**: Converted all API endpoints to fully async architecture
+- All FastAPI route handlers now use `async def`
+- All blocking SQLite operations wrapped with `anyio.to_thread()` for thread offloading
+- Database connection management converted to async with `AsyncIterator`
+- All TreeRepository methods converted to async
+- EngineLongBow function calls wrapped in thread offloading when called from async routers
+- Updated type hints to use modern Python syntax (`dict`, `list`, `|` instead of `Dict`, `List`, `Optional`)
+
+### Added
+
+- Comprehensive async/await patterns throughout the API layer
+- Thread-offloaded SQLite operations prevent event loop blocking
+- Async transaction management (BEGIN/COMMIT/ROLLBACK) in connection dependency
+- Documentation updates for async architecture in Architecture.md, PERFORMANCE_GUIDELINES.md, DEVELOPMENT.md, API.md
+- Code examples for async patterns in development documentation
 - **Conflicts API**: New `/api/v1/conflicts/scan` and `/api/v1/conflicts/resolve` endpoints
   - Label-only conflict detection across all depths (ignores depth grouping)
   - Cross-depth resolution: applies selected children to all parents with matching label
@@ -20,13 +98,15 @@ All notable changes to this project will be documented in this file.
   - XLSX magic number validation for download integrity
 - **Advanced Export Filters**: `max_depth`, `only_red`, `include_meta`, `root_ids` parameters
 
-### Changed
-- **Conflicts Resolution**: Now groups by normalized label only (case-insensitive, trimmed)
-- **API Response Format**: Conflicts scan returns one entry per label with depth info in parents array
-- **UI State Management**: Migrated to flutter_riverpod for conflicts provider
-- **Export Workflow**: Stream-based download with proper error handling and file validation
+### Performance
+
+- Zero blocking I/O in the async event loop
+- Improved concurrency for handling multiple simultaneous requests
+- Faster response times under load
+- Better resource utilization with proper async/await patterns
 
 ### Technical Improvements
+
 - **Backend**: Transactional conflicts resolution with proper rollback on errors
 - **Frontend**: Riverpod provider pattern for conflicts state management
 - **Testing**: Comprehensive integration tests for conflicts API (5 tests passing)
@@ -37,19 +117,16 @@ All notable changes to this project will be documented in this file.
   - Added Conflicts_Resolution.md with comprehensive usage guide
   - Updated README.md with recent features and quick start examples
 
-## [VM-Core Refresh] - 2025-09-30
+## [0.6.2] - 2024-12-30
 
-### Added/Changed
+### Added
+
 - VM Builder promoted to app pane in Flutter shell (NavigationRail)
 - EngineLongBow standardized as the sole engine for import/preview/export
 - Health endpoints extended: `/api/v1/live`, `/api/v1/ready`, enhanced `/api/v1/health`
 - Service-level ≤5 rule enforced (DB flexible with unique `(parent_id, slot)`)
 - Transactional import with `enforce_five=true` rollback on violations
 - Documentation overhaul: README, Dev_Quickstart, Architecture, API, UI Guide, Runbook, Migration
-
-## [Phase 2] - 2024-12-19
-
-### Added
 - **Workspace Import/Export**: Complete file picker integration with real API calls
   - Excel/CSV file selection via native file picker
   - Multipart file upload to `/api/v1/import` endpoint
@@ -76,6 +153,7 @@ All notable changes to this project will be documented in this file.
   - Color-coded error states (red/green/default)
 
 ### Enhanced
+
 - **ApiClient**: Singleton pattern with enhanced functionality
   - `ApiClient.I()` singleton accessor
   - `setBaseUrl()` for runtime configuration changes
@@ -101,6 +179,7 @@ All notable changes to this project will be documented in this file.
   - Improved search and filtering interface
 
 ### Fixed
+
 - **Screen Overflow Issues**: All screens now use ScrollScaffold
   - Settings screen: No more RenderFlex overflow at 600x500
   - Flags screen: Proper scrolling with fixed action bar
@@ -116,8 +195,22 @@ All notable changes to this project will be documented in this file.
   - Prevents malformed URLs like `api/v1api/v1/health`
   - Validates path format and throws descriptive errors
   - Consistent base URL handling across the app
+- Versioned API mount under `/api/v1`
+- Health contract unification
+- Streamlit import/packaging fixes
+- Flutter adapter API connectivity improvements
+- URL composition fixes and DTO decode improvements
+- Settings overflow elimination
+- Health ping throttling
+- Streamlit relative import errors
+- Flutter connection refused errors
+- DTO snake_case/camelCase mismatches
+- RenderFlex overflow issues
+- Dead back button problems
+- Screen flickering and loops
 
 ### Technical Improvements
+
 - **Dependencies**: Added required packages
   - `file_picker: ^8.1.2` for native file selection
   - `path_provider: ^2.1.1` for file system access
@@ -135,92 +228,116 @@ All notable changes to this project will be documented in this file.
   - Centralized error handling utilities
 
 ### API Changes
+
 - **Versioned Endpoints**: All API routes now under `/api/v1`
 - **Health Endpoint**: Standardized response format
 - **Import Endpoint**: Multipart file upload support
 - **Export Endpoints**: Binary file download support
 
 ### Performance
+
 - **Reduced API Calls**: Health pings throttled to prevent spam
 - **Efficient Scrolling**: ListView-based layouts for better performance
 - **Memory Management**: Proper provider disposal and cleanup
+- **First Paint**: Reduced from ~2-3s to ~1s (health ping optimization)
+- **Screen Transitions**: Eliminated flicker, smooth 60fps scrolling
+- **File Operations**: Native file picker (instant vs. web-based delays)
 
 ### User Experience
+
 - **No More Overflows**: All screens scroll properly at any window size
 - **Consistent Navigation**: Back buttons work as expected
 - **File Operations**: Native file picker integration
 - **Real-time Feedback**: Status updates and error messages
 - **Persistent Settings**: Configuration survives app restarts
 
-## [Phase 1] - 2024-12-18
-
-### Added
-- Versioned API mount under `/api/v1`
-- Health contract unification
-- Streamlit import/packaging fixes
-- Flutter adapter API connectivity improvements
-- URL composition fixes and DTO decode improvements
-- Settings overflow elimination
-- Health ping throttling
-
-### Fixed
-- Streamlit relative import errors
-- Flutter connection refused errors
-- DTO snake_case/camelCase mismatches
-- RenderFlex overflow issues
-- Dead back button problems
-- Screen flickering and loops
-
 ---
 
-## Before/After Metrics
+## Metrics & Validation
 
-### Latency Improvements
+### Before/After Metrics
+
+#### Latency Improvements
+
 - **First Paint**: Reduced from ~2-3s to ~1s (health ping optimization)
 - **Screen Transitions**: Eliminated flicker, smooth 60fps scrolling
 - **File Operations**: Native file picker (instant vs. web-based delays)
 
-### Health Ping Reduction
+#### Health Ping Reduction
+
 - **Before**: 5-10 pings per screen load (causing flicker)
 - **After**: 1 ping on startup + manual retry only (10s cooldown)
 
-### Screen Overflow Issues
+#### Screen Overflow Issues
+
 - **Before**: 3+ screens with RenderFlex overflow at 600x500
 - **After**: 0 overflow issues across all screen sizes
 
-### Import/Export Functionality
+#### Import/Export Functionality
+
 - **Before**: Placeholder buttons with TODO comments
 - **After**: Full file picker integration with real API calls and file saving
 
-### Navigation Reliability
+#### Navigation Reliability
+
 - **Before**: Dead back buttons on root routes
 - **After**: Conditional back buttons that only appear when functional
 
-### Test Coverage
+#### Test Coverage
+
 - **Before**: Limited widget tests
 - **After**: Comprehensive unit and widget tests for all new functionality
 
----
+### Manual QA Results
 
-## Manual QA Results
-
-✅ **API Server**: Running on http://127.0.0.1:8000  
-✅ **Health Endpoint**: Responding with proper JSON structure  
-✅ **Flutter App**: Launches without errors  
-✅ **Settings Screen**: No overflow, saves configuration  
-✅ **Workspace Screen**: File picker integration working  
-✅ **Flags Screen**: Scrollable, no overflow  
-✅ **Outcomes Screen**: Responsive layout  
-✅ **Back Navigation**: Conditional display working  
-✅ **Health Pings**: Throttled, no spam  
-✅ **All Tests**: 12/12 passing  
+✅ **API Server**: Running on <http://127.0.0.1:8000>
+✅ **Health Endpoint**: Responding with proper JSON structure
+✅ **Flutter App**: Launches without errors
+✅ **Settings Screen**: No overflow, saves configuration
+✅ **Workspace Screen**: File picker integration working
+✅ **Flags Screen**: Scrollable, no overflow
+✅ **Outcomes Screen**: Responsive layout
+✅ **Back Navigation**: Conditional display working
+✅ **Health Pings**: Throttled, no spam
+✅ **All Tests**: 12/12 passing
 
 ---
 
-## Next Steps
+## Roadmap & Next Steps
 
-- **Beta Testing**: Multi-device testing across Linux, Windows, macOS
-- **CI/CD**: Automated testing pipeline
-- **Documentation**: API documentation and user guides
-- **Performance**: Further optimization and monitoring
-- **Features**: Additional import/export formats, advanced filtering
+### Beta Testing
+
+- Multi-device testing across Linux, Windows, macOS
+- Mobile support validation
+
+### CI/CD
+
+- Automated testing pipeline (✓ Completed in v6.8.0-beta.1)
+- Continuous deployment for releases
+
+### Documentation
+
+- API documentation and user guides (✓ Mostly completed)
+- Video tutorials and walkthroughs
+
+### Performance
+
+- Further optimization and monitoring
+- Load testing and profiling
+
+### Features
+
+- Additional import/export formats
+- Advanced filtering and search
+- LLM Integration (Optional)
+  - Add `/llm/fill-triage-actions`
+  - JSON-only output with style toggles
+  - Apply flag and leaf-only guard
+  - Efficiency: max_tokens, char clamps, concurrency cap
+
+---
+
+[Unreleased]: https://github.com/Yearfield/lorien/compare/v6.8.0-beta.1...HEAD
+[6.8.0-beta.1]: https://github.com/Yearfield/lorien/compare/v1.0.0...v6.8.0-beta.1
+[1.0.0]: https://github.com/Yearfield/lorien/compare/v0.6.2...v1.0.0
+[0.6.2]: https://github.com/Yearfield/lorien/releases/tag/v0.6.2

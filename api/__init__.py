@@ -4,10 +4,10 @@ from .dependencies import get_repository
 from .models import *
 
 __all__ = [
-    'app',
-    'get_repository',
-    'IncompleteParentDTO',
-    'DBInfo',
-    'HealthResponse',
-    'ErrorResponse',
+    "app",
+    "get_repository",
+    "IncompleteParentDTO",
+    "DBInfo",
+    "HealthResponse",
+    "ErrorResponse",
 ]

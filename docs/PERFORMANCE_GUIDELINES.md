@@ -75,7 +75,7 @@ import io
 def generate_csv():
     """Generator function for streaming CSV data."""
     yield "Vital Measurement, Node 1, Node 2, Node 3, Node 4, Node 5, Diagnostic Triage, Actions\n"
-    
+
     # Stream data in chunks
     for chunk in get_data_chunks():
         yield chunk
@@ -161,10 +161,52 @@ pytest tests/perf/test_performance_guardrails.py::test_index_usage_parents_incom
 ### Code Optimization
 
 1. **Use async/await** for I/O operations
+   - All API endpoints use `async def`
+   - All blocking SQLite operations wrapped with `anyio.to_thread()`
+   - Database connection management is fully async
+   - EngineLongBow calls wrapped in thread offloading
 2. **Minimize database round trips**
 3. **Use connection pooling**
 4. **Implement proper error handling**
 5. **Profile before optimizing**
+
+### Async Implementation
+
+All database operations are offloaded to worker threads to prevent blocking the async event loop:
+
+```python
+import anyio
+
+# Database queries wrapped with anyio.to_thread()
+async def get_node(node_id: int, conn: sqlite3.Connection):
+    cur = await anyio.to_thread(
+        conn.execute,
+        "SELECT id, label, depth FROM nodes WHERE id=?",
+        (node_id,)
+    )
+    row = await anyio.to_thread(cur.fetchone)
+    return row
+
+# Transaction management
+async def get_db_connection() -> AsyncIterator[sqlite3.Connection]:
+    conn = _open_sqlite(path)
+    try:
+        await anyio.to_thread(conn.execute, "BEGIN;")
+        yield conn
+        await anyio.to_thread(conn.execute, "COMMIT;")
+    except Exception:
+        await anyio.to_thread(conn.execute, "ROLLBACK;")
+        raise
+    finally:
+        await anyio.to_thread(conn.close)
+```
+
+This ensures:
+
+- No blocking I/O in the async event loop
+- High concurrency for multiple simultaneous requests
+- Proper transaction semantics preserved
+- Fast response times under load
 
 ### Database Optimization
 

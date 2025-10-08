@@ -2,7 +2,7 @@
 LLM Provider Interface Protocol
 """
 
-from typing import Protocol, Dict, Any
+from typing import Any, Protocol
 
 
 class LLMProvider(Protocol):
@@ -16,7 +16,7 @@ class LLMProvider(Protocol):
         """Provider name identifier."""
         ...
 
-    def health(self) -> Dict[str, Any]:
+    def health(self) -> dict[str, Any]:
         """
         Return health status without side effects.
 
@@ -25,7 +25,7 @@ class LLMProvider(Protocol):
         """
         ...
 
-    def suggest(self, prompt: str) -> Dict[str, str]:
+    def suggest(self, prompt: str) -> dict[str, str]:
         """
         Generate suggestions for diagnostic triage and actions.
 

@@ -3,7 +3,13 @@ from .models import *
 from .rules import *
 
 __all__ = [
-    'Node', 'Parent', 'Path', 'RedFlag', 'Triaging',
-    'enforce_five_children', 'find_parents_with_too_few_children',
-    'find_parents_with_too_many_children', 'find_mismatched_children_across_duplicates'
+    "Node",
+    "Parent",
+    "Path",
+    "RedFlag",
+    "Triaging",
+    "enforce_five_children",
+    "find_parents_with_too_few_children",
+    "find_parents_with_too_many_children",
+    "find_mismatched_children_across_duplicates",
 ]

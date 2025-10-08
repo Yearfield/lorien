@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS nodes__new (
 
 -- Copy data from old nodes to new table
 INSERT INTO nodes__new (id, parent_id, depth, slot, label, is_leaf, created_at, updated_at)
-SELECT id, parent_id, depth, slot, label, is_leaf, 
+SELECT id, parent_id, depth, slot, label, is_leaf,
        COALESCE(created_at, datetime('now')) as created_at,
        COALESCE(updated_at, datetime('now')) as updated_at
 FROM nodes;

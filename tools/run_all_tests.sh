@@ -4,6 +4,9 @@
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
 echo "🧪 Lorien Complete Test Suite"
 echo "============================="
 
@@ -18,12 +21,13 @@ NC='\033[0m' # No Color
 run_test_suite() {
     local name="$1"
     local command="$2"
-    local cwd="${3:-.}"
+    local cwd="${3:-$REPO_ROOT}"
 
     echo -e "\n${BLUE}▶ Running $name${NC}"
     echo "Command: $command"
     echo "Directory: $cwd"
 
+    local orig_dir="$(pwd)"
     cd "$cwd"
     start_time=$(date +%s)
 
@@ -31,11 +35,13 @@ run_test_suite() {
         end_time=$(date +%s)
         duration=$((end_time - start_time))
         echo -e "${GREEN}✓ $name passed (${duration}s)${NC}"
+        cd "$orig_dir"
         return 0
     else
         end_time=$(date +%s)
         duration=$((end_time - start_time))
         echo -e "${RED}✗ $name failed (${duration}s)${NC}"
+        cd "$orig_dir"
         return 1
     fi
 }
@@ -72,13 +78,21 @@ main() {
 
     # Ensure virtual environment is activated for API tests
     if [ -z "$VIRTUAL_ENV" ]; then
-        echo -e "${RED}❌ Virtual environment not activated. Run:${NC}"
-        echo "source .venv/bin/activate"
+        if [ -f "$REPO_ROOT/.venv/bin/activate" ]; then
+            echo -e "${YELLOW}⚠ Virtual environment not active; attempting to source $REPO_ROOT/.venv${NC}"
+            # shellcheck source=/dev/null
+            source "$REPO_ROOT/.venv/bin/activate"
+        fi
+    fi
+
+    if [ -z "$VIRTUAL_ENV" ]; then
+        echo -e "${RED}❌ Virtual environment not activated and .venv missing.${NC}"
+        echo "Run: python3 -m venv .venv && source .venv/bin/activate"
         exit 1
     fi
 
     # 1. Run API tests
-    if run_test_suite "API Tests (pytest)" "pytest -q" "/home/jharm/Lorien"; then
+    if run_test_suite "API Tests (pytest)" "pytest -q" "$REPO_ROOT"; then
         echo -e "${GREEN}✓ API tests passed${NC}"
     else
         echo -e "${RED}✗ API tests failed${NC}"
@@ -87,7 +101,7 @@ main() {
 
     # 2. Run Flutter tests (only if flutter is available)
     if command -v flutter &> /dev/null; then
-        if run_test_suite "Flutter Tests" "flutter test -r expanded" "/home/jharm/Lorien/ui_flutter"; then
+        if run_test_suite "Flutter Tests" "flutter test -r expanded" "$REPO_ROOT/ui_flutter"; then
             echo -e "${GREEN}✓ Flutter tests passed${NC}"
         else
             echo -e "${RED}✗ Flutter tests failed${NC}"
@@ -99,7 +113,7 @@ main() {
 
     # 3. Run smoke tests (with fallback)
     echo -e "\n${BLUE}▶ Running Smoke Tests${NC}"
-    if run_test_suite "Smoke Tests" "bash tools/smoke_beta.sh http://127.0.0.1:8000/api/v1 || echo 'Smoke test failed but continuing...'" "/home/jharm/Lorien"; then
+    if run_test_suite "Smoke Tests" "bash \"$REPO_ROOT/tools/smoke_beta.sh\" http://127.0.0.1:8000/api/v1 || echo 'Smoke test failed but continuing...'" "$REPO_ROOT"; then
         echo -e "${GREEN}✓ Smoke tests completed${NC}"
     else
         echo -e "${YELLOW}⚠ Smoke tests had issues (expected for some endpoints)${NC}"

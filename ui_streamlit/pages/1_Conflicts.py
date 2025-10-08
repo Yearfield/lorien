@@ -1,11 +1,8 @@
 import streamlit as st
+
 from ui_streamlit.api_client import get_json
 
-st.set_page_config(
-    page_title="Conflicts - Lorien",
-    page_icon="⚠️",
-    layout="wide"
-)
+st.set_page_config(page_title="Conflicts - Lorien", page_icon="⚠️", layout="wide")
 
 st.title("⚠️ Conflicts & Data Integrity")
 st.caption("Identify and resolve data conflicts in your decision trees")
@@ -20,42 +17,48 @@ try:
     missing_slots = get_json("/tree/missing-slots")
     if missing_slots:
         st.warning(f"Found {len(missing_slots)} parents with missing child slots")
-        
+
         # Filters
         st.subheader("🔍 Filters")
         col1, col2, col3 = st.columns(3)
-        
+
         with col1:
             depth_filter = st.selectbox("Depth", ["Any"] + list(range(1, 6)), key="depth_filter")
         with col2:
             label_filter = st.text_input("Label contains", key="label_filter")
         with col3:
             parent_id_filter = st.text_input("Parent ID", key="parent_id_filter")
-        
+
         # Apply filters
         filtered_slots = missing_slots
         if depth_filter != "Any":
             filtered_slots = [p for p in filtered_slots if p.get("depth") == depth_filter]
         if label_filter:
-            filtered_slots = [p for p in filtered_slots if label_filter.lower() in p.get("label", "").lower()]
+            filtered_slots = [
+                p for p in filtered_slots if label_filter.lower() in p.get("label", "").lower()
+            ]
         if parent_id_filter:
-            filtered_slots = [p for p in filtered_slots if str(p.get("parent_id")) == parent_id_filter]
-        
+            filtered_slots = [
+                p for p in filtered_slots if str(p.get("parent_id")) == parent_id_filter
+            ]
+
         st.info(f"Showing {len(filtered_slots)} of {len(missing_slots)} results")
-        
+
         # Bulk operations
         if filtered_slots:
             if st.button("🚀 Open All in Editor", use_container_width=True):
-                st.info(f"Opening {min(len(filtered_slots), 50)} parents in Editor (capped to avoid UI lock)")
+                st.info(
+                    f"Opening {min(len(filtered_slots), 50)} parents in Editor (capped to avoid UI lock)"
+                )
                 # In a real implementation, this would navigate to editor with the filtered list
                 st.success("✅ Ready to edit filtered parents")
-        
+
         # Display filtered results
         for parent in filtered_slots:
             with st.expander(f"Parent {parent['id']}: {parent.get('label', 'No label')}"):
                 st.write(f"**Depth:** {parent.get('depth', 'Unknown')}")
                 st.write(f"**Missing slots:** {parent.get('missing_slots', [])}")
-                if st.button(f"Jump to Editor", key=f"edit_{parent['id']}"):
+                if st.button("Jump to Editor", key=f"edit_{parent['id']}"):
                     st.switch_page("pages/1_Editor.py")
     else:
         st.success("✅ All parents have complete child slots")
@@ -114,6 +117,7 @@ st.header("⏭️ Next Incomplete Parent")
 try:
     # Use raw request to handle 204 status codes properly
     import requests
+
     from ui_streamlit.settings import get_api_base_url
 
     base_url = get_api_base_url()
@@ -140,7 +144,8 @@ except Exception as e:
 
 # Summary
 st.header("📊 Summary")
-st.markdown("""
+st.markdown(
+    """
 **Conflict Resolution Workflow:**
 1. **Review** conflicts above
 2. **Jump to Editor** for specific parents
@@ -148,4 +153,5 @@ st.markdown("""
 4. **Resolve duplicates** by renaming or removing
 5. **Clean up orphans** by reassigning or deleting
 6. **Verify depth** consistency across the tree
-""")
+"""
+)

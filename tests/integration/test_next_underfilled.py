@@ -1,7 +1,8 @@
-from api.app import app
 from starlette.testclient import TestClient
+
+from api.app import app
 from api.db.migrate import apply_migrations
-import os
+
 
 def test_next_underfilled_parent(tmp_path, monkeypatch):
     """Test finding the next parent with fewer than 5 children."""
@@ -20,7 +21,7 @@ Root1,Child5,,,,,,
 Root2,ChildA,,,,,,
 Root2,ChildB,,,,,,
 Root3,ChildX,,,,,,"""
-    
+
     r = c.post("/api/v1/import?mode=replace", files={"file": ("tree.csv", csv, "text/csv")})
     assert r.status_code in (200, 201)
 
@@ -29,7 +30,7 @@ Root3,ChildX,,,,,,"""
     assert r.status_code == 200
     roots = r.json()["items"]
     root_ids = {root["label"].lower(): root["id"] for root in roots}
-    
+
     # Test with root_id parameter - scope to Root1 tree
     root1_id = root_ids["root1"]
     r = c.get(f"/api/v1/tree/next-underfilled?root_id={root1_id}")
@@ -63,6 +64,7 @@ Root3,ChildX,,,,,,"""
     assert data["label"].lower() == "root3"
     assert data["child_count"] == 1
 
+
 def test_next_underfilled_all_full(tmp_path, monkeypatch):
     """Test when all parents have 5 children."""
     db = tmp_path / "app.db"
@@ -82,7 +84,7 @@ Root2,ChildB,,,,,,
 Root2,ChildC,,,,,,
 Root2,ChildD,,,,,,
 Root2,ChildE,,,,,,"""
-    
+
     r = c.post("/api/v1/import?mode=replace", files={"file": ("tree.csv", csv, "text/csv")})
     assert r.status_code in (200, 201)
 
@@ -91,7 +93,7 @@ Root2,ChildE,,,,,,"""
     assert r.status_code == 200
     roots = r.json()["items"]
     root_ids = {root["label"].lower(): root["id"] for root in roots}
-    
+
     # All parents are full, should return 204 for any root scope
     for root_id in root_ids.values():
         r = c.get(f"/api/v1/tree/next-underfilled?root_id={root_id}")

@@ -5,7 +5,28 @@ Text utility functions for Lorien.
 import re
 
 PHRASE_RE = re.compile(r"^[A-Za-z0-9 ,\-]+$")
-PROHIBITED = { "mg","ml","mcg","g","kg","iv","im","po","sc","pr","q6h","q8h","qid","tid","bid","od","qod","prn","stat" }
+PROHIBITED = {
+    "mg",
+    "ml",
+    "mcg",
+    "g",
+    "kg",
+    "iv",
+    "im",
+    "po",
+    "sc",
+    "pr",
+    "q6h",
+    "q8h",
+    "qid",
+    "tid",
+    "bid",
+    "od",
+    "qod",
+    "prn",
+    "stat",
+}
+
 
 def words(text: str) -> list[str]:
     """Extract words from text."""
@@ -13,6 +34,7 @@ def words(text: str) -> list[str]:
         return []
     toks = [t for t in re.split(r"\s+", text.strip()) if t]
     return toks
+
 
 def enforce_phrase_rules(text: str, max_words: int) -> str:
     """Enforce phrase rules and raise ValueError for Pydantic validation."""
@@ -26,9 +48,12 @@ def enforce_phrase_rules(text: str, max_words: int) -> str:
     if any(t in PROHIBITED for t in low):
         raise ValueError("must not include dosing/route/time tokens")
     # reject obvious sentence markers
-    if any(s in text for s in [".", "!", "?", ":"]) or text.lower().startswith(("hi", "hello", "thanks", "you should")):
+    if any(s in text for s in [".", "!", "?", ":"]) or text.lower().startswith(
+        ("hi", "hello", "thanks", "you should")
+    ):
         raise ValueError("must be a concise phrase, not a sentence")
     return text
+
 
 def truncate_to_words(text: str, max_words: int) -> str:
     """Truncate text to maximum word count."""
@@ -38,6 +63,7 @@ def truncate_to_words(text: str, max_words: int) -> str:
     if len(words_list) <= max_words:
         return text
     return " ".join(words_list[:max_words])
+
 
 def clamp_text(s: str | None, limit: int) -> str:
     """Clamp text to character limit."""

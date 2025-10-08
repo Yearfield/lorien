@@ -1,12 +1,13 @@
 from __future__ import annotations
+
 import os
 import sys
 from pathlib import Path
-from typing import Tuple
 
 DEFAULT_APP_NAME = "lorien"
 
-def _platform_paths(app_name: str) -> Tuple[Path, Path]:
+
+def _platform_paths(app_name: str) -> tuple[Path, Path]:
     """
     Returns (data_dir, db_path) for the current OS.
     - Linux: ~/.local/share/{app}/app.db
@@ -24,6 +25,7 @@ def _platform_paths(app_name: str) -> Tuple[Path, Path]:
     else:
         data_dir = home / f".{app_name}"
     return data_dir, (data_dir / "app.db")
+
 
 def get_db_path(app_name: str = DEFAULT_APP_NAME) -> Path:
     """

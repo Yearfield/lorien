@@ -1,5 +1,8 @@
-import os, io, csv, pytest
+import os
+
+import pytest
 from fastapi.testclient import TestClient
+
 from api.app import app
 from api.db.migrate import apply_migrations
 
@@ -11,6 +14,7 @@ CSV_VARIANT = """root,Depth 1, level2 , D3 , d4 , Child5 , depth6 , comments
 Root B, a, b, c, , , ,
 """
 
+
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     db = tmp_path / "hdr.db"
@@ -18,9 +22,11 @@ def client(tmp_path, monkeypatch):
     apply_migrations(str(db))
     return TestClient(app)
 
+
 def _post_csv(client, text, mode="append"):
     files = {"file": ("x.csv", text, "text/csv")}
     return client.post(f"/api/v1/import?mode={mode}&enforce_five=true", files=files)
+
 
 def test_import_canonical_headers(client: TestClient):
     r = _post_csv(client, CSV_CANON, mode="replace")
@@ -29,6 +35,7 @@ def test_import_canonical_headers(client: TestClient):
     ex = client.get("/api/v1/tree/export?format=csv")
     assert ex.status_code == 200
     assert ex.headers["content-type"].startswith("text/csv")
+
 
 def test_import_variant_headers(client: TestClient):
     r = _post_csv(client, CSV_VARIANT, mode="append")

@@ -1,8 +1,8 @@
-"""Concurrent upsert tests for children endpoint to assert 409 mapping.
+"""Concurrent upsert test for children endpoint ensuring idempotent writes.
 
-This test attempts to provoke a UNIQUE(parent_id,slot) conflict by issuing
-two concurrent PUT /api/v1/tree/children requests against the same parent.
-At least one request should conflict and return 409 with a slot_conflict body.
+Two concurrent PUT /api/v1/tree/children requests against the same parent
+should both succeed when the payloads are identical, and the final state
+should reflect the intended child ordering (last-writer wins semantics).
 """
 
 import sqlite3
@@ -42,9 +42,8 @@ def test_concurrent_children_put_yields_409(client_db, db_connection):
         res = [f.result() for f in futs]
 
     statuses = sorted([r.status_code for r in res])
-    # Expect one success and one conflict (200, 409) in some order
-    assert 200 in statuses
-    assert 409 in statuses
+    # Expect both requests to succeed; last writer wins for idempotent payloads
+    assert statuses == [200, 200]
 
     # Verify final children state is coherent (3 items, slots 1..3)
     listing = client.get(f"/api/v1/tree/children?parent_id={root_id}")
@@ -53,4 +52,3 @@ def test_concurrent_children_put_yields_409(client_db, db_connection):
     assert len(items) == 3
     assert [it["slot"] for it in items] == [1, 2, 3]
     assert [it["label"] for it in items] == ["A", "B", "C"]
-

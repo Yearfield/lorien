@@ -3,12 +3,10 @@ Tree service for Edit Tree functionality with optimistic concurrency.
 """
 
 import re
-from typing import List, Dict, Any, Optional
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from typing import Any
 
-from ..models import Node
 from storage.sqlite import SQLiteRepository
-
 
 ETAG_FMT = 'W/"parent-{id}:v{v}"'
 
@@ -18,7 +16,7 @@ def parse_if_match(value: str | None) -> int | None:
     if not value:
         return None
     # Accept W/"parent-123:v7" strictly
-    m = re.fullmatch(r'W/\"parent-(\d+):v(\d+)\"', value)
+    m = re.fullmatch(r"W/\"parent-(\d+):v(\d+)\"", value)
     if not m:
         return None
     return int(m.group(2))
@@ -37,16 +35,19 @@ def ensure_parent_version_row(repo: SQLiteRepository, parent_id: int) -> int:
             return row[0]
 
         # Create default version row
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO tree_parent_version (parent_id, version, updated_at)
             VALUES (?, 0, ?)
-        """, (parent_id, datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")))
+        """,
+            (parent_id, datetime.now(UTC).isoformat().replace("+00:00", "Z")),
+        )
 
         conn.commit()
         return 0
 
 
-def children_snapshot(repo: SQLiteRepository, parent_id: int) -> Dict[str, Any] | None:
+def children_snapshot(repo: SQLiteRepository, parent_id: int) -> dict[str, Any] | None:
     """Get current snapshot of parent children with version."""
     with repo._get_connection() as conn:
         cursor = conn.cursor()
@@ -65,63 +66,67 @@ def children_snapshot(repo: SQLiteRepository, parent_id: int) -> Dict[str, Any] 
         # Get all children (exactly 5 slots)
         children = []
         for slot in range(1, 6):
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT id, label, updated_at
                 FROM nodes
                 WHERE parent_id = ? AND slot = ?
-            """, (parent_id, slot))
+            """,
+                (parent_id, slot),
+            )
 
             child_row = cursor.fetchone()
             if child_row:
                 node_id, label, updated_at = child_row
-                children.append({
-                    "slot": slot,
-                    "node_id": node_id,
-                    "label": label or "",
-                    "updated_at": updated_at
-                })
+                children.append(
+                    {
+                        "slot": slot,
+                        "node_id": node_id,
+                        "label": label or "",
+                        "updated_at": updated_at,
+                    }
+                )
             else:
                 # Create missing child node
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT INTO nodes (parent_id, slot, label, depth, updated_at)
                     VALUES (?, ?, '', ?, ?)
-                """, (parent_id, slot, parent_depth + 1,
-                     datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")))
+                """,
+                    (
+                        parent_id,
+                        slot,
+                        parent_depth + 1,
+                        datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+                    ),
+                )
 
                 node_id = cursor.lastrowid
-                updated_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-                children.append({
-                    "slot": slot,
-                    "node_id": node_id,
-                    "label": "",
-                    "updated_at": updated_at
-                })
+                updated_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+                children.append(
+                    {"slot": slot, "node_id": node_id, "label": "", "updated_at": updated_at}
+                )
 
         conn.commit()
 
-        return {
-            "version": version,
-            "children": children
-        }
+        return {"version": version, "children": children}
 
 
-def validate_five_slots(children: List) -> None:
+def validate_five_slots(children: list) -> None:
     """Validate exactly 5 children with slots 1-5."""
     if len(children) != 5:
         # Handle both dict and Pydantic model cases
-        if hasattr(children[0], 'slot'):
+        if hasattr(children[0], "slot"):
             # Pydantic model case
             slots_present = [c.slot for c in children]
         else:
             # Dict case
             slots_present = [c["slot"] for c in children]
 
-        raise ValueError({
-            "missing_slots": [s for s in [1,2,3,4,5] if s not in slots_present]
-        })
+        raise ValueError({"missing_slots": [s for s in [1, 2, 3, 4, 5] if s not in slots_present]})
 
     # Handle both dict and Pydantic model cases
-    if hasattr(children[0], 'slot'):
+    if hasattr(children[0], "slot"):
         # Pydantic model case
         slots = sorted(c.slot for c in children)
     else:
@@ -135,7 +140,9 @@ def validate_five_slots(children: List) -> None:
             raise ValueError({"missing_slots": missing})
 
 
-def validate_duplicate_labels(repo: SQLiteRepository, parent_id: int, children: List) -> List[Dict[str, Any]]:
+def validate_duplicate_labels(
+    repo: SQLiteRepository, parent_id: int, children: list
+) -> list[dict[str, Any]]:
     """Validate no duplicate labels under same parent (case-insensitive)."""
     errors = []
 
@@ -143,7 +150,7 @@ def validate_duplicate_labels(repo: SQLiteRepository, parent_id: int, children: 
     labels_seen = {}
     for child in children:
         # Handle both dict and Pydantic model cases
-        if hasattr(child, 'label'):
+        if hasattr(child, "label"):
             # Pydantic model case
             label = child.label.strip().lower()
             slot = child.slot
@@ -153,12 +160,14 @@ def validate_duplicate_labels(repo: SQLiteRepository, parent_id: int, children: 
             slot = child["slot"]
 
         if label and label in labels_seen:
-            errors.append({
-                "loc": ["body", "children", slot - 1, "label"],
-                "msg": "Duplicate label under same parent",
-                "type": "value_error.duplicate_child_label",
-                "ctx": {"slot": slot}
-            })
+            errors.append(
+                {
+                    "loc": ["body", "children", slot - 1, "label"],
+                    "msg": "Duplicate label under same parent",
+                    "type": "value_error.duplicate_child_label",
+                    "ctx": {"slot": slot},
+                }
+            )
         elif label:
             labels_seen[label] = slot
 
@@ -168,7 +177,7 @@ def validate_duplicate_labels(repo: SQLiteRepository, parent_id: int, children: 
 
         for child in children:
             # Handle both dict and Pydantic model cases
-            if hasattr(child, 'label'):
+            if hasattr(child, "label"):
                 # Pydantic model case
                 label = child.label.strip()
                 slot = child.slot
@@ -181,24 +190,31 @@ def validate_duplicate_labels(repo: SQLiteRepository, parent_id: int, children: 
                 continue
 
             # Check for conflicts with other children under same parent
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT slot FROM nodes
                 WHERE parent_id = ? AND lower(label) = ? AND slot != ? AND label != ''
-            """, (parent_id, label.lower(), slot))
+            """,
+                (parent_id, label.lower(), slot),
+            )
 
             conflict = cursor.fetchone()
             if conflict:
-                errors.append({
-                    "loc": ["body", "children", slot - 1, "label"],
-                    "msg": "Label conflicts with existing child",
-                    "type": "value_error.duplicate_child_label",
-                    "ctx": {"slot": slot, "conflicting_slot": conflict[0]}
-                })
+                errors.append(
+                    {
+                        "loc": ["body", "children", slot - 1, "label"],
+                        "msg": "Label conflicts with existing child",
+                        "type": "value_error.duplicate_child_label",
+                        "ctx": {"slot": slot, "conflicting_slot": conflict[0]},
+                    }
+                )
 
     return errors
 
 
-def build_slot_conflicts(submitted: List[Dict[str, Any]], current: Dict[str, Any]) -> List[Dict[str, Any]]:
+def build_slot_conflicts(
+    submitted: list[dict[str, Any]], current: dict[str, Any]
+) -> list[dict[str, Any]]:
     """Build conflict details for stale version."""
     conflicts = []
 
@@ -214,23 +230,27 @@ def build_slot_conflicts(submitted: List[Dict[str, Any]], current: Dict[str, Any
             current_label = current_child["label"].strip()
 
             if submitted_label != current_label:
-                conflicts.append({
-                    "loc": ["body", "children", slot - 1, "label"],
-                    "msg": "Slot changed on server",
-                    "type": "conflict.slot",
-                    "ctx": {
-                        "slot": slot,
-                        "server_label": current_label,
-                        "server_version": current["version"],
-                        "client_version": None,  # Will be filled by caller
-                        "server_updated_at": current_child["updated_at"]
+                conflicts.append(
+                    {
+                        "loc": ["body", "children", slot - 1, "label"],
+                        "msg": "Slot changed on server",
+                        "type": "conflict.slot",
+                        "ctx": {
+                            "slot": slot,
+                            "server_label": current_label,
+                            "server_version": current["version"],
+                            "client_version": None,  # Will be filled by caller
+                            "server_updated_at": current_child["updated_at"],
+                        },
                     }
-                })
+                )
 
     return conflicts
 
 
-def children_update_apply(repo: SQLiteRepository, parent_id: int, children: List[Dict[str, Any]], current_version: int) -> Dict[str, Any]:
+def children_update_apply(
+    repo: SQLiteRepository, parent_id: int, children: list[dict[str, Any]], current_version: int
+) -> dict[str, Any]:
     """Apply children updates atomically."""
     with repo._get_connection() as conn:
         cursor = conn.cursor()
@@ -244,10 +264,13 @@ def children_update_apply(repo: SQLiteRepository, parent_id: int, children: List
             new_label = child["label"].strip()
 
             # Get current child
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT id, label FROM nodes
                 WHERE parent_id = ? AND slot = ?
-            """, (parent_id, slot))
+            """,
+                (parent_id, slot),
+            )
 
             current_row = cursor.fetchone()
             if current_row:
@@ -255,11 +278,18 @@ def children_update_apply(repo: SQLiteRepository, parent_id: int, children: List
 
                 # Only update if label changed
                 if new_label != current_label:
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         UPDATE nodes
                         SET label = ?, updated_at = ?
                         WHERE id = ?
-                    """, (new_label, datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"), node_id))
+                    """,
+                        (
+                            new_label,
+                            datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+                            node_id,
+                        ),
+                    )
                     updated_slots.append(slot)
 
             # Track missing slots
@@ -276,11 +306,11 @@ def children_update_apply(repo: SQLiteRepository, parent_id: int, children: List
             "parent_id": parent_id,
             "version": new_version,
             "missing_slots": missing_slots,
-            "updated": updated_slots
+            "updated": updated_slots,
         }
 
 
-def children_read(repo: SQLiteRepository, parent_id: int) -> Dict[str, Any] | None:
+def children_read(repo: SQLiteRepository, parent_id: int) -> dict[str, Any] | None:
     """Read parent children with full context."""
     # Get children snapshot
     snapshot = children_snapshot(repo, parent_id)
@@ -291,11 +321,14 @@ def children_read(repo: SQLiteRepository, parent_id: int) -> Dict[str, Any] | No
         cursor = conn.cursor()
 
         # Get parent info and build path
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT n.id, n.label, n.depth
             FROM nodes n
             WHERE n.id = ?
-        """, (parent_id,))
+        """,
+            (parent_id,),
+        )
 
         parent_row = cursor.fetchone()
         if not parent_row:
@@ -322,11 +355,13 @@ def children_read(repo: SQLiteRepository, parent_id: int) -> Dict[str, Any] | No
             "is_leaf": False,  # Parents are never leaves
             "depth": parent_depth,
             "vital_measurement": path_parts[0] if path_parts else parent_label,
-            "nodes": [""] * 5  # Parents don't have node slots in path
+            "nodes": [""] * 5,  # Parents don't have node slots in path
         }
 
         # Calculate missing slots
-        missing_slots = [slot for child in snapshot["children"] if not child["label"] for slot in [child["slot"]]]
+        missing_slots = [
+            slot for child in snapshot["children"] if not child["label"] for slot in [child["slot"]]
+        ]
 
         return {
             "parent_id": parent_id,
@@ -334,5 +369,5 @@ def children_read(repo: SQLiteRepository, parent_id: int) -> Dict[str, Any] | No
             "missing_slots": missing_slots,
             "children": snapshot["children"],
             "path": path_data,
-            "etag": ETAG_FMT.format(id=parent_id, v=snapshot["version"])
+            "etag": ETAG_FMT.format(id=parent_id, v=snapshot["version"]),
         }

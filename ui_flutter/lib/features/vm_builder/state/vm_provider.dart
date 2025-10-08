@@ -19,17 +19,18 @@ class VmState extends ChangeNotifier {
   List<String> children = [];
   bool loading = false;
   int currentDepth = 0;
-  
+
   // Simple breadcrumb stack of visited parents (id,label,depth)
   final List<Map<String, dynamic>> crumbs = [];
   bool importing = false;
   String? importStatus; // "Imported 1292 rows (replace)" or error text
-  
+
   // New features state
   bool filterOnlyRed = false;
   List<Map<String, dynamic>> childrenWithMeta = []; // children with red_flag info
   bool exporting = false;
-  
+  String importMode = 'replace';
+
   // Undo functionality
   Map<String, dynamic>? lastDeleteSnapshot;
 
@@ -38,8 +39,8 @@ class VmState extends ChangeNotifier {
     try {
       roots = await repo.getRoots();
       crumbs.clear();
-      currentParentId = null; 
-      currentParentLabel = null; 
+      currentParentId = null;
+      currentParentLabel = null;
       children = [];
     } catch (e) {
       bannerError = e.toString();
@@ -60,7 +61,7 @@ class VmState extends ChangeNotifier {
 
   Future<void> reloadChildren() async {
     if (currentParentId == null) return;
-    loading = true; 
+    loading = true;
     notifyListeners();
     try {
       final ch = await repo.getChildren(currentParentId!, onlyRed: filterOnlyRed);
@@ -71,7 +72,7 @@ class VmState extends ChangeNotifier {
       childrenWithMeta = [];
       children = [];
     }
-    loading = false; 
+    loading = false;
     notifyListeners();
   }
 
@@ -88,14 +89,14 @@ class VmState extends ChangeNotifier {
 
   Future<void> save() async {
     if (currentParentId == null) return;
-    loading = true; 
+    loading = true;
     notifyListeners();
     try {
       await repo.putChildren(currentParentId!, children);
     } catch (e) {
       // Handle error silently for now
     }
-    loading = false; 
+    loading = false;
     notifyListeners();
   }
 
@@ -146,21 +147,30 @@ class VmState extends ChangeNotifier {
     final idx = crumbs.indexWhere((c) => c['id'] == nodeId);
     if (idx == -1) return;
     // trim stack to selected
-    while (crumbs.length > idx + 1) { 
-      crumbs.removeLast(); 
+    while (crumbs.length > idx + 1) {
+      crumbs.removeLast();
     }
     final c = crumbs.last;
     await selectParent(c['id'] as int, c['label'] as String, c['depth'] as int);
   }
 
+  void setImportMode(String? mode) {
+    if (mode == null || mode == importMode) {
+      return;
+    }
+    importMode = mode;
+    notifyListeners();
+  }
+
   Future<void> importBytes(String mode, Uint8List bytes, String filename) async {
-    importing = true; 
-    importStatus = null; 
+    importing = true;
+    importMode = mode;
+    importStatus = null;
     notifyListeners();
     try {
-      final res = await repo.importFile(mode, bytes, filename);
+      final res = await repo.importFile(importMode, bytes, filename);
       final rows = res['rows'] ?? res['count'] ?? '?';
-      final m = (res['mode'] ?? mode).toString();
+      final m = (res['mode'] ?? importMode).toString();
       importStatus = 'Imported $rows rows ($m)';
       await loadRoots(); // refresh left list
     } catch (e) {
@@ -184,7 +194,7 @@ class VmState extends ChangeNotifier {
       }
       importStatus = errorMsg;
     } finally {
-      importing = false; 
+      importing = false;
       notifyListeners();
     }
   }
@@ -210,9 +220,15 @@ class VmState extends ChangeNotifier {
     if (res == null) {
       return 'All parents under this root have ≥ 5 children';
     }
-    await selectParent(res['id'] as int, res['label'] as String, res['depth'] as int);
-    // Refresh canonical crumbs
-    final a = await repo.ancestors(res['id'] as int);
+    if (!res.containsKey('id')) {
+      return 'All parents under this root have ≥ 5 children';
+    }
+    final int id = res['id'] as int;
+    final String label = (res['label'] as String?) ?? '';
+    final int depth = (res['depth'] as int?) ?? 0;
+    await selectParent(id, label, depth);
+    // Refresh canonical crumbs from server-provided ancestors
+    final a = await repo.ancestors(id);
     crumbs.clear();
     crumbs.addAll(a); // replace entirely
     notifyListeners();
@@ -234,11 +250,11 @@ class VmState extends ChangeNotifier {
   }
 
   Future<void> exportCurrentRoot() async {
-    if (crumbs.isEmpty) { 
-      toast?.call('Select a root first'); 
-      return; 
+    if (crumbs.isEmpty) {
+      toast?.call('Select a root first');
+      return;
     }
-    exporting = true; 
+    exporting = true;
     notifyListeners();
     try {
       final rootId = crumbs.first['id'] as int;
@@ -249,7 +265,7 @@ class VmState extends ChangeNotifier {
     } catch (e) {
       toast?.call('Export failed: $e');
     } finally {
-      exporting = false; 
+      exporting = false;
       notifyListeners();
     }
   }
@@ -266,9 +282,9 @@ class VmState extends ChangeNotifier {
   }
 
   Future<void> removeCurrentRootWithConfirm(BuildContext context) async {
-    if (crumbs.isEmpty) { 
-      toast?.call('Select a root first'); 
-      return; 
+    if (crumbs.isEmpty) {
+      toast?.call('Select a root first');
+      return;
     }
     final rootId = crumbs.first['id'] as int;
     final rootLabel = crumbs.first['label'] as String;
@@ -339,15 +355,20 @@ class VmState extends ChangeNotifier {
   Future<void> goToNextIncomplete({int? rootId, int? afterId}) async {
     isBusy = true; bannerError = null; notifyListeners();
     try {
-      final res = await repo.nextUnderfilled(rootId: rootId, afterId: afterId);
-      final parentId = res['parent_id'] as int?;
-      if (parentId == null) {
+      final res = await repo.nextUnderfilled(rootId: rootId, afterId: afterId ?? currentParentId);
+      if (res == null || !res.containsKey('id')) {
         toast?.call('All parents have ≤5 children');
         return;
       }
-      // client should navigate to parentId; for now just set it
-      currentParentId = parentId;
-      // downstream UI will call a method to load children for currentParentId
+      final int id = res['id'] as int;
+      final String label = (res['label'] as String?) ?? '';
+      final int depth = (res['depth'] as int?) ?? 0;
+      await selectParent(id, label, depth);
+      final ancestors = await repo.ancestors(id);
+      crumbs
+        ..clear()
+        ..addAll(ancestors);
+      toast?.call('Jumped to next underfilled parent');
     } catch (e) {
       bannerError = e.toString();
     } finally {

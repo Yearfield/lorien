@@ -1,5 +1,5 @@
 -- SQLite schema for decision tree application
--- Enforces exactly 5 children per parent; canonical depths 0..5; slots 0(root) / 1..5(children)
+-- Enforces at most five children per parent; canonical depths 0..6; slots 1..∞ for children
 
 -- ---- Connection pragmas (note: foreign_keys must also be enabled per-connection in app code)
 PRAGMA foreign_keys = ON;
@@ -14,25 +14,23 @@ PRAGMA temp_store = MEMORY;
 CREATE TABLE IF NOT EXISTS nodes (
     id         INTEGER PRIMARY KEY,
     parent_id  INTEGER NULL REFERENCES nodes(id) ON DELETE CASCADE,
-    depth      INTEGER NOT NULL CHECK (depth BETWEEN 0 AND 5),   -- 0=root (Vital Measurement)
-    slot       INTEGER CHECK (
-                   (depth = 0 AND slot IS NULL) OR               -- root can have NULL slot
-                   (depth = 0 AND slot = 0) OR                   -- root can be slot 0
-                   (depth BETWEEN 1 AND 5 AND slot BETWEEN 1 AND 5)
+    depth      INTEGER NOT NULL CHECK (depth BETWEEN 0 AND 6),   -- 0=root (Vital Measurement)
+    slot       INTEGER NULL CHECK (
+                   (parent_id IS NULL AND slot IS NULL AND depth = 0) OR
+                   (parent_id IS NOT NULL AND slot IS NOT NULL AND slot >= 1 AND depth BETWEEN 1 AND 6)
                ),
-    label      TEXT    NOT NULL,                                 -- display text
-    is_leaf    INTEGER NOT NULL DEFAULT 0,                       -- convenience flag (depth==5)
+    label      TEXT    NOT NULL,
+    is_leaf    INTEGER NOT NULL DEFAULT 0,                       -- convenience flag (depth>=5)
     created_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
     updated_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-    -- Parent presence and depth relationship:
     CHECK ( (depth = 0 AND parent_id IS NULL) OR (depth > 0 AND parent_id IS NOT NULL) )
 );
 
--- Exactly one child per slot per parent (imposes max 5 children)
+-- Exactly one child per slot per parent (logical max 5 children enforced at application level)
 CREATE UNIQUE INDEX IF NOT EXISTS idx_parent_slot_unique
 ON nodes(parent_id, slot) WHERE parent_id IS NOT NULL;
 
--- Triage per LEAF node only (depth=5)
+-- Triage per leaf node only (depth>=5)
 CREATE TABLE IF NOT EXISTS triage (
     node_id           INTEGER PRIMARY KEY REFERENCES nodes(id) ON DELETE CASCADE,
     diagnostic_triage TEXT,     -- nullable; can be edited later
@@ -67,7 +65,6 @@ CREATE INDEX IF NOT EXISTS idx_node_red_flags_flag ON node_red_flags(red_flag_id
 
 -- Performance indexes for next incomplete parent queries
 CREATE INDEX IF NOT EXISTS idx_nodes_parent_slot ON nodes(parent_id, slot);
-CREATE INDEX IF NOT EXISTS idx_nodes_parent_depth ON nodes(parent_id, depth);
 
 -- ---- VIEWS ----
 
@@ -79,7 +76,7 @@ SELECT
   GROUP_CONCAT(c.label, ', ') AS children
 FROM nodes p
 LEFT JOIN nodes c ON c.parent_id = p.id
-WHERE p.depth BETWEEN 0 AND 4
+WHERE p.depth BETWEEN 0 AND 5
 GROUP BY p.id
 HAVING child_count = 5;
 
@@ -93,7 +90,7 @@ FROM nodes p
 CROSS JOIN slots s
 LEFT JOIN nodes c
   ON c.parent_id = p.id AND c.slot = s.slot
-WHERE p.depth BETWEEN 0 AND 4
+WHERE p.depth BETWEEN 0 AND 5
   AND c.id IS NULL
 GROUP BY p.id
 HAVING missing_slots IS NOT NULL;
@@ -101,22 +98,24 @@ HAVING missing_slots IS NOT NULL;
 -- Next incomplete parents (no LIMIT here; API can order/limit as needed)
 CREATE VIEW IF NOT EXISTS v_next_incomplete_parent AS
 SELECT
-  p.parent_id,
-  m.missing_slots
-FROM (
-  SELECT id AS parent_id, depth
-  FROM nodes
-  WHERE depth BETWEEN 0 AND 4
-) p
-JOIN v_missing_slots m ON m.parent_id = p.parent_id
-ORDER BY p.depth ASC, p.parent_id ASC;
+  p.id,
+  p.label,
+  p.depth,
+  COUNT(c.id) AS child_count
+FROM nodes p
+LEFT JOIN nodes c ON c.parent_id = p.id
+WHERE p.depth < 6
+GROUP BY p.id, p.label, p.depth
+HAVING child_count < 5
+ORDER BY p.depth, p.id;
 
 -- Tree coverage summary
 CREATE VIEW IF NOT EXISTS v_tree_coverage AS
 SELECT
   depth,
-  COUNT(*) AS total_nodes,
-  SUM(CASE WHEN depth = 5 THEN 1 ELSE 0 END) AS leaf_count
+  SUM(CASE WHEN depth < 5 THEN 1 ELSE 0 END)  AS parent_count,
+  SUM(CASE WHEN depth >= 5 THEN 1 ELSE 0 END) AS leaf_count,
+  COUNT(*) AS total_nodes
 FROM nodes
 GROUP BY depth
 ORDER BY depth;
@@ -131,16 +130,18 @@ SELECT
   n3.label AS node_3,
   n4.label AS node_4,
   n5.label AS node_5,
+  n6.label AS node_6,
   t.diagnostic_triage,
   t.actions,
-  n5.id   AS leaf_id
+  COALESCE(n6.id, n5.id) AS leaf_id
 FROM nodes r
 JOIN nodes n1 ON n1.parent_id = r.id  AND n1.depth = 1
 JOIN nodes n2 ON n2.parent_id = n1.id AND n2.depth = 2
 JOIN nodes n3 ON n3.parent_id = n2.id AND n3.depth = 3
 JOIN nodes n4 ON n4.parent_id = n3.id AND n4.depth = 4
 JOIN nodes n5 ON n5.parent_id = n4.id AND n5.depth = 5
-LEFT JOIN triage t ON t.node_id = n5.id
+LEFT JOIN nodes n6 ON n6.parent_id = n5.id AND n6.depth = 6
+LEFT JOIN triage t ON t.node_id = COALESCE(n6.id, n5.id)
 WHERE r.depth = 0;
 
 -- ---- TRIGGERS ----
@@ -152,7 +153,7 @@ FOR EACH ROW
 BEGIN
   UPDATE nodes
   SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'),
-      is_leaf    = CASE WHEN depth = 5 THEN 1 ELSE 0 END
+      is_leaf    = CASE WHEN depth >= 5 THEN 1 ELSE 0 END
   WHERE id = NEW.id;
 END;
 
@@ -162,7 +163,7 @@ AFTER INSERT ON nodes
 FOR EACH ROW
 BEGIN
   UPDATE nodes
-  SET is_leaf    = CASE WHEN depth = 5 THEN 1 ELSE 0 END,
+  SET is_leaf    = CASE WHEN depth >= 5 THEN 1 ELSE 0 END,
       updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
   WHERE id = NEW.id;
 END;
@@ -203,14 +204,14 @@ CREATE TABLE IF NOT EXISTS import_jobs (
     size_bytes  INTEGER
 );
 
--- Triage only allowed for leaf nodes (depth = 5)
+-- Triage only allowed for leaf nodes (depth >= 5)
 CREATE TRIGGER IF NOT EXISTS tr_triage_only_leaf
 BEFORE INSERT ON triage
 FOR EACH ROW
 BEGIN
   SELECT CASE
-    WHEN (SELECT depth FROM nodes WHERE id = NEW.node_id) != 5
-      THEN RAISE(ABORT, 'Triage is only allowed for leaf nodes (depth=5)')
+    WHEN (SELECT depth FROM nodes WHERE id = NEW.node_id) < 5
+      THEN RAISE(ABORT, 'Triage is only allowed for leaf nodes (depth>=5)')
   END;
 END;
 

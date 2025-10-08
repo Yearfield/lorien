@@ -109,11 +109,11 @@ jobs:
         import json
         with open('flutter_api_usage.json') as f:
             flutter_scan = json.load(f)
-        
+
         # Check that all API calls use the correct base URL pattern
         api_calls = flutter_scan.get('urls', [])
         invalid_calls = [call for call in api_calls if not call.startswith('/api/v1/') and call != '/api/v1']
-        
+
         if invalid_calls:
             print(f'ERROR: Found API calls not using /api/v1 prefix: {invalid_calls}')
             exit(1)

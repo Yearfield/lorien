@@ -1,12 +1,16 @@
 # API Documentation (VM Core)
 
 Overview
+
 - Versioned base: `/api/v1`
+- Fully async architecture with thread-offloaded SQLite operations for high concurrency
+- All endpoints use `async def` with blocking I/O wrapped in `anyio.to_thread()`
 - EngineLongBow is the ingest/export engine; UI and CLI call the API (no client-side CSV building)
 - All endpoints return JSON unless specified otherwise
 - Standard HTTP status codes: 200 (success), 201 (created), 204 (no content), 400 (bad request), 404 (not found), 409 (conflict), 422 (validation error), 500 (server error)
 
 Canonical header (frozen)
+
 ```
 D0,D1,D2,D3,D4,D5,D6,Notes
 ```
@@ -14,7 +18,9 @@ D0,D1,D2,D3,D4,D5,D6,Notes
 ## Health & Status
 
 ### Health Check
+
 - `GET /api/v1/health` → Comprehensive health status
+
   ```json
   {
     "ok": true,
@@ -36,15 +42,19 @@ D0,D1,D2,D3,D4,D5,D6,Notes
     }
   }
   ```
+
   - `llm_requested` mirrors the environment toggle; when true but `llm=false`, health degrades to `"status": "degraded"` to signal missing model assets.
   - `analytics` tracks the `ANALYTICS_ENABLED` flag; the health metrics endpoint is only available when this value is `true`.
 
 ### Health Metrics (Optional)
+
 - `GET /api/v1/health/metrics` → Telemetry data (requires `ANALYTICS_ENABLED=true`)
   - Returns 404 when analytics is disabled (`ANALYTICS_ENABLED=false`)
+  - Async endpoint with thread-offloaded database operations
   - Runs count collection off the main event loop and always returns a `nodes` counter (0 on failure)
 
 Examples:
+
 ```bash
 curl -sS http://127.0.0.1:8000/api/v1/health | jq
 curl -sS http://127.0.0.1:8000/api/v1/health/metrics | jq
@@ -53,10 +63,12 @@ curl -sS http://127.0.0.1:8000/api/v1/health/metrics | jq
 ## Import (EngineLongBow)
 
 ### Preview Import
+
 - `POST /api/v1/import/preview` (multipart `file`)
   - **Purpose**: Analyze file without writing to database
   - **Supports**: CSV and XLSX files
   - **Response** (200):
+
     ```json
     {
       "ok": true,
@@ -67,14 +79,17 @@ curl -sS http://127.0.0.1:8000/api/v1/health/metrics | jq
       ]
     }
     ```
+
   - Depth validation is schema-aware. If future headers extend beyond `D6`, preview errors report the actual deepest allowed column (e.g., `"depth exceeds D7"`).
 
 ### Apply Import
+
 - `POST /api/v1/import?mode=append|replace&enforce_five=true` (multipart `file`)
   - **Parameters**:
     - `mode`: `append` (default) or `replace`
     - `enforce_five`: `true` to enforce ≤5 children per parent (default: `false`)
   - **Success** (200):
+
     ```json
     {
       "ok": true,
@@ -84,7 +99,9 @@ curl -sS http://127.0.0.1:8000/api/v1/health/metrics | jq
       "warnings": []
     }
     ```
+
   - **Validation Error** (422 when `enforce_five=true`):
+
     ```json
     {
       "ok": false,
@@ -92,9 +109,11 @@ curl -sS http://127.0.0.1:8000/api/v1/health/metrics | jq
       "detail": [{"parent_id": 7, "parent_label": "...", "count": 6, "msg": "parent ends with >5 children"}]
     }
     ```
+
   - Warnings bundle both in-file heuristics and database lookups; repeated rows for the same parent/child combination are de-duplicated.
 
 Examples:
+
 ```bash
 # Preview CSV
 curl -sS -F file=@paths.csv http://127.0.0.1:8000/api/v1/import/preview | jq
@@ -106,7 +125,9 @@ curl -sS -F file=@paths.csv "http://127.0.0.1:8000/api/v1/import?mode=replace&en
 ## Tree Management
 
 ### Roots
+
 - `GET /api/v1/tree/roots` → List all root nodes
+
   ```json
   {
     "items": [
@@ -115,14 +136,19 @@ curl -sS -F file=@paths.csv "http://127.0.0.1:8000/api/v1/import?mode=replace&en
     "total": 1
   }
   ```
+
 - `POST /api/v1/tree/roots` → Create new root (201)
+
   ```json
   {"id": 1, "label": "New Root", "depth": 0}
   ```
+
 - `DELETE /api/v1/tree/roots/{root_id}` → Delete root and all descendants (204)
 
 ### Children Management
+
 - `GET /api/v1/tree/children?parent_id=123&only_red=false` → List children
+
   ```json
   {
     "items": [
@@ -131,10 +157,12 @@ curl -sS -F file=@paths.csv "http://127.0.0.1:8000/api/v1/import?mode=replace&en
     "total": 1
   }
   ```
+
 - `PUT /api/v1/tree/children` → Replace children atomically
   - **Body**: `{"parent_id": 123, "children": [{"label": "A"}, {"label": "B"}]}`
   - **Success** (200): `{"ok": true, "count": 2}`
   - **Conflict** (409): Slot already occupied
+
     ```json
     {
       "error": "slot_conflict",
@@ -143,7 +171,9 @@ curl -sS -F file=@paths.csv "http://127.0.0.1:8000/api/v1/import?mode=replace&en
       "hint": "Concurrent edit detected. Slot already occupied."
     }
     ```
+
   - **Validation** (422): Too many children or duplicates
+
     ```json
     {
       "detail": [
@@ -153,11 +183,15 @@ curl -sS -F file=@paths.csv "http://127.0.0.1:8000/api/v1/import?mode=replace&en
     ```
 
 ### Navigation & Drilldown
+
 - `GET /api/v1/tree/node?node_id=123` → Get node details
+
   ```json
   {"id": 123, "label": "Node Label", "depth": 2, "parent_id": 45}
   ```
+
 - `GET /api/v1/tree/ancestors?node_id=123` → Get ancestor chain
+
   ```json
   {
     "items": [
@@ -169,6 +203,7 @@ curl -sS -F file=@paths.csv "http://127.0.0.1:8000/api/v1/import?mode=replace&en
   ```
 
 ### Authoring Assistance
+
 - `GET /api/v1/tree/next-underfilled?root_id=1&after_id=999` → Find next parent with <5 children
   - Returns 200 with parent details or 204 if none found
 - `PUT /api/v1/tree/edge/flag` → Set/unset red flags
@@ -176,6 +211,7 @@ curl -sS -F file=@paths.csv "http://127.0.0.1:8000/api/v1/import?mode=replace&en
   - **Response**: `{"ok": true, "parent_id": 1, "child_id": 2, "red_flag": true}`
 
 ### Cloning & Subtree Operations
+
 - `GET /api/v1/tree/clone/candidates?label=hypertension` → Find clone sources
 - `POST /api/v1/tree/clone` → Clone subtree
   - **Body**: `{"source_id": 123, "dest_parent_id": 456}`
@@ -189,6 +225,7 @@ curl -sS -F file=@paths.csv "http://127.0.0.1:8000/api/v1/import?mode=replace&en
 ## Export
 
 ### Primary Export Endpoints
+
 - `GET /api/v1/tree/export?format=csv|xlsx` → Download file with filters
 - `HEAD /api/v1/tree/export` → Get headers without downloading
 - **Parameters**:
@@ -201,7 +238,9 @@ curl -sS -F file=@paths.csv "http://127.0.0.1:8000/api/v1/import?mode=replace&en
   - `filename`: Custom filename for download
 
 ### JSON Export (Development)
+
 - `GET /api/v1/tree/export-json?limit=50&offset=0` → JSON format for development
+
   ```json
   {
     "items": [
@@ -214,13 +253,16 @@ curl -sS -F file=@paths.csv "http://127.0.0.1:8000/api/v1/import?mode=replace&en
   ```
 
 ### Legacy Aliases (Backward Compatibility)
+
 - `GET /api/v1/export/csv` → CSV export (legacy)
 - `GET /api/v1/export.xlsx` → XLSX export (legacy)
 
 ## Conflicts Resolution
 
 ### Scan Conflicts
+
 - `GET /api/v1/conflicts/scan` → Find label conflicts across all depths
+
   ```json
   [
     {
@@ -240,9 +282,11 @@ curl -sS -F file=@paths.csv "http://127.0.0.1:8000/api/v1/import?mode=replace&en
   ```
 
 ### Resolve Conflicts
+
 - `POST /api/v1/conflicts/resolve` → Apply standardized children to all matching parents
   - **Body**: `{"label": "hypertension", "selected_children": ["headache", "nausea", "vomiting", "chest pain", "myalgia"], "dry_run": false}`
   - **Success** (200):
+
     ```json
     {
       "updated_parents": 3,
@@ -257,6 +301,7 @@ curl -sS -F file=@paths.csv "http://127.0.0.1:8000/api/v1/import?mode=replace&en
       ]
     }
     ```
+
   - **Validation Errors** (422):
     - Too many children: `{"detail": [{"loc": ["selected_children"], "msg": "too many children: 6>5", "type": "value_error.max_children"}]}`
     - Max depth exceeded: `{"detail": [{"loc": ["label"], "msg": "all parents at max depth; cannot add children beyond D6", "type": "value_error.max_depth"}]}`
@@ -264,6 +309,7 @@ curl -sS -F file=@paths.csv "http://127.0.0.1:8000/api/v1/import?mode=replace&en
 ## Examples
 
 ### Import Operations
+
 ```bash
 # Preview import
 curl -sS -F "file=@data.csv;type=text/csv" http://127.0.0.1:8000/api/v1/import/preview | jq .
@@ -274,6 +320,7 @@ curl -sS -F "file=@data.csv;type=text/csv" \
 ```
 
 ### Tree Navigation
+
 ```bash
 # List roots
 curl -sS http://127.0.0.1:8000/api/v1/tree/roots | jq .
@@ -291,6 +338,7 @@ curl -sS -X POST http://127.0.0.1:8000/api/v1/tree/clone \
 ```
 
 ### Export Operations
+
 ```bash
 # CSV export with filters
 curl -L "http://127.0.0.1:8000/api/v1/tree/export?format=csv&max_depth=3&only_red=false" -o tree.csv
@@ -303,6 +351,7 @@ curl -sS "http://127.0.0.1:8000/api/v1/tree/export-json?limit=100" | jq .
 ```
 
 ### Conflicts Resolution
+
 ```bash
 # Scan for conflicts
 curl -sS http://127.0.0.1:8000/api/v1/conflicts/scan | jq .
@@ -321,24 +370,28 @@ curl -sS -X POST http://127.0.0.1:8000/api/v1/conflicts/resolve \
 ## API Contracts & Rules
 
 ### Core Constraints
+
 - **Option B Enforcement**: ≤5 children per parent (enforced at service level)
 - **Max Depth**: D6 is the maximum depth (D0-D6 = 7 levels total)
 - **Concurrent Edits**: Handled via slot conflicts (409 status)
 - **Label Normalization**: Case-insensitive, whitespace-trimmed for conflicts
 
 ### Import/Export
+
 - **Engine**: EngineLongBow handles all import/export operations
 - **Format**: Canonical CSV/XLSX with frozen header `D0,D1,D2,D3,D4,D5,D6,Notes`
 - **Validation**: Import can enforce ≤5 children when `enforce_five=true`
 - **Transaction**: Import is transactional when `enforce_five=true` (rollback on violations)
 
 ### Conflicts Resolution
+
 - **Grouping**: By normalized label only (ignores depth)
 - **Scope**: Applies to all parents with matching label across all depths
 - **Validation**: Enforces ≤5 children and max depth D6
 - **Transaction**: All changes are atomic
 
 ### Response Standards
+
 - **Format**: JSON responses with structured error details
 - **Status Codes**: Standard HTTP codes with specific error types
 - **Versioning**: All endpoints under `/api/v1` prefix

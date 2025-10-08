@@ -3,7 +3,7 @@ import '../data/conflicts_repo.dart';
 
 class ConflictsState extends ChangeNotifier {
   final ConflictsRepo repo;
-  
+
   ConflictsState(this.repo);
 
   bool isBusy = false;
@@ -94,11 +94,11 @@ class ConflictsState extends ChangeNotifier {
   Future<Map<String, dynamic>?> dryRun() async {
     final conflict = selectedConflict;
     if (conflict == null) return null;
-    
+
     isBusy = true;
     error = null;
     notifyListeners();
-    
+
     try {
       return await repo.resolve(
         label: conflict['label'] as String,
@@ -117,18 +117,18 @@ class ConflictsState extends ChangeNotifier {
   Future<Map<String, dynamic>?> apply() async {
     final conflict = selectedConflict;
     if (conflict == null) return null;
-    
+
     isBusy = true;
     error = null;
     notifyListeners();
-    
+
     try {
       final result = await repo.resolve(
         label: conflict['label'] as String,
         selected: List<String>.from(unionSelected),
         dryRun: false,
       );
-      
+
       // Refresh conflicts list after successful apply
       await scan();
       return result;

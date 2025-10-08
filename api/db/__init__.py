@@ -1,2 +1,2 @@
 # Database package
-from .db import get_conn, ensure_schema, tx
+from .db import ensure_schema, get_conn, tx

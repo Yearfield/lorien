@@ -78,7 +78,7 @@ import subprocess
 import sys
 
 # Start API server in background
-process = subprocess.Popen(['uvicorn', 'api.main:app', '--port', '8001'], 
+process = subprocess.Popen(['uvicorn', 'api.main:app', '--port', '8001'],
                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 # Wait for server to start
@@ -126,7 +126,7 @@ Phase 6B Pre-Beta Release
 
 Key Features:
 - Flutter mobile parity
-- Enhanced import/export experience  
+- Enhanced import/export experience
 - Performance optimization
 - Backup/restore functionality
 - Comprehensive operational documentation

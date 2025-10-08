@@ -85,7 +85,7 @@ if command -v sqlite3 >/dev/null 2>&1; then
     echo -e "${RED}[ERROR]${NC} Restored DB failed integrity check."
     exit 1
   fi
-  
+
   # Optional: ensure consistent WAL state from the start
   sqlite3 "$DB" "PRAGMA journal_mode=WAL; PRAGMA wal_checkpoint(TRUNCATE);"
 fi

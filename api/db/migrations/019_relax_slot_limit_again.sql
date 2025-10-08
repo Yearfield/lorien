@@ -53,7 +53,7 @@ FOR EACH ROW
 BEGIN
   UPDATE nodes
   SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'),
-      is_leaf    = CASE WHEN depth = 5 THEN 1 ELSE 0 END
+      is_leaf    = CASE WHEN depth >= 5 THEN 1 ELSE 0 END
   WHERE id = NEW.id;
 END;
 
@@ -62,7 +62,7 @@ AFTER INSERT ON nodes
 FOR EACH ROW
 BEGIN
   UPDATE nodes
-  SET is_leaf    = CASE WHEN depth = 5 THEN 1 ELSE 0 END,
+  SET is_leaf    = CASE WHEN depth >= 5 THEN 1 ELSE 0 END,
       updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
   WHERE id = NEW.id;
 END;
@@ -107,7 +107,7 @@ SELECT
   p.id AS parent_id,
   TRIM(
     GROUP_CONCAT(
-      CASE 
+      CASE
         WHEN NOT EXISTS (SELECT 1 FROM nodes c WHERE c.parent_id = p.id AND c.slot = 1) THEN '1'
         WHEN NOT EXISTS (SELECT 1 FROM nodes c WHERE c.parent_id = p.id AND c.slot = 2) THEN '2'
         WHEN NOT EXISTS (SELECT 1 FROM nodes c WHERE c.parent_id = p.id AND c.slot = 3) THEN '3'
@@ -125,7 +125,7 @@ CREATE VIEW IF NOT EXISTS v_tree_coverage AS
 SELECT
   depth,
   COUNT(*) AS total_nodes,
-  SUM(CASE WHEN depth = 6 THEN 1 ELSE 0 END) AS leaves
+  SUM(CASE WHEN depth >= 5 THEN 1 ELSE 0 END) AS leaves
 FROM nodes
 GROUP BY depth
 ORDER BY depth;
@@ -149,9 +149,9 @@ SELECT
   p.id,
   p.label,
   p.depth,
-  CASE WHEN p.depth = 6 THEN 1 ELSE 0 END AS is_leaf
+  CASE WHEN p.depth >= 5 THEN 1 ELSE 0 END AS is_leaf
 FROM nodes p
-WHERE p.depth = 6;
+WHERE p.depth >= 5;
 
 COMMIT;
 PRAGMA foreign_keys=ON;

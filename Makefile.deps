@@ -1,0 +1,116 @@
+# Dependency Management Makefile
+# Manages locked requirements with pip-tools
+
+.PHONY: help lock-deps sync-deps upgrade-deps check-deps clean-deps
+
+help:  ## Show this help message
+	@echo "Dependency Management Commands:"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+
+lock-deps:  ## Compile requirements.in -> requirements.txt (with hashes)
+	@echo "🔒 Locking production dependencies..."
+	pip-compile requirements.in \
+		--resolver=backtracking \
+		--generate-hashes \
+		--output-file=requirements.txt \
+		--verbose
+	@echo ""
+	@echo "🔒 Locking development dependencies..."
+	pip-compile requirements-dev.in \
+		--resolver=backtracking \
+		--generate-hashes \
+		--output-file=requirements-dev.txt \
+		--verbose
+	@echo ""
+	@echo "✅ Lockfiles generated successfully!"
+	@echo "   - requirements.txt (production)"
+	@echo "   - requirements-dev.txt (development)"
+
+lock-deps-no-hash:  ## Compile without hashes (faster, for local dev)
+	@echo "🔒 Locking dependencies (no hashes)..."
+	pip-compile requirements.in --output-file=requirements.txt --verbose
+	pip-compile requirements-dev.in --output-file=requirements-dev.txt --verbose
+	@echo "✅ Lockfiles generated!"
+
+sync-deps:  ## Install exact versions from lockfiles
+	@echo "📦 Syncing production dependencies..."
+	pip-sync requirements.txt
+	@echo "✅ Production dependencies synced!"
+
+sync-deps-dev:  ## Install dev dependencies from lockfiles
+	@echo "📦 Syncing development dependencies..."
+	pip-sync requirements-dev.txt
+	@echo "✅ Development dependencies synced!"
+
+upgrade-deps:  ## Upgrade all dependencies to latest versions
+	@echo "⬆️  Upgrading production dependencies..."
+	pip-compile requirements.in \
+		--resolver=backtracking \
+		--generate-hashes \
+		--output-file=requirements.txt \
+		--upgrade \
+		--verbose
+	@echo ""
+	@echo "⬆️  Upgrading development dependencies..."
+	pip-compile requirements-dev.in \
+		--resolver=backtracking \
+		--generate-hashes \
+		--output-file=requirements-dev.txt \
+		--upgrade \
+		--verbose
+	@echo "✅ All dependencies upgraded!"
+
+upgrade-pkg:  ## Upgrade a specific package (usage: make upgrade-pkg PKG=package-name)
+	@if [ -z "$(PKG)" ]; then \
+		echo "❌ Error: PKG variable not set"; \
+		echo "Usage: make upgrade-pkg PKG=fastapi"; \
+		exit 1; \
+	fi
+	@echo "⬆️  Upgrading $(PKG)..."
+	pip-compile requirements.in \
+		--resolver=backtracking \
+		--generate-hashes \
+		--output-file=requirements.txt \
+		--upgrade-package $(PKG) \
+		--verbose
+
+check-deps:  ## Check for outdated dependencies
+	@echo "🔍 Checking for outdated dependencies..."
+	@pip list --outdated
+	@echo ""
+	@echo "💡 To upgrade: make upgrade-deps"
+
+check-security:  ## Audit dependencies for security vulnerabilities
+	@echo "🛡️  Running security audit with pip-audit..."
+	pip-audit --require-hashes --requirement requirements.txt --desc
+
+verify-lockfiles:  ## Verify lockfiles are in sync with .in files
+	@echo "🔍 Verifying lockfiles are up to date..."
+	@pip-compile requirements.in --dry-run --quiet --output-file=- > /tmp/requirements-check.txt
+	@if ! diff -q requirements.txt /tmp/requirements-check.txt > /dev/null 2>&1; then \
+		echo "❌ requirements.txt is out of sync!"; \
+		echo "   Run: make lock-deps"; \
+		exit 1; \
+	fi
+	@echo "✅ Lockfiles are up to date!"
+
+clean-deps:  ## Remove generated lockfiles
+	@echo "🧹 Removing lockfiles..."
+	rm -f requirements.txt requirements-dev.txt
+	@echo "✅ Lockfiles removed!"
+
+install-pip-tools:  ## Install pip-tools
+	@echo "📦 Installing pip-tools..."
+	pip install pip-tools
+	@echo "✅ pip-tools installed!"
+
+# FastAPI + Uvicorn known-good combinations
+fastapi-info:  ## Show current FastAPI/Uvicorn versions
+	@echo "📊 Current versions (from lockfiles):"
+	@grep -A1 "^fastapi==" requirements.txt | head -2
+	@grep -A1 "^uvicorn" requirements.txt | head -2
+	@echo ""
+	@echo "Known-good combinations:"
+	@echo "  FastAPI 0.115.0 + Uvicorn 0.30.6 (current)"
+	@echo "  FastAPI 0.114.0 + Uvicorn 0.30.5"
+	@echo "  FastAPI 0.111.0 + Uvicorn 0.29.0"

@@ -1,27 +1,29 @@
 from __future__ import annotations
-import threading, time
-from typing import Iterator, Optional, List, Dict, Tuple
+
+import threading
+import time
 from collections import OrderedDict
 
 from .config import load_llm_config
+from .json_utils import clamp, parse_fill_response
 from .safety import safety_gate
-from .json_utils import parse_fill_response, clamp
 
 # Global model instance and concurrency control
-_MODEL: Optional[object] = None  # Will be Llama instance when available
+_MODEL: object | None = None  # Will be Llama instance when available
 _MODEL_LOCK = threading.Lock()
 _CONCURRENCY = None  # set from config at first load
 
 # very small in-memory cache: key=(root, tuple(nodes), style_triage, style_actions, caps) -> (dt, ac, ts)
-_CACHE: "OrderedDict[tuple, tuple[str,str,float]]" = OrderedDict()
+_CACHE: OrderedDict[tuple, tuple[str, str, float]] = OrderedDict()
 
 SYSTEM_PROMPT = None
+
 
 def _load_system_prompt() -> str:
     global SYSTEM_PROMPT
     if SYSTEM_PROMPT is None:
         try:
-            with open("llm/prompts/system_med_safety.txt", "r", encoding="utf-8") as f:
+            with open("llm/prompts/system_med_safety.txt", encoding="utf-8") as f:
                 SYSTEM_PROMPT = f.read().strip()
         except FileNotFoundError:
             # Fallback system prompt if file doesn't exist
@@ -30,6 +32,7 @@ Never prescribe medications, dosages, or specific treatments.
 Focus on triage urgency and next steps for evaluation.
 Use clear, concise language appropriate for medical professionals."""
     return SYSTEM_PROMPT
+
 
 def _get_model():
     global _MODEL, _CONCURRENCY
@@ -44,6 +47,7 @@ def _get_model():
             try:
                 # Import llama_cpp here to avoid dependency issues when LLM is disabled
                 from llama_cpp import Llama
+
                 _MODEL = Llama(
                     model_path=cfg.model_path,
                     n_ctx=cfg.n_ctx,
@@ -56,10 +60,13 @@ def _get_model():
                 )
                 _CONCURRENCY = threading.Semaphore(cfg.concurrency)
             except ImportError:
-                raise RuntimeError("llama_cpp not available. Install with: pip install llama-cpp-python")
+                raise RuntimeError(
+                    "llama_cpp not available. Install with: pip install llama-cpp-python"
+                )
             except Exception as e:
                 raise RuntimeError(f"Failed to load LLM model: {e}")
     return _MODEL
+
 
 def _rate_limit():
     cfg = load_llm_config()
@@ -68,7 +75,8 @@ def _rate_limit():
     if delay > 0:
         time.sleep(delay)
 
-def _cache_get(key: tuple) -> Tuple[str,str] | None:
+
+def _cache_get(key: tuple) -> tuple[str, str] | None:
     cfg = load_llm_config()
     now = time.time()
     # purge expired entries
@@ -82,6 +90,7 @@ def _cache_get(key: tuple) -> Tuple[str,str] | None:
         return v[0], v[1]
     return None
 
+
 def _cache_put(key: tuple, dt: str, ac: str) -> None:
     cfg = load_llm_config()
     now = time.time()
@@ -90,8 +99,15 @@ def _cache_put(key: tuple, dt: str, ac: str) -> None:
     if len(_CACHE) > 128:
         _CACHE.popitem(last=False)
 
-def _build_fill_prompt(root: str, nodes: List[str], style_triage: str, style_actions: str,
-                       triage_cap: int, actions_cap: int) -> str:
+
+def _build_fill_prompt(
+    root: str,
+    nodes: list[str],
+    style_triage: str,
+    style_actions: str,
+    triage_cap: int,
+    actions_cap: int,
+) -> str:
     """
     Build a tight prompt that requests STRICT JSON only.
     Styles: 'diagnosis-only' | 'short-explanation' | 'none'
@@ -119,7 +135,10 @@ Respond as STRICT JSON ONLY, no prose, no markdown, like:
 <|assistant|>
 """
 
-def fill_triage_actions(root: str, nodes: List[str], style_triage: str, style_actions: str) -> Tuple[str, str]:
+
+def fill_triage_actions(
+    root: str, nodes: list[str], style_triage: str, style_actions: str
+) -> tuple[str, str]:
     cfg = load_llm_config()
 
     # Safety first
@@ -128,14 +147,24 @@ def fill_triage_actions(root: str, nodes: List[str], style_triage: str, style_ac
         return ("", "")  # caller can surface refusal; we avoid generating
 
     # cache
-    key = (root.strip(), tuple((n or "").strip() for n in nodes), style_triage, style_actions, cfg.triage_max_chars, cfg.actions_max_chars, cfg.max_tokens)
+    key = (
+        root.strip(),
+        tuple((n or "").strip() for n in nodes),
+        style_triage,
+        style_actions,
+        cfg.triage_max_chars,
+        cfg.actions_max_chars,
+        cfg.max_tokens,
+    )
     cached = _cache_get(key)
     if cached:
         dt, ac = cached
         return clamp(dt, cfg.triage_max_chars), clamp(ac, cfg.actions_max_chars)
 
     model = _get_model()
-    prompt = _build_fill_prompt(root, nodes, style_triage, style_actions, cfg.triage_max_chars, cfg.actions_max_chars)
+    prompt = _build_fill_prompt(
+        root, nodes, style_triage, style_actions, cfg.triage_max_chars, cfg.actions_max_chars
+    )
 
     _rate_limit()
     with _CONCURRENCY:
