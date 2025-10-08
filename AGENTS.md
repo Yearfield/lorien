@@ -27,17 +27,19 @@ Think of this as “what every new agent should know before starting.”
    - Views and indexes support efficient queries
 
 2. **FastAPI Backend**
-   - Fully async endpoints for tree navigation, triage, flags, and CSV export
+   - Fully async endpoints for tree navigation, triage, flags, CSV export, and parent management
    - All blocking SQLite operations wrapped with `anyio.to_thread()` for non-blocking I/O
    - Async database connection management with proper transaction handling
    - Includes WAL-safe backup/restore
    - Serves health metadata: version, db state, feature flags (e.g., LLM)
+   - **NEW**: Parent rename/merge endpoints with automatic duplicate detection and children selection
 
 3. **Flutter Desktop UI**
    - Editor + Parent detail flow, state via Riverpod
    - Accurate error handling and busy states
    - CSV export and patch UI for children/triage
    - No direct DB access—only communicates through API
+   - **NEW**: Parent rename/merge UI with edit buttons, selection dialogs, and cross-pane navigation
 
 4. **Streamlit Adapter (Dev-only)**
    - Lightweight prototype/UIs used during initial prototyping
@@ -74,6 +76,18 @@ Cursor should know the landscape:
 
 - **"Tap to Retry" UI** after missing data
   → Seeded Vital Measurement and children via CLI; client adjusted to parse actual API shape
+
+- **SQLite transaction errors** in merge operations
+  → Issue: `cannot start a transaction within a transaction` when using explicit BEGIN/COMMIT
+  → Solution: Remove explicit transaction handling, use SQLite's auto-commit mode with individual commits
+
+- **404 errors during merge** with stale UI state
+  → Issue: Flutter app trying to merge already-deleted parents from previous operations
+  → Solution: Add state refresh after operations, better error handling, loading states to prevent multiple attempts
+
+- **Missing navigation callbacks** between Flutter panes
+  → Issue: Conflicts screen couldn't navigate to VM Builder with specific parent ID
+  → Solution: Implement callback system with Riverpod state management for cross-pane navigation
 
 ---
 

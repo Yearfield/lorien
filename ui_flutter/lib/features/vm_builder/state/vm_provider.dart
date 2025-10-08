@@ -59,6 +59,59 @@ class VmState extends ChangeNotifier {
     await reloadChildren();
   }
 
+  Future<void> navigateToParentById(int parentId) async {
+    // Try to find the parent in the current roots first
+    final root = roots.where((r) => r['id'] == parentId).firstOrNull;
+    if (root != null) {
+      await selectParent(parentId, root['label'] as String, 0);
+      return;
+    }
+
+    // If not found in roots, try to get parent info from API
+    try {
+      final parentInfo = await repo.getParentInfo(parentId);
+      if (parentInfo != null) {
+        await selectParent(parentId, parentInfo['label'] as String, parentInfo['depth'] as int);
+        return;
+      }
+    } catch (e) {
+      // Parent not found or API error
+    }
+
+    throw Exception('Parent #$parentId not found');
+  }
+
+  Future<void> renameParent(int parentId, String newName) async {
+    await repo.renameParent(parentId, newName);
+    // Update local state
+    if (currentParentId == parentId) {
+      currentParentLabel = newName;
+      notifyListeners();
+    }
+    // Update roots if this is a root
+    final rootIndex = roots.indexWhere((r) => r['id'] == parentId);
+    if (rootIndex != -1) {
+      roots[rootIndex]['label'] = newName;
+      notifyListeners();
+    }
+  }
+
+  Future<void> mergeParents(int currentParentId, int existingParentId, List<String> selectedChildren) async {
+    try {
+      await repo.mergeParents(currentParentId, existingParentId, selectedChildren);
+      // Navigate to the existing parent after merge
+      await navigateToParentById(existingParentId);
+      // Refresh the roots list to update any references
+      await loadRoots();
+    } catch (e) {
+      // If merge fails, refresh the current state to avoid stale data
+      if (currentParentId != null) {
+        await reloadChildren();
+      }
+      rethrow;
+    }
+  }
+
   Future<void> reloadChildren() async {
     if (currentParentId == null) return;
     loading = true;

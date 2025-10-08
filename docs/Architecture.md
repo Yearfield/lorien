@@ -52,3 +52,17 @@ Data model (SQLite)
 - `nodes(id, parent_id, depth, slot, label, is_leaf, created_at, updated_at)`
 - Key constraint: `UNIQUE(parent_id, slot)` enabling ≤5 children via service validation
 - Views/triggers support next‑underfilled queries and metadata integrity
+
+Tree Operations
+
+- **Basic CRUD**: Create, read, update, delete nodes via `/api/v1/tree/*` endpoints
+- **Navigation**: Breadcrumb traversal, children listing, ancestor chains
+- **Search**: Find nodes by label for duplicate detection and merge operations
+- **Rename**: Update node labels with automatic duplicate detection
+- **Merge**: Combine two parents with user-selected children (≤5 total)
+  - Deletes source parent and all its children
+  - Replaces target parent's children with selected set
+  - Maintains referential integrity and slot constraints
+  - Atomic transaction with rollback on failure
+- **Cloning**: Duplicate subtrees with automatic slot management
+- **Validation**: Enforces 5-child limit at service layer, not database constraints

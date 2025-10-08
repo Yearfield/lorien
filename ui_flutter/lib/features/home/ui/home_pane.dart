@@ -11,7 +11,9 @@ import '../data/conflicts_repo.dart';
 import '../state/conflicts_provider.dart';
 
 final conflictsProvider = ChangeNotifierProvider<ConflictsState>((ref) {
-  return ConflictsState(ConflictsRepo(ApiConfig.base))..scan();
+  final conflictsState = ConflictsState(ConflictsRepo(ApiConfig.base));
+  conflictsState.scan();
+  return conflictsState;
 });
 
 class HomePane extends StatelessWidget {
@@ -116,6 +118,11 @@ class _ConflictsCard extends ConsumerWidget {
                           subtitle: Text('${conflictsState.items[i]["occurrences"]} parents • union=${(conflictsState.items[i]["union_children"] as List).length}'),
                           onTap: () => conflictsState.selectConflict(i),
                           selected: conflictsState.selectedConflict == conflictsState.items[i],
+                          trailing: IconButton(
+                            icon: const Icon(Icons.edit),
+                            tooltip: 'Edit parents',
+                            onPressed: () => conflictsState.editParents(context, conflictsState.items[i]),
+                          ),
                         ),
                       if (conflictsState.items.isEmpty)
                         const Padding(

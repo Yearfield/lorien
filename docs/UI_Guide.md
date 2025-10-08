@@ -13,6 +13,7 @@ The app uses a `NavigationRail` with 5 main sections:
 ## VM Builder Pane
 
 ### Core Behaviors
+
 - **Import Panel**: Pick CSV/XLSX files, choose Append/Replace mode
   - Uses `POST /api/v1/import` with status feedback
   - Shows validation errors and warnings
@@ -23,9 +24,38 @@ The app uses a `NavigationRail` with 5 main sections:
 - **State Management**: Busy overlay during long operations, navigation guarded during save/import
 - **Error Handling**: 409 slot conflicts and 422 validation errors surface as inline messages
 
+### Parent Rename & Merge
+
+- **Edit Button**: Click the edit icon next to parent title to rename
+- **Rename Dialog**: Enter new parent name with validation
+- **Duplicate Detection**: Automatically searches for existing parents with same name
+- **Merge Confirmation**: When duplicates found, shows merge options:
+  - **Simple Merge**: If ≤5 unique children total, merges automatically
+  - **Children Selection**: If >5 unique children, shows selection dialog
+- **Selection Dialog**:
+  - Lists all unique children from both parents
+  - Must select exactly 5 children to proceed
+  - Shows selection count (e.g., "Selected: 3/5")
+  - Disabled merge button until exactly 5 selected
+- **Merge Process**:
+  - Replaces all children of existing parent with selected children
+  - Deletes the current parent and all its children
+  - Navigates to the merged parent after completion
+  - Shows loading spinner during operation
+  - Provides clear success/error feedback
+
+### Search & Navigation
+
+- **Search Parent**: Enter parent ID to navigate directly to specific parent
+  - Located below the Roots section
+  - Validates input and provides feedback
+  - Clears search field on successful navigation
+- **Navigation from Conflicts**: Click edit icon in conflicts list to navigate to parent in VM Builder
+
 ## API Configuration
 
 ### Switching API Targets
+
 - Use Flutter define: `--dart-define=API_BASE_URL=http://127.0.0.1:8000/api/v1`
 - Default when unset: `http://127.0.0.1:8000/api/v1`
 
@@ -34,11 +64,13 @@ The app uses a `NavigationRail` with 5 main sections:
 The Home pane serves as a comprehensive dashboard with three main sections:
 
 ### Conflicts Card
+
 - **Scan Button**: Click to detect conflicts across the tree
 - **Conflicts List**: Shows each conflict with:
   - Label name (e.g., "hypertension")
   - Occurrence count (e.g., "19 parents")
   - Union size (e.g., "union=10")
+  - **Edit Button**: Click to navigate directly to the first parent in VM Builder for editing
 - **Detail Panel**: When a conflict is selected:
   - **Header**: "Resolve: [label]" (e.g., "Resolve: hypertension")
   - **Occurrences List**: Shows each parent with:
@@ -52,6 +84,7 @@ The Home pane serves as a comprehensive dashboard with three main sections:
     - **Apply**: Commits selected children to all matching parents
 
 ### Export Card
+
 - **Format Selection**: Radio buttons for CSV (default) and XLSX
 - **Advanced Filters**:
   - **Max Depth**: Limit export depth (0 = unlimited)
@@ -64,11 +97,13 @@ The Home pane serves as a comprehensive dashboard with three main sections:
 - **Last Export**: Shows timestamp of most recent export
 
 ### New Submission Card
+
 - Placeholder section for future bulk submission workflows
 
 ## Conflicts Resolution Workflow
 
 ### Scan Process
+
 - Uses `GET /api/v1/conflicts/scan` to find parents with same label but different child sets
 - Groups by normalized label (case-insensitive, trimmed) across all depths
 - Detects conflicts when:
@@ -76,6 +111,7 @@ The Home pane serves as a comprehensive dashboard with three main sections:
   - Union of all child labels across occurrences > 5
 
 ### Resolution Process
+
 - **Detail Panel**: Shows union of all child labels as selectable chips (≤5 limit enforced)
 - **Dry Run**: `POST /api/v1/conflicts/resolve` with `dry_run=true` shows changes without applying
 - **Apply**: `POST /api/v1/conflicts/resolve` applies selected children to all matching parents
@@ -84,27 +120,32 @@ The Home pane serves as a comprehensive dashboard with three main sections:
 ## Export Actions
 
 ### Format Options
+
 - **CSV**: Default format with canonical header
 - **XLSX**: Excel-compatible spreadsheet format
 
 ### Filter Options
+
 - **Max Depth**: Limit export to specific depth levels
 - **Only Red**: Export only red-flagged paths
 - **Include Meta**: Include metadata columns (D6, Notes)
 - **Root Filter**: Export specific root trees only
 
 ### Export Methods
+
 - **Native File Picker**: Save dialog with proper file extensions
 - **URL Copy**: Shareable export links with current filter settings
 
 ## Technical Notes
 
 ### Core Constraints
+
 - **Service-level ≤5 rule**: The editor enforces ≤5 children; DB remains flexible via unique `(parent_id, slot)`
 - **Label-only conflicts**: Grouped by normalized label (case-insensitive, trimmed) across all depths
 - **Max depth enforcement**: Prevents adding children to D6 parents (would exceed D6 limit)
 
 ### State Management
+
 - **Riverpod**: Used for conflicts state management with `ChangeNotifierProvider`
 - **Error Handling**: Comprehensive error states with user-friendly messages
 - **Busy States**: Visual feedback during API operations

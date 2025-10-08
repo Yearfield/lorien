@@ -81,6 +81,56 @@ class VmRepo {
     return (jsonDecode(r.body) as Map<String, dynamic>);
   }
 
+  Future<Map<String, dynamic>?> getParentInfo(int parentId) async {
+    try {
+      final nodeInfo = await getNode(parentId);
+      return {
+        'label': nodeInfo['label'],
+        'depth': nodeInfo['depth'],
+      };
+    } catch (e) {
+      return null; // Parent not found
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> findParentsByLabel(String label) async {
+    final response = await http.get(Uri.parse('$base/tree/search-by-label?label=${Uri.encodeQueryComponent(label)}'));
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return List<Map<String, dynamic>>.from(data['items'] ?? []);
+    } else {
+      throw Exception('Search failed: ${response.statusCode} ${response.body}');
+    }
+  }
+
+  Future<void> renameParent(int parentId, String newName) async {
+    final response = await http.put(
+      Uri.parse('$base/tree/node/$parentId/rename'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'label': newName}),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Rename failed: ${response.statusCode} ${response.body}');
+    }
+  }
+
+  Future<void> mergeParents(int currentParentId, int existingParentId, List<String> selectedChildren) async {
+    final response = await http.post(
+      Uri.parse('$base/tree/merge-parents'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'current_parent_id': currentParentId,
+        'existing_parent_id': existingParentId,
+        'selected_children': selectedChildren,
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Merge failed: ${response.statusCode} ${response.body}');
+    }
+  }
+
   // mode: "replace" or "append"
   Future<Map<String, dynamic>> importFile(String mode, Uint8List bytes, String filename) async {
     final uri = Uri.parse('$base/import?mode=$mode');

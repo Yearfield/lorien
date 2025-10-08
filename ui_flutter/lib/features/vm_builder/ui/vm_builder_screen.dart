@@ -6,7 +6,14 @@ import '../state/vm_provider.dart';
 
 class VmBuilderScreen extends StatefulWidget {
   final String baseUrl;
-  const VmBuilderScreen({super.key, required this.baseUrl});
+  final int? initialParentId;
+  final VoidCallback? onParentNavigated;
+  const VmBuilderScreen({
+    super.key,
+    required this.baseUrl,
+    this.initialParentId,
+    this.onParentNavigated,
+  });
 
   @override
   State<VmBuilderScreen> createState() => _VmBuilderScreenState();
@@ -14,6 +21,7 @@ class VmBuilderScreen extends StatefulWidget {
 
 class _VmBuilderScreenState extends State<VmBuilderScreen> {
   final _newChildCtrl = TextEditingController();
+  final _searchCtrl = TextEditingController();
 
   @override
   void initState() {
@@ -28,12 +36,296 @@ class _VmBuilderScreenState extends State<VmBuilderScreen> {
         }
       };
       state.loadRoots();
+
+      // Navigate to specific parent if provided
+      if (widget.initialParentId != null) {
+        _navigateToParent(widget.initialParentId!);
+      }
     });
+  }
+
+  Future<void> _navigateToParent(int parentId) async {
+    final state = context.read<VmState>();
+    try {
+      // Try to navigate to the specific parent
+      await state.navigateToParentById(parentId);
+      widget.onParentNavigated?.call();
+    } catch (e) {
+      // If navigation fails, show a message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not navigate to parent #$parentId: $e')),
+        );
+      }
+      widget.onParentNavigated?.call();
+    }
+  }
+
+  Future<void> _searchParent(VmState state, String searchText) async {
+    final parentIdStr = searchText.trim();
+    if (parentIdStr.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please enter a parent ID to search')),
+        );
+      }
+      return;
+    }
+
+    final parentId = int.tryParse(parentIdStr);
+    if (parentId == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please enter a valid parent ID number')),
+        );
+      }
+      return;
+    }
+
+    try {
+      await state.navigateToParentById(parentId);
+      _searchCtrl.clear(); // Clear the search field on success
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Navigated to parent #$parentId')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Parent #$parentId not found: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _showRenameDialog(VmState state) async {
+    final controller = TextEditingController(text: state.currentParentLabel);
+
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Rename Parent'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Parent name',
+            hintText: 'Enter new parent name',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+            child: const Text('Rename'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null && result.isNotEmpty && result != state.currentParentLabel) {
+      await _handleParentRename(state, result);
+    }
+  }
+
+  Future<void> _handleParentRename(VmState state, String newName) async {
+    try {
+      // First check if a parent with this name already exists
+      final existingParents = await state.repo.findParentsByLabel(newName);
+
+      if (existingParents.isNotEmpty) {
+        // Show merge confirmation dialog
+        await _showMergeDialog(state, newName, existingParents);
+      } else {
+        // Simple rename - no conflicts
+        await state.renameParent(state.currentParentId!, newName);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Parent renamed to "$newName"')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to rename parent: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _showMergeDialog(VmState state, String newName, List<Map<String, dynamic>> existingParents) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Merge Parents'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('A parent named "$newName" already exists. Do you want to merge the children?'),
+            const SizedBox(height: 16),
+            const Text('Existing parent:', style: TextStyle(fontWeight: FontWeight.bold)),
+            Text('Parent #${existingParents.first['id']} at depth ${existingParents.first['depth']}'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Merge'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true) {
+      await _handleParentMerge(state, newName, existingParents.first);
+    }
+  }
+
+  Future<void> _handleParentMerge(VmState state, String newName, Map<String, dynamic> existingParent) async {
+    try {
+      // Get children from both parents
+      final currentChildren = await state.repo.getChildren(state.currentParentId!);
+      final existingChildren = await state.repo.getChildren(existingParent['id'] as int);
+
+      // Combine all unique children
+      final allChildren = <String>{};
+      allChildren.addAll(currentChildren.map((c) => c['label'] as String));
+      allChildren.addAll(existingChildren.map((c) => c['label'] as String));
+
+      if (allChildren.length <= 5) {
+        // Simple merge - no need for selection
+        await state.mergeParents(state.currentParentId!, existingParent['id'] as int, allChildren.toList());
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Parents merged successfully')),
+          );
+        }
+      } else {
+        // Need to select which 5 children to keep
+        await _showChildrenSelectionDialog(state, newName, existingParent, allChildren.toList());
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to merge parents: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _showChildrenSelectionDialog(VmState state, String newName, Map<String, dynamic> existingParent, List<String> allChildren) async {
+    final selectedChildren = <String>{};
+    bool isMerging = false;
+
+    final result = await showDialog<List<String>>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Select Children'),
+          content: SizedBox(
+            width: double.maxFinite,
+            height: 300,
+            child: Column(
+              children: [
+                Text('Both parents have children. Select exactly 5 to keep:'),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: allChildren.length,
+                    itemBuilder: (context, index) {
+                      final child = allChildren[index];
+                      final isSelected = selectedChildren.contains(child);
+                      final canSelect = selectedChildren.length < 5 || isSelected;
+
+                      return CheckboxListTile(
+                        title: Text(child),
+                        value: isSelected,
+                        enabled: canSelect,
+                        onChanged: (value) {
+                          setState(() {
+                            if (value == true) {
+                              selectedChildren.add(child);
+                            } else {
+                              selectedChildren.remove(child);
+                            }
+                          });
+                        },
+                      );
+                    },
+                  ),
+                ),
+                Text('Selected: ${selectedChildren.length}/5'),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isMerging ? null : () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: (selectedChildren.length == 5 && !isMerging)
+                  ? () async {
+                      setState(() => isMerging = true);
+                      try {
+                        await state.mergeParents(state.currentParentId!, existingParent['id'] as int, selectedChildren.toList());
+                        if (context.mounted) {
+                          Navigator.of(context).pop(selectedChildren.toList());
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Parents merged successfully!')),
+                          );
+                        }
+                      } catch (e) {
+                        setState(() => isMerging = false);
+                        if (context.mounted) {
+                          String errorMessage = 'Failed to merge parents';
+                          if (e.toString().contains('404')) {
+                            errorMessage = 'One or both parents no longer exist. Please refresh and try again.';
+                          } else if (e.toString().contains('500')) {
+                            errorMessage = 'Server error during merge. Please try again.';
+                          } else {
+                            errorMessage = 'Failed to merge parents: ${e.toString()}';
+                          }
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(errorMessage),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      }
+                    }
+                  : null,
+              child: isMerging
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Merge'),
+            ),
+          ],
+        ),
+      ),
+    );
+
   }
 
   @override
   void dispose() {
     _newChildCtrl.dispose();
+    _searchCtrl.dispose();
     super.dispose();
   }
 
@@ -246,6 +538,43 @@ class _VmBuilderScreenState extends State<VmBuilderScreen> {
                             },
                           ),
                   ),
+                  // Search section
+                  const SizedBox(height: 12),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Search Parent', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _searchCtrl,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Parent ID (e.g., 106)',
+                                    hintText: 'Enter parent ID to search',
+                                    border: OutlineInputBorder(),
+                                    prefixIcon: Icon(Icons.search),
+                                  ),
+                                  keyboardType: TextInputType.number,
+                                  onSubmitted: (value) => _searchParent(s, value),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              FilledButton.icon(
+                                onPressed: () => _searchParent(s, _searchCtrl.text),
+                                icon: const Icon(Icons.search),
+                                label: const Text('Search'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                          ),
+                  ),
                 ],
               ),
             ),
@@ -261,7 +590,18 @@ class _VmBuilderScreenState extends State<VmBuilderScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Parent: ${s.currentParentLabel} (${s.children.length}/5)', style: Theme.of(context).textTheme.titleLarge),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text('Parent: ${s.currentParentLabel} (${s.children.length}/5)', style: Theme.of(context).textTheme.titleLarge),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.edit),
+                              tooltip: 'Edit parent name',
+                              onPressed: () => _showRenameDialog(s),
+                            ),
+                          ],
+                        ),
                         const SizedBox(height: 12),
                         Row(
                           children: [

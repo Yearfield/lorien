@@ -1,8 +1,10 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import '../data/conflicts_repo.dart';
 
 class ConflictsState extends ChangeNotifier {
   final ConflictsRepo repo;
+  Function(int)? onNavigateToParent;
 
   ConflictsState(this.repo);
 
@@ -144,6 +146,38 @@ class ConflictsState extends ChangeNotifier {
   void clearError() {
     error = null;
     notifyListeners();
+  }
+
+  void editParents(BuildContext context, Map<String, dynamic> conflict) {
+    // Get the first parent from the conflict to navigate to it
+    final parents = conflict['parents'] as List;
+    if (parents.isEmpty) return;
+
+    final firstParent = parents[0];
+    final parentId = firstParent['parent_id'] as int;
+
+    // Use the navigation callback if available
+    if (onNavigateToParent != null) {
+      onNavigateToParent!(parentId);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Navigating to parent #$parentId in VM Builder...')),
+      );
+    } else {
+      // Fallback: show dialog with manual navigation instruction
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Edit Parents'),
+          content: Text('Navigate to VM Builder tab to edit parent #$parentId and resolve this conflict.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   void _hydrateSelection(Map<String, dynamic> conflict) {

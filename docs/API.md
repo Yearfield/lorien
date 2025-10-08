@@ -202,6 +202,59 @@ curl -sS -F file=@paths.csv "http://127.0.0.1:8000/api/v1/import?mode=replace&en
   }
   ```
 
+### Parent Rename & Merge Operations
+
+- `GET /api/v1/tree/search-by-label?label=coughing` → Find parents by label
+
+  ```json
+  {
+    "items": [
+      {"id": 252, "label": "Coughing", "depth": 4},
+      {"id": 553, "label": "Coughing", "depth": 4}
+    ],
+    "total": 2
+  }
+  ```
+
+- `PUT /api/v1/tree/node/{node_id}/rename` → Rename parent node
+
+  **Body:**
+
+  ```json
+  {"label": "New Parent Name"}
+  ```
+
+  **Response:**
+
+  ```json
+  {"ok": true, "node_id": 252, "new_label": "New Parent Name"}
+  ```
+
+- `POST /api/v1/tree/merge-parents` → Merge two parents with selected children
+
+  **Body:**
+
+  ```json
+  {
+    "current_parent_id": 553,
+    "existing_parent_id": 252,
+    "selected_children": ["Dry Cough", "Wet Cough", "Hemoptysis", "Shortness of breath", "Fever"]
+  }
+  ```
+
+  **Response:**
+
+  ```json
+  {"ok": true, "merged_parent_id": 252, "deleted_parent_id": 553}
+  ```
+
+  **Notes:**
+  - Merges the current parent into the existing parent
+  - Replaces all children of the existing parent with the selected children
+  - Deletes the current parent and all its children
+  - Selected children must be exactly 5 or fewer
+  - Automatically handles slot assignment and depth updates
+
 ### Authoring Assistance
 
 - `GET /api/v1/tree/next-underfilled?root_id=1&after_id=999` → Find next parent with <5 children
@@ -335,6 +388,23 @@ curl -sS "http://127.0.0.1:8000/api/v1/tree/next-underfilled?root_id=1" | jq .
 curl -sS -X POST http://127.0.0.1:8000/api/v1/tree/clone \
   -H "Content-Type: application/json" \
   -d '{"source_id": 123, "dest_parent_id": 456}' | jq .
+
+# Search for parents by label
+curl -sS "http://127.0.0.1:8000/api/v1/tree/search-by-label?label=coughing" | jq .
+
+# Rename a parent
+curl -sS -X PUT "http://127.0.0.1:8000/api/v1/tree/node/252/rename" \
+  -H "Content-Type: application/json" \
+  -d '{"label": "Cough"}' | jq .
+
+# Merge two parents with selected children
+curl -sS -X POST "http://127.0.0.1:8000/api/v1/tree/merge-parents" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "current_parent_id": 553,
+    "existing_parent_id": 252,
+    "selected_children": ["Dry Cough", "Wet Cough", "Hemoptysis", "Shortness of breath", "Fever"]
+  }' | jq .
 ```
 
 ### Export Operations

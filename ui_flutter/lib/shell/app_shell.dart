@@ -4,6 +4,7 @@ import '../widgets/connection_banner.dart';
 import '../core/health_state.dart';
 import '../core/api_config.dart';
 import '../features/home/ui/home_pane.dart';
+import '../features/home/state/conflicts_provider.dart';
 import '../features/vm_builder/ui/vm_builder_screen.dart';
 import '../features/outcomes/ui/outcomes_pane.dart';
 import '../features/flags/ui/flags_pane.dart';
@@ -19,6 +20,20 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _index = 1; // default to VM Builder (the star of the show)
+  int? _navigateToParentId; // Parameter for navigating to a specific parent
+
+  // Provide navigation callback to child widgets
+  void _provideNavigationCallback() {
+    // Find the conflicts provider and set the navigation callback
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      try {
+        final conflictsState = Provider.of<ConflictsState>(context, listen: false);
+        conflictsState.onNavigateToParent = navigateToParent;
+      } catch (e) {
+        // Conflicts provider might not be available yet, ignore
+      }
+    });
+  }
 
   @override
   void initState() {
@@ -26,13 +41,25 @@ class _AppShellState extends State<AppShell> {
     // Do an initial health check
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<HealthState>().check();
+      _provideNavigationCallback();
+    });
+  }
+
+  void navigateToParent(int parentId) {
+    setState(() {
+      _index = 1; // Navigate to VM Builder
+      _navigateToParentId = parentId;
     });
   }
 
   Widget _paneFor(int idx) {
     switch (idx) {
       case 0: return const HomePane();
-      case 1: return VmBuilderScreen(baseUrl: ApiConfig.base);
+      case 1: return VmBuilderScreen(
+        baseUrl: ApiConfig.base,
+        initialParentId: _navigateToParentId,
+        onParentNavigated: () => _navigateToParentId = null, // Clear after navigation
+      );
       case 2: return const OutcomesPane();
       case 3: return const FlagsPane();
       case 4: return const SettingsPane();

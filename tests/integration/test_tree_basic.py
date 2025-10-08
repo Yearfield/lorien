@@ -64,3 +64,73 @@ def test_delete_root_cascades(tmp_path, monkeypatch):
     # root gone, subtree gone
     roots_after = c.get("/api/v1/tree/roots").json()["items"]
     assert roots_after == []
+
+
+def test_search_by_label_endpoint(tmp_path, monkeypatch):
+    """Test search by label endpoint"""
+    from starlette.testclient import TestClient
+
+    from api.db.migrate import apply_migrations
+    from api.main import app
+
+    db = tmp_path / "app.db"
+    monkeypatch.setenv("LORIEN_DB_PATH", str(db))
+    apply_migrations(str(db))
+    c = TestClient(app)
+
+    # Test search for non-existent label
+    search_r = c.get("/api/v1/tree/search-by-label?label=NonExistent")
+    assert search_r.status_code == 200
+    assert search_r.json()["total"] == 0
+
+
+def test_rename_endpoint(tmp_path, monkeypatch):
+    """Test rename endpoint"""
+    from starlette.testclient import TestClient
+
+    from api.db.migrate import apply_migrations
+    from api.main import app
+
+    db = tmp_path / "app.db"
+    monkeypatch.setenv("LORIEN_DB_PATH", str(db))
+    apply_migrations(str(db))
+    c = TestClient(app)
+
+    # Test rename non-existent node
+    rename_r = c.put("/api/v1/tree/node/999/rename", json={"label": "NewName"})
+    assert rename_r.status_code == 404
+
+
+def test_merge_validation_errors(tmp_path, monkeypatch):
+    """Test merge endpoint validation and error handling"""
+    from starlette.testclient import TestClient
+
+    from api.db.migrate import apply_migrations
+    from api.main import app
+
+    db = tmp_path / "app.db"
+    monkeypatch.setenv("LORIEN_DB_PATH", str(db))
+    apply_migrations(str(db))
+    c = TestClient(app)
+
+    # Test merge with non-existent parents
+    merge_r = c.post(
+        "/api/v1/tree/merge-parents",
+        json={
+            "current_parent_id": 999,
+            "existing_parent_id": 998,
+            "selected_children": ["Child1", "Child2"],
+        },
+    )
+    assert merge_r.status_code == 404
+
+    # Test merge with too many children
+    merge_r = c.post(
+        "/api/v1/tree/merge-parents",
+        json={
+            "current_parent_id": 1,
+            "existing_parent_id": 2,
+            "selected_children": ["Child1", "Child2", "Child3", "Child4", "Child5", "Child6"],
+        },
+    )
+    assert merge_r.status_code == 422

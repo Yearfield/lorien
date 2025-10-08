@@ -15,6 +15,23 @@ Key contracts
 - Enhanced export: CSV/XLSX with filters (max_depth, only_red, include_meta, root_ids)
 - Health: `/api/v1/live`, `/api/v1/ready`, enhanced `/api/v1/health` (version, DB path + `exists`, journal mode, table count, node count, analytics/LLM feature flags)
 
+## New Features
+
+### Parent Rename & Merge
+
+- **Rename Parents**: Click edit button next to parent name to rename with automatic duplicate detection
+- **Smart Merge**: When renaming creates duplicates, automatically merge parents with selected children
+- **Children Selection**: For parents with >5 combined children, interactive selection dialog ensures exactly 5 children
+- **Navigation Integration**: Seamless navigation from conflicts list to VM Builder for editing
+- **Search by ID**: Direct parent navigation using parent ID search in VM Builder
+
+### Enhanced UI/UX
+
+- **Loading States**: Visual feedback during merge operations with disabled buttons to prevent multiple attempts
+- **Error Handling**: Clear error messages for 404 (parent not found), 500 (server errors), and validation failures
+- **State Management**: Automatic refresh of UI state after operations to prevent stale data
+- **Cross-Pane Navigation**: Edit buttons in conflicts list navigate directly to VM Builder with target parent loaded
+
 Quick start
 
 ```bash
@@ -34,6 +51,14 @@ curl -sS http://127.0.0.1:8000/api/v1/conflicts/scan | jq
 curl -sS -X POST -H "Content-Type: application/json" \
   -d '{"label":"hypertension","selected_children":["headache","nausea","vomiting","chest pain","myalgia"],"dry_run":true}' \
   http://127.0.0.1:8000/api/v1/conflicts/resolve | jq
+
+# Parent rename & merge
+curl -sS "http://127.0.0.1:8000/api/v1/tree/search-by-label?label=coughing" | jq .
+curl -sS -X PUT "http://127.0.0.1:8000/api/v1/tree/node/252/rename" \
+  -H "Content-Type: application/json" -d '{"label": "Cough"}' | jq .
+curl -sS -X POST "http://127.0.0.1:8000/api/v1/tree/merge-parents" \
+  -H "Content-Type: application/json" \
+  -d '{"current_parent_id": 553, "existing_parent_id": 252, "selected_children": ["Dry Cough", "Wet Cough", "Hemoptysis", "Shortness of breath", "Fever"]}' | jq .
 
 # Flutter (Linux example)
 cd ui_flutter

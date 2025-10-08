@@ -185,6 +185,113 @@ async def get_node(node_id: int, conn: sqlite3.Connection = Depends(get_db_conne
     return {"id": row[0], "label": row[1], "depth": row[2], "parent_id": row[3]}
 
 
+@router.get("/search-by-label")
+async def search_by_label(label: str, conn: sqlite3.Connection = Depends(get_db_connection)):
+    """Find parents with the given label."""
+    cur = await anyio.to_thread.run_sync(
+        conn.execute,
+        "SELECT id, label, depth FROM nodes WHERE LOWER(TRIM(label)) = LOWER(TRIM(?)) ORDER BY depth, id",
+        (label,),
+    )
+    rows = await anyio.to_thread.run_sync(cur.fetchall)
+    items = [{"id": row[0], "label": row[1], "depth": row[2]} for row in rows]
+    return {"items": items, "total": len(items)}
+
+
+@router.put("/node/{node_id}/rename")
+async def rename_node(
+    node_id: int, body: dict, conn: sqlite3.Connection = Depends(get_db_connection)
+):
+    """Rename a node by updating its label."""
+    new_label = body.get("label", "").strip()
+    if not new_label:
+        raise HTTPException(status_code=422, detail="empty label")
+
+    # Check if node exists
+    cur = await anyio.to_thread.run_sync(
+        conn.execute, "SELECT id FROM nodes WHERE id = ?", (node_id,)
+    )
+    if not await anyio.to_thread.run_sync(cur.fetchone):
+        raise HTTPException(status_code=404, detail="node not found")
+
+    # Update the label
+    await anyio.to_thread.run_sync(
+        conn.execute,
+        "UPDATE nodes SET label = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?",
+        (new_label, node_id),
+    )
+
+    return {"ok": True, "node_id": node_id, "new_label": new_label}
+
+
+class MergeParentsRequest(BaseModel):
+    current_parent_id: int
+    existing_parent_id: int
+    selected_children: list[str]
+
+
+@router.post("/merge-parents")
+async def merge_parents(
+    body: MergeParentsRequest, conn: sqlite3.Connection = Depends(get_db_connection)
+):
+    """Merge two parents by combining their children and deleting the current parent."""
+    current_id = body.current_parent_id
+    existing_id = body.existing_parent_id
+    selected_children = body.selected_children
+
+    if len(selected_children) > 5:
+        raise HTTPException(status_code=422, detail="cannot have more than 5 children")
+
+    # Verify both parents exist and get their depths
+    cur = await anyio.to_thread.run_sync(
+        conn.execute, "SELECT id, depth FROM nodes WHERE id IN (?, ?)", (current_id, existing_id)
+    )
+    rows = await anyio.to_thread.run_sync(cur.fetchall)
+    if len(rows) != 2:
+        raise HTTPException(status_code=404, detail="one or both parents not found")
+
+    # Get the depth of the existing parent (target parent)
+    existing_depth = None
+    for row in rows:
+        if row[0] == existing_id:
+            existing_depth = row[1]
+            break
+
+    if existing_depth is None:
+        raise HTTPException(status_code=404, detail="existing parent not found")
+
+    try:
+        # Delete all children from existing parent first (we'll replace with selected ones)
+        await anyio.to_thread.run_sync(
+            conn.execute, "DELETE FROM nodes WHERE parent_id = ?", (existing_id,)
+        )
+        await anyio.to_thread.run_sync(conn.commit)
+
+        # Add selected children to existing parent with correct depth
+        for i, child_label in enumerate(selected_children, 1):
+            child_depth = existing_depth + 1
+            is_leaf = 1 if child_depth >= 5 else 0
+
+            await anyio.to_thread.run_sync(
+                conn.execute,
+                """INSERT INTO nodes (parent_id, depth, slot, label, is_leaf, created_at, updated_at)
+                   VALUES (?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'))""",
+                (existing_id, child_depth, i, child_label, is_leaf),
+            )
+        await anyio.to_thread.run_sync(conn.commit)
+
+        # Delete the current parent and all its children (cascade delete will handle this)
+        await anyio.to_thread.run_sync(
+            conn.execute, "DELETE FROM nodes WHERE id = ?", (current_id,)
+        )
+        await anyio.to_thread.run_sync(conn.commit)
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"merge failed: {str(e)}")
+
+    return {"ok": True, "merged_parent_id": existing_id, "deleted_parent_id": current_id}
+
+
 @router.get("/ancestors")
 async def get_ancestors(node_id: int, repo: TreeRepository = Depends(get_repository)):
     """Get the ancestor chain from root to the given node."""
