@@ -131,12 +131,21 @@ class VmState extends ChangeNotifier {
 
   void addChildLabel(String label) {
     if (label.trim().isEmpty) return;
-    children = [...children, label.trim()];
+    final trimmedLabel = label.trim();
+    children = [...children, trimmedLabel];
+    // Also update childrenWithMeta to include the new child
+    childrenWithMeta = [...childrenWithMeta, {
+      'label': trimmedLabel,
+      'id': null, // Will be assigned when saved to server
+      'red_flag': false,
+    }];
     notifyListeners();
   }
 
   void removeChildAt(int idx) {
     children = [...children]..removeAt(idx);
+    // Also update childrenWithMeta to keep them in sync
+    childrenWithMeta = [...childrenWithMeta]..removeAt(idx);
     notifyListeners();
   }
 
@@ -145,32 +154,83 @@ class VmState extends ChangeNotifier {
     loading = true;
     notifyListeners();
     try {
-      await repo.putChildren(currentParentId!, children);
+      // Get current server children to compare with local state
+      final serverChildren = await repo.getChildren(currentParentId!);
+      final serverLabels = serverChildren.map((c) => c['label'] as String).toList();
+
+      // Check if we only have new children added (not modifications to existing ones)
+      final onlyNewChildren = _onlyNewChildrenAdded(children, serverLabels);
+
+      if (onlyNewChildren) {
+        // Safe case: only adding new children, use the safe addChild method
+        final newChildren = children.skip(serverLabels.length).toList();
+        for (final childLabel in newChildren) {
+          await repo.addChild(currentParentId!, childLabel);
+        }
+        toast?.call('${newChildren.length} child(ren) added successfully');
+      } else if (_listsEqual(children, serverLabels)) {
+        // No changes needed
+        toast?.call('No changes to save');
+      } else {
+        // Unsafe case: modifications detected, warn user
+        toast?.call('WARNING: This will replace all children. Existing child data may be lost.');
+        // For now, don't save automatically - let user decide
+        loading = false;
+        notifyListeners();
+        return;
+      }
+
+      // Reload children after save to get fresh server data with IDs
+      await reloadChildren();
     } catch (e) {
-      // Handle error silently for now
+      toast?.call('Save failed: $e');
     }
     loading = false;
     notifyListeners();
   }
 
+  bool _onlyNewChildrenAdded(List<String> local, List<String> server) {
+    // Check if local children are just server children + new ones at the end
+    if (local.length <= server.length) return false;
+
+    for (int i = 0; i < server.length; i++) {
+      if (local[i] != server[i]) return false;
+    }
+    return true;
+  }
+
+  bool _listsEqual(List<String> a, List<String> b) {
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
   Future<void> drillIntoChildByIndex(int index) async {
     if (index < 0 || index >= children.length) return;
-    // Resolve or create the child node by label (ensure it exists server-side)
-    // We rely on putChildren to create by label only when saving; for drill, we need the id.
-    // Fetch server children to read ids:
-    final raw = await repo.getChildren(currentParentId!);
-    final row = raw[index];
-    final childId = row['id'] as int?;
-    final childLabel = row['label'] as String;
+
+    // Check if this index corresponds to an unsaved child
+    final serverChildren = await repo.getChildren(currentParentId!);
+    final isUnsavedChild = index >= serverChildren.length;
+
+    if (isUnsavedChild) {
+      // For unsaved children, show a message that they need to be saved first
+      toast?.call('Please save changes before drilling into new children');
+      return;
+    }
+
+    // For existing children, proceed with normal drill logic
+    final child = serverChildren[index];
+    final childId = child['id'] as int?;
+    final childLabel = child['label'] as String;
 
     if (childId == null) {
-      // safeguard: if no id, force a save first
-      await save();
+      toast?.call('Child has no ID - this should not happen');
+      return;
     }
-    final latest = await repo.getChildren(currentParentId!);
-    final child = latest[index];
-    final id = child['id'] as int;
-    await selectParent(id, childLabel, currentDepth + 1);
+
+    await selectParent(childId, childLabel, currentDepth + 1);
   }
 
   bool canGoBack() => crumbs.length > 1;

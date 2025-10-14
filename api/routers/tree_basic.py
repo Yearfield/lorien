@@ -22,6 +22,11 @@ class PutChildrenRequest(BaseModel):
     children: list[Child] = Field(default_factory=list)
 
 
+class AddChildRequest(BaseModel):
+    parent_id: int
+    label: str = Field(min_length=1, max_length=256)
+
+
 class CreateRootBody(BaseModel):
     label: str
 
@@ -138,6 +143,82 @@ async def put_children(
         # Preserve default error propagation for unexpected failures
         raise
     return {"ok": True, "count": len(labels)}
+
+
+@router.post("/child")
+async def add_child(
+    payload: AddChildRequest, conn: sqlite3.Connection = Depends(get_db_connection)
+):
+    """Safely add a single child to a parent without affecting existing children."""
+    parent_id = payload.parent_id
+    label = payload.label.strip()
+    
+    if not label:
+        raise HTTPException(status_code=422, detail="empty label")
+
+    try:
+        # Verify parent exists and get its depth
+        cur = await anyio.to_thread.run_sync(
+            conn.execute, "SELECT depth FROM nodes WHERE id=?", (parent_id,)
+        )
+        parent_row = await anyio.to_thread.run_sync(cur.fetchone)
+        if not parent_row:
+            raise HTTPException(status_code=404, detail="parent not found")
+        parent_depth = parent_row[0]
+        
+        if parent_depth >= 6:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=[
+                    {
+                        "loc": ["parent_id"],
+                        "msg": "cannot add children beyond depth 6",
+                        "type": "value_error.max_depth",
+                    }
+                ],
+            )
+
+        # Check current children count
+        cur = await anyio.to_thread.run_sync(
+            conn.execute, "SELECT COUNT(*) FROM nodes WHERE parent_id=?", (parent_id,)
+        )
+        current_count = await anyio.to_thread.run_sync(cur.fetchone)
+        if current_count[0] >= 5:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=[
+                    {
+                        "loc": ["parent_id"],
+                        "msg": "parent already has 5 children",
+                        "type": "value_error.max_children",
+                    }
+                ],
+            )
+
+        # Find next available slot
+        cur = await anyio.to_thread.run_sync(
+            conn.execute, "SELECT MAX(slot) FROM nodes WHERE parent_id=?", (parent_id,)
+        )
+        max_slot = await anyio.to_thread.run_sync(cur.fetchone)
+        next_slot = (max_slot[0] or 0) + 1
+
+        # Insert new child
+        depth = parent_depth + 1
+        await anyio.to_thread.run_sync(
+            conn.execute,
+            "INSERT INTO nodes (parent_id, depth, slot, label) VALUES (?,?,?,?)",
+            (parent_id, depth, next_slot, label),
+        )
+        
+        return {"ok": True, "parent_id": parent_id, "label": label, "slot": next_slot}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to add child: {str(e)}",
+        )
 
 
 @router.delete("/roots/{root_id}", status_code=status.HTTP_204_NO_CONTENT)

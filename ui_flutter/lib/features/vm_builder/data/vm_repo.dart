@@ -67,6 +67,22 @@ class VmRepo {
     }
   }
 
+  Future<void> addChild(int parentId, String label) async {
+    // Add a single child safely without affecting existing children
+    final body = jsonEncode({
+      "parent_id": parentId,
+      "label": label,
+    });
+    final r = await http.post(
+      Uri.parse('$base/tree/child'),
+      headers: {'Content-Type': 'application/json'},
+      body: body,
+    );
+    if (r.statusCode != 200 && r.statusCode != 201) {
+      throw Exception('add child failed: ${r.statusCode} ${r.body}');
+    }
+  }
+
   Future<void> deleteRoot(int rootId) async {
     final uri = Uri.parse('$base/tree/roots/$rootId');
     final r = await http.delete(uri);
