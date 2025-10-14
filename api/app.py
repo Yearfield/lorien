@@ -14,6 +14,7 @@ from api.observability import ObservabilityMiddleware, setup_logging
 from api.observability.metrics import increment_counter
 from api.observability.telemetry import setup_opentelemetry, shutdown_opentelemetry
 from api.routers.conflicts import router as conflicts_router
+from api.routers.dictionary import router as dictionary_router
 from api.routers.health import router as health_router
 from api.routers.import_router import router as import_router
 from api.routers.tree_basic import router as tree_basic_router
@@ -99,6 +100,7 @@ app.include_router(health_router, prefix="/api/v1")
 app.include_router(import_router, prefix="/api/v1")
 app.include_router(export_router, prefix="/api/v1")
 app.include_router(conflicts_router, prefix="/api/v1")
+app.include_router(dictionary_router)
 
 # Note: tree_basic_router already has prefix="/api/v1/tree" internally
 # Note: tree_delete_restore_router already has prefix="/api/v1/tree" internally

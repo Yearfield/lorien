@@ -76,6 +76,13 @@ def main():
         "001_add_red_flag_audit.sql",
         "002_add_flags_namespace.sql",
         "003_add_dictionary_terms.sql",
+        "003_add_enhanced_audit.sql",
+        "004_add_dictionary_governance.sql",
+        "005_add_orphan_repair.sql",
+        "006_add_enhanced_vm_builder.sql",
+        "007_add_large_workbook.sql",
+        "008_add_medical_dictionary.sql",
+        "009_add_dictionary_sync_triggers.sql",
     ]
 
     print(f"\nFound {len(migrations)} migration(s) to apply")

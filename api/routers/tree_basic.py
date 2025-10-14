@@ -152,7 +152,7 @@ async def add_child(
     """Safely add a single child to a parent without affecting existing children."""
     parent_id = payload.parent_id
     label = payload.label.strip()
-    
+
     if not label:
         raise HTTPException(status_code=422, detail="empty label")
 
@@ -165,7 +165,7 @@ async def add_child(
         if not parent_row:
             raise HTTPException(status_code=404, detail="parent not found")
         parent_depth = parent_row[0]
-        
+
         if parent_depth >= 6:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -209,9 +209,9 @@ async def add_child(
             "INSERT INTO nodes (parent_id, depth, slot, label) VALUES (?,?,?,?)",
             (parent_id, depth, next_slot, label),
         )
-        
+
         return {"ok": True, "parent_id": parent_id, "label": label, "slot": next_slot}
-        
+
     except HTTPException:
         raise
     except Exception as e:

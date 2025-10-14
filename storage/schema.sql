@@ -66,6 +66,12 @@ CREATE INDEX IF NOT EXISTS idx_node_red_flags_flag ON node_red_flags(red_flag_id
 -- Performance indexes for next incomplete parent queries
 CREATE INDEX IF NOT EXISTS idx_nodes_parent_slot ON nodes(parent_id, slot);
 
+-- Medical dictionary indexes
+CREATE INDEX IF NOT EXISTS idx_medical_dictionary_term ON medical_dictionary(term);
+CREATE INDEX IF NOT EXISTS idx_medical_dictionary_is_red_flag ON medical_dictionary(is_red_flag);
+CREATE INDEX IF NOT EXISTS idx_medical_dictionary_created_at ON medical_dictionary(created_at);
+CREATE INDEX IF NOT EXISTS idx_medical_dictionary_updated_at ON medical_dictionary(updated_at);
+
 -- ---- VIEWS ----
 
 -- Parents with exactly 5 children (fast check)
@@ -144,6 +150,33 @@ LEFT JOIN nodes n6 ON n6.parent_id = n5.id AND n6.depth = 6
 LEFT JOIN triage t ON t.node_id = COALESCE(n6.id, n5.id)
 WHERE r.depth = 0;
 
+-- Dictionary terms with tree relationship information
+CREATE VIEW IF NOT EXISTS v_dictionary_with_tree_info AS
+SELECT
+    md.id,
+    md.term,
+    md.definition,
+    md.synonyms,
+    md.is_red_flag,
+    md.avg_children_count,
+    md.conflicts_count,
+    md.created_at,
+    md.updated_at,
+    COUNT(DISTINCT n.id) as node_count,
+    GROUP_CONCAT(DISTINCT n.depth) as depths,
+    GROUP_CONCAT(DISTINCT CASE WHEN n.depth = 0 THEN 'Root'
+                               WHEN n.depth = 1 THEN 'Level 1'
+                               WHEN n.depth = 2 THEN 'Level 2'
+                               WHEN n.depth = 3 THEN 'Level 3'
+                               WHEN n.depth = 4 THEN 'Level 4'
+                               WHEN n.depth = 5 THEN 'Level 5'
+                               WHEN n.depth = 6 THEN 'Level 6'
+                               ELSE 'Unknown' END) as depth_labels
+FROM medical_dictionary md
+LEFT JOIN nodes n ON LOWER(TRIM(md.term)) = LOWER(TRIM(n.label))
+GROUP BY md.id, md.term, md.definition, md.synonyms, md.is_red_flag,
+         md.avg_children_count, md.conflicts_count, md.created_at, md.updated_at;
+
 -- ---- TRIGGERS ----
 
 -- Keep updated_at + is_leaf in sync on nodes UPDATE
@@ -204,6 +237,19 @@ CREATE TABLE IF NOT EXISTS import_jobs (
     size_bytes  INTEGER
 );
 
+-- Medical dictionary for term management
+CREATE TABLE IF NOT EXISTS medical_dictionary (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    term TEXT NOT NULL UNIQUE,
+    definition TEXT,
+    synonyms TEXT, -- JSON array as text, e.g., ["synonym1", "synonym2"]
+    is_red_flag INTEGER NOT NULL DEFAULT 0,
+    avg_children_count INTEGER DEFAULT 0,
+    conflicts_count INTEGER DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
 -- Triage only allowed for leaf nodes (depth >= 5)
 CREATE TRIGGER IF NOT EXISTS tr_triage_only_leaf
 BEFORE INSERT ON triage
@@ -223,4 +269,14 @@ BEGIN
   UPDATE triage
   SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
   WHERE node_id = NEW.node_id;
+END;
+
+-- Touch medical_dictionary.updated_at on UPDATE
+CREATE TRIGGER IF NOT EXISTS tr_medical_dictionary_touch_on_update
+AFTER UPDATE ON medical_dictionary
+FOR EACH ROW
+BEGIN
+  UPDATE medical_dictionary
+  SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+  WHERE id = NEW.id;
 END;
