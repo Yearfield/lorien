@@ -11,6 +11,7 @@ Provides hooks for OTLP export to observability backends like:
 - etc.
 """
 
+import asyncio
 import logging
 import os
 from typing import Optional
@@ -206,7 +207,7 @@ def shutdown_opentelemetry():
         logger.warning(f"Error during OpenTelemetry shutdown: {e}")
 
 
-# Convenience functions for creating spans and metrics
+# Enhanced distributed tracing utilities
 
 
 def get_tracer(name: str):
@@ -233,3 +234,215 @@ def get_meter(name: str):
         return metrics.get_meter(name)
     except ImportError:
         return None
+
+
+def create_span(tracer, operation_name: str, **attributes):
+    """
+    Create a span with common attributes and error handling.
+    
+    Args:
+        tracer: OpenTelemetry tracer
+        operation_name: Name of the operation
+        **attributes: Additional span attributes
+        
+    Returns:
+        Span context manager
+    """
+    if not tracer:
+        # Return a no-op context manager if tracing is disabled
+        from contextlib import nullcontext
+        return nullcontext()
+    
+    try:
+        from opentelemetry import trace
+        
+        span = tracer.start_span(operation_name)
+        
+        # Add common attributes
+        span.set_attribute("operation.name", operation_name)
+        span.set_attribute("service.name", "lorien-api")
+        
+        # Add custom attributes
+        for key, value in attributes.items():
+            if value is not None:
+                span.set_attribute(key, value)
+        
+        return span
+    except Exception as e:
+        logger.warning(f"Failed to create span: {e}")
+        from contextlib import nullcontext
+        return nullcontext()
+
+
+def trace_async_operation(tracer, operation_name: str):
+    """
+    Decorator for tracing async operations.
+    
+    Args:
+        tracer: OpenTelemetry tracer
+        operation_name: Name of the operation
+        
+    Returns:
+        Decorator function
+    """
+    def decorator(func):
+        async def wrapper(*args, **kwargs):
+            if not tracer:
+                return await func(*args, **kwargs)
+            
+            with tracer.start_as_current_span(operation_name) as span:
+                try:
+                    span.set_attribute("operation.name", operation_name)
+                    span.set_attribute("operation.type", "async")
+                    
+                    result = await func(*args, **kwargs)
+                    span.set_attribute("operation.success", True)
+                    return result
+                except Exception as e:
+                    span.set_attribute("operation.success", False)
+                    span.set_attribute("error.message", str(e))
+                    span.set_attribute("error.type", type(e).__name__)
+                    raise
+        
+        return wrapper
+    return decorator
+
+
+def trace_sync_operation(tracer, operation_name: str):
+    """
+    Decorator for tracing sync operations.
+    
+    Args:
+        tracer: OpenTelemetry tracer
+        operation_name: Name of the operation
+        
+    Returns:
+        Decorator function
+    """
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            if not tracer:
+                return func(*args, **kwargs)
+            
+            with tracer.start_as_current_span(operation_name) as span:
+                try:
+                    span.set_attribute("operation.name", operation_name)
+                    span.set_attribute("operation.type", "sync")
+                    
+                    result = func(*args, **kwargs)
+                    span.set_attribute("operation.success", True)
+                    return result
+                except Exception as e:
+                    span.set_attribute("operation.success", False)
+                    span.set_attribute("error.message", str(e))
+                    span.set_attribute("error.type", type(e).__name__)
+                    raise
+        
+        return wrapper
+    return decorator
+
+
+def trace_database_operation(tracer, operation_name: str, query_type: str = None):
+    """
+    Decorator for tracing database operations.
+    
+    Args:
+        tracer: OpenTelemetry tracer
+        operation_name: Name of the database operation
+        query_type: Type of SQL query (SELECT, INSERT, UPDATE, DELETE)
+        
+    Returns:
+        Decorator function
+    """
+    def decorator(func):
+        async def async_wrapper(*args, **kwargs):
+            if not tracer:
+                return await func(*args, **kwargs)
+            
+            with tracer.start_as_current_span(operation_name) as span:
+                try:
+                    span.set_attribute("operation.name", operation_name)
+                    span.set_attribute("operation.type", "database")
+                    span.set_attribute("db.operation", query_type or "unknown")
+                    span.set_attribute("db.system", "sqlite")
+                    
+                    result = await func(*args, **kwargs)
+                    span.set_attribute("operation.success", True)
+                    return result
+                except Exception as e:
+                    span.set_attribute("operation.success", False)
+                    span.set_attribute("error.message", str(e))
+                    span.set_attribute("error.type", type(e).__name__)
+                    raise
+        
+        def sync_wrapper(*args, **kwargs):
+            if not tracer:
+                return func(*args, **kwargs)
+            
+            with tracer.start_as_current_span(operation_name) as span:
+                try:
+                    span.set_attribute("operation.name", operation_name)
+                    span.set_attribute("operation.type", "database")
+                    span.set_attribute("db.operation", query_type or "unknown")
+                    span.set_attribute("db.system", "sqlite")
+                    
+                    result = func(*args, **kwargs)
+                    span.set_attribute("operation.success", True)
+                    return result
+                except Exception as e:
+                    span.set_attribute("operation.success", False)
+                    span.set_attribute("error.message", str(e))
+                    span.set_attribute("error.type", type(e).__name__)
+                    raise
+        
+        if asyncio.iscoroutinefunction(func):
+            return async_wrapper
+        else:
+            return sync_wrapper
+    
+    return decorator
+
+
+def add_span_attributes(span, **attributes):
+    """
+    Add attributes to a span safely.
+    
+    Args:
+        span: OpenTelemetry span
+        **attributes: Attributes to add
+    """
+    if not span:
+        return
+    
+    try:
+        for key, value in attributes.items():
+            if value is not None:
+                span.set_attribute(key, value)
+    except Exception as e:
+        logger.warning(f"Failed to add span attributes: {e}")
+
+
+def set_span_status(span, success: bool, error_message: str = None):
+    """
+    Set the status of a span.
+    
+    Args:
+        span: OpenTelemetry span
+        success: Whether the operation was successful
+        error_message: Error message if not successful
+    """
+    if not span:
+        return
+    
+    try:
+        from opentelemetry import trace as trace_api
+        
+        if success:
+            span.set_status(trace_api.Status(trace_api.StatusCode.OK))
+        else:
+            span.set_status(trace_api.Status(
+                trace_api.StatusCode.ERROR,
+                error_message or "Operation failed"
+            ))
+    except Exception as e:
+        logger.warning(f"Failed to set span status: {e}")

@@ -19,10 +19,20 @@ pip install -r requirements.txt
 
 ### 2. Environment Configuration
 ```bash
-# Copy example environment file
-cp .env.example .env
+# Copy security configuration template
+cp security.env.example .env
 
 # Edit .env with your settings
+ENVIRONMENT=development
+AUTH_REQUIRED=false          # Set to true to test authentication
+AUTH_TOKEN=dev-token-123     # Optional for development
+RATE_LIMIT_ENABLED=false     # Disable for development
+SECURITY_HEADERS_ENABLED=true # Enable for testing
+CORS_ORIGINS=*               # Allow all origins for development
+INPUT_VALIDATION_ENABLED=true # Keep enabled for security testing
+SECURITY_LOGGING_ENABLED=true # Enable for debugging
+
+# Legacy configuration (still supported)
 DB_PATH=lorien.db
 CORS_ALLOW_ALL=false  # Set to true for LAN testing
 LLM_ENABLED=false     # Keep disabled for safety
@@ -30,13 +40,19 @@ ANALYTICS_ENABLED=false  # Set to true for metrics collection
 ```
 
 ### Configuration (quick reference)
-- `DB_PATH` / `LORIEN_DB_PATH`: path to SQLite database
-- `CORS_ALLOW_ALL`: true for LAN/mobile testing
-- `LLM_ENABLED`: keep false unless explicitly testing guidance
-- `ANALYTICS_ENABLED`: true to surface counts/cache in `/health`
-- Flutter run: `--dart-define=API_BASE_URL=http://127.0.0.1:8000`
+- **Security Settings**:
+  - `ENVIRONMENT`: `development` or `production`
+  - `AUTH_REQUIRED`: `true` to require authentication for write operations
+  - `AUTH_TOKEN`: Bearer token for authentication (required if `AUTH_REQUIRED=true`)
+  - `RATE_LIMIT_ENABLED`: Enable rate limiting (disable for development)
+  - `SECURITY_HEADERS_ENABLED`: Enable security headers
+  - `CORS_ORIGINS`: Comma-separated list of allowed origins
+  - `INPUT_VALIDATION_ENABLED`: Enable input validation and sanitization
+- **Database**: `DB_PATH` / `LORIEN_DB_PATH`: path to SQLite database
+- **Features**: `LLM_ENABLED`, `ANALYTICS_ENABLED`: feature toggles
+- **Flutter**: `--dart-define=API_BASE_URL=http://127.0.0.1:8000`
 
-For more details, see `docs/DEVELOPMENT.md` and `docs/Monitoring_Telemetry.md`.
+For more details, see `docs/DEVELOPMENT.md`, `docs/Security.md`, and `docs/Monitoring_Telemetry.md`.
 
 ### 3. Database Setup
 ```bash
@@ -51,11 +67,22 @@ python -m storage.run_migrations
 
 ### API Development
 ```bash
-# Start FastAPI server
-uvicorn api.main:app --reload --port 8000
+# Start FastAPI server (development mode)
+uvicorn api.app:app --reload --port 8000
 
-# Health check
-curl http://localhost:8000/health
+# Health check (public endpoint)
+curl http://localhost:8000/api/v1/health
+
+# Test authentication (if AUTH_REQUIRED=true)
+curl -H "Authorization: Bearer dev-token-123" \
+  http://localhost:8000/api/v1/health
+
+# Test write operation (requires authentication)
+curl -X POST \
+  -H "Authorization: Bearer dev-token-123" \
+  -H "Content-Type: application/json" \
+  -d '{"label": "Test Parent"}' \
+  http://localhost:8000/api/v1/tree/roots
 ```
 
 ### Streamlit Development
@@ -83,7 +110,8 @@ flutter run -d linux  # or -d chrome for web
 ```
 
 ## LAN & CORS
-- Set `CORS_ALLOW_ALL=true` for LAN/mobile testing
+- **Development**: Set `CORS_ORIGINS=*` for LAN/mobile testing
+- **Production**: Set specific origins: `CORS_ORIGINS=https://yourdomain.com,https://app.yourdomain.com`
 - Configure API base in UI settings; verify with `/health` JSON
 - Android emulator: use `http://10.0.2.2:<port>`
 - iOS simulator: use `http://localhost:<port>`
@@ -95,6 +123,9 @@ flutter run -d linux  # or -d chrome for web
 ```bash
 # Run all tests
 pytest
+
+# Run security tests specifically
+pytest tests/security/
 
 # Run specific test file
 pytest tests/test_api.py

@@ -4,8 +4,9 @@ Main FastAPI application for the decision tree API - LongBow Core + VM Builder O
 
 import logging
 import os
+import sqlite3
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 
 from api.db.migrate import apply_migrations
 from api.middleware.auth import AuthMiddleware
@@ -13,6 +14,13 @@ from api.middleware.deprecation import DeprecationMiddleware
 from api.observability import ObservabilityMiddleware, setup_logging
 from api.observability.metrics import increment_counter
 from api.observability.telemetry import setup_opentelemetry, shutdown_opentelemetry
+from api.security import (
+    SecurityHeadersMiddleware,
+    RateLimitMiddleware,
+    InputValidationMiddleware,
+    get_security_config,
+)
+from api.cors import setup_cors
 from api.routers.conflicts import router as conflicts_router
 from api.routers.dictionary import router as dictionary_router
 from api.routers.health import router as health_router
@@ -22,6 +30,14 @@ from api.routers.tree_delete_restore import router as tree_delete_restore_router
 from api.routers.tree_export_router import router as export_router
 from api.settings import get_db_path
 from core.version import __version__
+from api.exceptions import (
+    handle_decision_tree_api_exception,
+    handle_generic_exception,
+    handle_http_exception,
+    handle_integrity_error,
+    handle_value_error,
+    DecisionTreeAPIException,
+)
 
 # Set up structured logging early
 log_level = os.getenv("LOG_LEVEL", "INFO")
@@ -40,9 +56,17 @@ app = FastAPI(
 
 
 @app.on_event("startup")
-def on_startup():
-    """Run startup tasks: migrations, logging, and observability."""
+def on_startup() -> None:
+    """Run startup tasks: migrations, logging, observability, and security."""
     apply_migrations(get_db_path())
+
+    # Initialize security configuration
+    security_config = get_security_config()
+    
+    # Validate security configuration
+    if security_config.is_production and not security_config.auth_token:
+        logger.error("❌ CRITICAL: Production deployment requires AUTH_TOKEN")
+        raise RuntimeError("Production deployment requires AUTH_TOKEN environment variable")
 
     # Initialize OpenTelemetry if enabled
     otel_enabled = setup_opentelemetry(
@@ -55,7 +79,10 @@ def on_startup():
         extra={
             "extra_fields": {
                 "version": __version__,
-                "auth_enabled": AuthMiddleware.is_enabled(),
+                "environment": security_config.environment,
+                "auth_required": security_config.auth_required,
+                "rate_limiting": security_config.rate_limit_enabled,
+                "security_headers": security_config.security_headers_enabled,
                 "otel_enabled": otel_enabled,
                 "json_logging": json_logging,
             }
@@ -67,7 +94,7 @@ def on_startup():
 
 
 @app.on_event("shutdown")
-def on_shutdown():
+def on_shutdown() -> None:
     """Run shutdown tasks: flush observability data."""
     logger.info("Shutting down Lorien API")
     shutdown_opentelemetry()
@@ -78,18 +105,46 @@ def on_shutdown():
 # MIDDLEWARE - Order matters! Applied in reverse order (last added = first run)
 # ============================================================================
 
-# 1. Authentication middleware (runs last, after deprecation redirects)
+# 1. Security Headers middleware (runs last, adds headers to all responses)
+#    Adds security headers like HSTS, CSP, X-Frame-Options, etc.
+app.add_middleware(SecurityHeadersMiddleware)
+
+# 2. Input Validation middleware
+#    Validates and sanitizes request inputs
+app.add_middleware(InputValidationMiddleware)
+
+# 3. Rate Limiting middleware
+#    Prevents abuse with rate limiting
+app.add_middleware(RateLimitMiddleware)
+
+# 4. Authentication middleware
 #    Enforces Bearer token auth for all write operations
 app.add_middleware(AuthMiddleware)
 
-# 2. Deprecation middleware
+# 5. Deprecation middleware
 #    Redirects legacy routes to /api/v1 with Sunset headers
 app.add_middleware(DeprecationMiddleware)
 
-# 3. Observability middleware (runs first)
+# 6. Observability middleware (runs first)
 #    Adds request/trace IDs, structured logging, and OpenTelemetry
 enable_otel = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT") is not None
 app.add_middleware(ObservabilityMiddleware, enable_otel=enable_otel)
+
+# 7. CORS middleware (configured separately)
+#    Handles cross-origin requests with security-conscious settings
+setup_cors(app)
+
+
+# ============================================================================
+# EXCEPTION HANDLERS - Order matters! More specific handlers first
+# ============================================================================
+
+# Register centralized exception handlers
+app.add_exception_handler(DecisionTreeAPIException, handle_decision_tree_api_exception)
+app.add_exception_handler(ValueError, handle_value_error)
+app.add_exception_handler(sqlite3.IntegrityError, handle_integrity_error)
+app.add_exception_handler(HTTPException, handle_http_exception)
+app.add_exception_handler(Exception, handle_generic_exception)
 
 
 # ============================================================================

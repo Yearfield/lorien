@@ -1,24 +1,29 @@
 """
-Unified authentication middleware - AUTHORITATIVE version.
+Enhanced authentication middleware with comprehensive security features.
 
-Provides comprehensive token-based authentication for all protected endpoints.
+Provides secure token-based authentication for all protected endpoints.
 This is the single source of truth for authentication in the Lorien API.
 
-Authentication is controlled via the AUTH_TOKEN environment variable:
-- If AUTH_TOKEN is not set: authentication is disabled (dev mode)
-- If AUTH_TOKEN is set: all write operations require Bearer token authentication
-- Read operations (GET, HEAD, OPTIONS) are always public
-- Health and readiness probes are always public
+Features:
+- Environment-based authentication requirements
+- Production-mandatory authentication
+- Rate limiting and brute force protection
+- Security event logging
+- Timing attack protection
+- Comprehensive error handling
 """
 
 import logging
 import os
+import time
 
 from fastapi import Request
 from fastapi.security import HTTPBearer
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp
+
+from ..security import get_security_config
 
 logger = logging.getLogger(__name__)
 
@@ -28,54 +33,48 @@ security = HTTPBearer(auto_error=False)
 
 class AuthMiddleware(BaseHTTPMiddleware):
     """
-    Authoritative authentication middleware for the Lorien API.
+    Enhanced authentication middleware with comprehensive security features.
 
-    This middleware enforces token-based authentication for all write operations
-    across the entire API surface. It is the single source of truth for auth.
+    This middleware enforces secure token-based authentication with:
+    - Environment-based authentication requirements
+    - Production-mandatory authentication
+    - Rate limiting and brute force protection
+    - Security event logging
+    - Timing attack protection
     """
-
-    # Public endpoints that never require authentication
-    PUBLIC_ENDPOINTS: set[str] = {
-        "/health",
-        "/live",
-        "/ready",
-        "/api/v1/health",
-        "/api/v1/live",
-        "/api/v1/ready",
-        "/docs",
-        "/redoc",
-        "/openapi.json",
-    }
-
-    # Read-only HTTP methods that don't require authentication
-    READ_METHODS: set[str] = {"GET", "HEAD", "OPTIONS"}
 
     def __init__(self, app: ASGIApp):
         super().__init__(app)
+        self.security_config = get_security_config()
+        self.failed_attempts: dict[str, list[float]] = {}
         self._log_startup_status()
 
     def _log_startup_status(self):
         """Log authentication status at startup."""
-        if self.is_enabled():
-            logger.info("✓ Authentication enabled - write operations require valid Bearer token")
+        if self.security_config.is_production and not self.security_config.auth_token:
+            logger.error(
+                "❌ CRITICAL: Production environment requires AUTH_TOKEN to be set"
+            )
+            raise RuntimeError("Production deployment requires AUTH_TOKEN environment variable")
+        
+        if self.security_config.auth_required:
+            logger.info("✓ Authentication REQUIRED - all write operations require valid Bearer token")
         else:
             logger.warning(
-                "⚠ Authentication DISABLED - set AUTH_TOKEN environment variable to enable"
+                "⚠ Authentication OPTIONAL - set AUTH_TOKEN and AUTH_REQUIRED=true to enable"
             )
 
-    @staticmethod
-    def is_enabled() -> bool:
-        """Check if authentication is enabled via AUTH_TOKEN environment variable."""
-        return os.getenv("AUTH_TOKEN") is not None
+    def is_enabled(self) -> bool:
+        """Check if authentication is required based on security configuration."""
+        return self.security_config.auth_required
 
-    @staticmethod
-    def get_token() -> str | None:
-        """Get the current auth token from environment."""
-        return os.getenv("AUTH_TOKEN")
+    def get_token(self) -> str | None:
+        """Get the current auth token from security configuration."""
+        return self.security_config.auth_token
 
     def _is_public_endpoint(self, path: str) -> bool:
         """Check if the endpoint is public (never requires auth)."""
-        return any(path.startswith(endpoint) for endpoint in self.PUBLIC_ENDPOINTS)
+        return self.security_config.is_endpoint_public(path)
 
     def _requires_authentication(self, request: Request) -> bool:
         """Determine if a request requires authentication."""
@@ -83,38 +82,79 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if self._is_public_endpoint(request.url.path):
             return False
 
-        # Read-only methods are always accessible
-        if request.method in self.READ_METHODS:
+        # Read-only methods are accessible if auth is not required
+        read_methods = {"GET", "HEAD", "OPTIONS"}
+        if request.method in read_methods and not self.security_config.auth_required:
             return False
 
         # All write operations require authentication when enabled
-        return True
+        return self.security_config.auth_required
+
+    def _is_rate_limited(self, client_ip: str) -> bool:
+        """Check if client is rate limited due to failed auth attempts."""
+        if client_ip not in self.failed_attempts:
+            return False
+        
+        current_time = time.time()
+        # Clean old attempts (older than 1 hour)
+        self.failed_attempts[client_ip] = [
+            attempt_time for attempt_time in self.failed_attempts[client_ip]
+            if current_time - attempt_time < 3600
+        ]
+        
+        # Check if too many failed attempts (more than 5 in 1 hour)
+        return len(self.failed_attempts[client_ip]) >= 5
+
+    def _record_failed_attempt(self, client_ip: str):
+        """Record a failed authentication attempt."""
+        current_time = time.time()
+        if client_ip not in self.failed_attempts:
+            self.failed_attempts[client_ip] = []
+        self.failed_attempts[client_ip].append(current_time)
 
     async def dispatch(self, request: Request, call_next):
         """
         Process request and enforce authentication for protected endpoints.
 
-        Flow:
-        1. Check if auth is enabled (via AUTH_TOKEN env var)
-        2. If disabled, allow all requests
-        3. If enabled, check if request requires auth
-        4. If required, validate Bearer token
-        5. If valid, proceed; otherwise return 401
+        Enhanced security flow:
+        1. Check if auth is required based on environment and configuration
+        2. If not required, allow all requests
+        3. If required, check rate limiting for failed attempts
+        4. Validate Bearer token with timing attack protection
+        5. Log security events and track failed attempts
+        6. Return appropriate error responses
         """
-        # If auth is not enabled, allow all requests
-        if not self.is_enabled():
-            return await call_next(request)
-
+        client_ip = self.security_config._get_client_ip(request)
+        
         # Check if this request requires authentication
         if not self._requires_authentication(request):
             return await call_next(request)
 
+        # Check rate limiting for failed auth attempts
+        if self._is_rate_limited(client_ip):
+            self.security_config.log_security_event("auth_rate_limited", request, {
+                "client_ip": client_ip,
+                "failed_attempts": len(self.failed_attempts.get(client_ip, []))
+            })
+            
+            return JSONResponse(
+                status_code=429,
+                content={
+                    "detail": {
+                        "error": "rate_limited",
+                        "message": "Too many failed authentication attempts. Please try again later.",
+                        "retry_after": "3600"  # 1 hour
+                    }
+                },
+            )
+
         # Extract and validate token
         auth_header = request.headers.get("Authorization")
         if not auth_header:
-            logger.warning(
-                f"Authentication required but missing: {request.method} {request.url.path}"
-            )
+            self.security_config.log_security_event("missing_auth_header", request, {
+                "client_ip": client_ip
+            })
+            
             return JSONResponse(
                 status_code=401,
                 content={
@@ -127,7 +167,11 @@ class AuthMiddleware(BaseHTTPMiddleware):
             )
 
         if not auth_header.startswith("Bearer "):
-            logger.warning(f"Invalid auth format: {request.method} {request.url.path}")
+            self.security_config.log_security_event("invalid_auth_format", request, {
+                "client_ip": client_ip,
+                "auth_header": auth_header[:20] + "..." if len(auth_header) > 20 else auth_header
+            })
+            
             return JSONResponse(
                 status_code=401,
                 content={
@@ -140,10 +184,15 @@ class AuthMiddleware(BaseHTTPMiddleware):
             )
 
         token = auth_header[7:]  # Remove "Bearer " prefix
-        expected_token = self.get_token()
-
-        if token != expected_token:
-            logger.warning(f"Invalid token attempt: {request.method} {request.url.path}")
+        
+        # Use timing-safe comparison
+        if not self.security_config.validate_auth_token(token):
+            self._record_failed_attempt(client_ip)
+            self.security_config.log_security_event("invalid_auth_token", request, {
+                "client_ip": client_ip,
+                "token_length": len(token)
+            })
+            
             return JSONResponse(
                 status_code=401,
                 content={
@@ -154,27 +203,44 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 },
             )
 
+        # Clear failed attempts on successful authentication
+        if client_ip in self.failed_attempts:
+            del self.failed_attempts[client_ip]
+
         # Log successful authentication (at debug level to avoid noise)
-        logger.debug(f"✓ Authenticated: {request.method} {request.url.path}")
+        logger.debug(f"✓ Authenticated: {request.method} {request.url.path} from {client_ip}")
 
         return await call_next(request)
 
 
 def get_auth_token() -> str | None:
     """
-    Get the current auth token from environment.
+    Get the current auth token from security configuration.
 
     Returns:
         Current AUTH_TOKEN value or None if not set
     """
-    return AuthMiddleware.get_token()
+    security_config = get_security_config()
+    return security_config.auth_token
 
 
 def is_auth_enabled() -> bool:
     """
-    Check if authentication is enabled.
+    Check if authentication is required.
 
     Returns:
-        True if AUTH_TOKEN is set, False otherwise
+        True if authentication is required, False otherwise
     """
-    return AuthMiddleware.is_enabled()
+    security_config = get_security_config()
+    return security_config.auth_required
+
+
+def get_security_config() -> 'SecurityConfig':
+    """
+    Get the security configuration instance.
+    
+    Returns:
+        Security configuration instance
+    """
+    from ..security import get_security_config
+    return get_security_config()

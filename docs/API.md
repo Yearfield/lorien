@@ -7,12 +7,72 @@ Overview
 - All endpoints use `async def` with blocking I/O wrapped in `anyio.to_thread()`
 - EngineLongBow is the ingest/export engine; UI and CLI call the API (no client-side CSV building)
 - All endpoints return JSON unless specified otherwise
-- Standard HTTP status codes: 200 (success), 201 (created), 204 (no content), 400 (bad request), 404 (not found), 409 (conflict), 422 (validation error), 500 (server error)
+- Standard HTTP status codes: 200 (success), 201 (created), 204 (no content), 400 (bad request), 401 (unauthorized), 404 (not found), 409 (conflict), 422 (validation error), 429 (rate limited), 500 (server error)
+- **Security**: Production deployments require Bearer token authentication for write operations
 
 Canonical header (frozen)
 
 ```
 D0,D1,D2,D3,D4,D5,D6,Notes
+```
+
+## Authentication & Security
+
+### Authentication Requirements
+
+- **Development**: Authentication optional (`AUTH_REQUIRED=false`)
+- **Production**: Authentication mandatory (`AUTH_REQUIRED=true`)
+- **Write Operations**: All POST, PUT, DELETE operations require valid Bearer token
+- **Read Operations**: GET, HEAD, OPTIONS operations are public (no authentication required)
+- **Public Endpoints**: Health, live, ready endpoints are always accessible
+
+### Authentication Headers
+
+```bash
+# Required for write operations in production
+Authorization: Bearer your-secure-token-here
+```
+
+### Security Features
+
+- **Rate Limiting**: Configurable request limits per IP address
+- **Input Validation**: Protection against SQL injection, XSS, path traversal
+- **Security Headers**: HSTS, CSP, X-Frame-Options, and other security headers
+- **CORS Protection**: Environment-specific origin restrictions
+- **Failed Attempt Tracking**: Automatic IP blocking after repeated failed authentication attempts
+
+### Error Responses
+
+#### Authentication Required (401)
+```json
+{
+  "detail": {
+    "error": "authentication_required",
+    "message": "Authorization header required for write operations",
+    "hint": "Include 'Authorization: Bearer <token>' header"
+  }
+}
+```
+
+#### Invalid Token (401)
+```json
+{
+  "detail": {
+    "error": "invalid_token",
+    "message": "Invalid authentication token"
+  }
+}
+```
+
+#### Rate Limited (429)
+```json
+{
+  "detail": {
+    "error": "rate_limited",
+    "message": "Too many requests",
+    "retry_after": "3600"
+  }
+}
 ```
 
 ## Health & Status
@@ -56,8 +116,12 @@ D0,D1,D2,D3,D4,D5,D6,Notes
 Examples:
 
 ```bash
+# Health check (public endpoint)
 curl -sS http://127.0.0.1:8000/api/v1/health | jq
-curl -sS http://127.0.0.1:8000/api/v1/health/metrics | jq
+
+# Health metrics (requires authentication if AUTH_REQUIRED=true)
+curl -sS -H "Authorization: Bearer $AUTH_TOKEN" \
+  http://127.0.0.1:8000/api/v1/health/metrics | jq
 ```
 
 ## Import (EngineLongBow)
@@ -115,11 +179,15 @@ curl -sS http://127.0.0.1:8000/api/v1/health/metrics | jq
 Examples:
 
 ```bash
-# Preview CSV
-curl -sS -F file=@paths.csv http://127.0.0.1:8000/api/v1/import/preview | jq
+# Preview CSV (requires authentication for write operations)
+curl -sS -F file=@paths.csv \
+  -H "Authorization: Bearer $AUTH_TOKEN" \
+  http://127.0.0.1:8000/api/v1/import/preview | jq
 
-# Apply (replace) with enforcement
-curl -sS -F file=@paths.csv "http://127.0.0.1:8000/api/v1/import?mode=replace&enforce_five=true" | jq
+# Apply (replace) with enforcement (requires authentication)
+curl -sS -F file=@paths.csv \
+  -H "Authorization: Bearer $AUTH_TOKEN" \
+  "http://127.0.0.1:8000/api/v1/import?mode=replace&enforce_five=true" | jq
 ```
 
 ## Tree Management
@@ -386,10 +454,12 @@ curl -sS -F file=@paths.csv "http://127.0.0.1:8000/api/v1/import?mode=replace&en
 ### Import Operations
 
 ```bash
-# Preview import
-curl -sS -F "file=@data.csv;type=text/csv" http://127.0.0.1:8000/api/v1/import/preview | jq .
+# Preview import (requires authentication for write operations)
+curl -sS -F "file=@data.csv;type=text/csv" \
+  -H "Authorization: Bearer $AUTH_TOKEN" \
+  http://127.0.0.1:8000/api/v1/import/preview | jq .
 
-# Apply import with enforcement
+# Apply import with enforcement (requires authentication)
 curl -sS -F "file=@data.csv;type=text/csv" \
   "http://127.0.0.1:8000/api/v1/import?mode=replace&enforce_five=true" | jq .
 ```

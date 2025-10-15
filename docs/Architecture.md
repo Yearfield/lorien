@@ -12,7 +12,15 @@ Flutter Shell (Desktop)
         |                               ^
         |  REST (JSON + CSV/XLSX)       |
         v                               |
-FastAPI (VM Core) — Fully Async
+FastAPI (VM Core) — Fully Async + Security
+  Middleware Stack (in order):
+    • CORS — Cross-origin request handling
+    • Observability — Request tracing & logging
+    • Deprecation — Legacy route redirects
+    • Authentication — Bearer token validation
+    • Rate Limiting — Request & auth attempt limiting
+    • Input Validation — XSS, SQL injection protection
+    • Security Headers — HSTS, CSP, X-Frame-Options
   Routers: health | import | export | tree_basic | dictionary | conflicts
         |   ^                     |                    ^
         |   |                     v                    |
@@ -35,11 +43,21 @@ Configuration
 
 - Flutter: `--dart-define=API_BASE` (e.g., `http://127.0.0.1:8000/api/v1`)
 - API: `LORIEN_DB_PATH` points to SQLite file; WAL enabled
+- Security: Environment-based configuration with production defaults
+
+Security Configuration
+
+- **Environment-based**: Automatic security enforcement in production
+- **Authentication**: Bearer token required for write operations in production
+- **Rate Limiting**: Configurable request and authentication attempt limits
+- **Input Validation**: Comprehensive protection against injection attacks
+- **Security Headers**: HTTP security headers for browser protection
+- **CORS**: Environment-specific origin restrictions
 
 Versioning & health
 
 - All endpoints mounted under `/api/v1`
-- `/api/v1/health` returns: version, DB path, journal mode, table count, node count
+- `/api/v1/health` returns: version, DB path, journal mode, table count, node count, security status
 
 Async Architecture
 
@@ -49,6 +67,15 @@ Async Architecture
 - Repository layer (`TreeRepository`) uses async methods for all database operations
 - EngineLongBow functions (import/export) are wrapped in thread offloading when called from async routers
 - Zero blocking I/O in the async event loop ensures high concurrency and responsiveness
+
+Security Architecture
+
+- **Middleware Stack**: Security middleware applied in specific order for optimal protection
+- **Authentication Flow**: Token validation with timing attack protection and failed attempt tracking
+- **Input Sanitization**: All user inputs validated and sanitized before processing
+- **Rate Limiting**: In-memory tracking with automatic cleanup for DoS protection
+- **Security Logging**: Comprehensive audit trail for all security events
+- **Environment Detection**: Automatic security enforcement based on deployment environment
 
 Data model (SQLite)
 

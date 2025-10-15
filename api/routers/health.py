@@ -15,7 +15,11 @@ from core.version import __version__
 
 from ..dependencies import get_db_connection
 from ..middleware.auth import AuthMiddleware
+from ..observability import get_health_status, get_metrics_snapshot, get_error_tracker
 from ..settings import get_db_path
+from ..db.init import get_database_manager
+from ..db.monitoring import get_database_monitor
+from ..db.cache import get_query_cache
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +27,7 @@ router = APIRouter(tags=["health"])
 
 
 @router.get("/health")
-async def health_check(conn: sqlite3.Connection = Depends(get_db_connection)):
+async def health_check(conn: sqlite3.Connection = Depends(get_db_connection)) -> dict[str, Any]:
     """
     Comprehensive health check endpoint.
 
@@ -38,6 +42,13 @@ async def health_check(conn: sqlite3.Connection = Depends(get_db_connection)):
         if status_value == "ok" and feature_flags.get("llm_requested") and not llm_enabled:
             status_value = "degraded"
 
+        # Get observability metrics
+        error_health = get_health_status()
+        metrics_snapshot = get_metrics_snapshot()
+        
+        # Get enhanced database information
+        enhanced_db_info = await _get_enhanced_database_info(conn)
+        
         return {
             "ok": status_value == "ok",
             "status": status_value,
@@ -50,8 +61,22 @@ async def health_check(conn: sqlite3.Connection = Depends(get_db_connection)):
                 "nodes": db_stats["nodes"],
                 "integrity": db_stats["integrity"],
                 "objects": db_stats.get("objects", 0),
+                **enhanced_db_info
             },
             "features": feature_flags,
+            "observability": {
+                "error_tracking": {
+                    "status": error_health["status"],
+                    "recent_errors": error_health["recent_errors"]["total"],
+                    "error_severity": error_health["recent_errors"]["by_severity"],
+                },
+                "metrics": {
+                    "uptime_seconds": metrics_snapshot["uptime_seconds"],
+                    "total_requests": metrics_snapshot.get("counters", {}).get("http.requests", 0),
+                    "total_errors": metrics_snapshot.get("counters", {}).get("api.errors", 0),
+                    "performance_profiles": metrics_snapshot.get("performance_profiles", {}).get("count", 0),
+                },
+            },
         }
     except Exception as exc:  # pragma: no cover - defensive logging
         logger.exception("Health check failed")
@@ -73,7 +98,7 @@ async def health_check(conn: sqlite3.Connection = Depends(get_db_connection)):
 
 
 @router.get("/health/metrics")
-async def health_metrics(request: Request):
+async def health_metrics(request: Request) -> dict[str, Any]:
     """
     Observability metrics endpoint with authentication.
 
@@ -140,6 +165,66 @@ async def health_metrics(request: Request):
         "observability": observability_metrics,
         "database": legacy_metrics,
     }
+
+
+async def _get_enhanced_database_info(conn: sqlite3.Connection) -> dict[str, Any]:
+    """Get enhanced database information including performance metrics."""
+    enhanced_info = {}
+    
+    try:
+        # Get database manager info
+        try:
+            db_manager = get_database_manager()
+            enhanced_info["manager"] = await db_manager.get_database_info()
+        except RuntimeError:
+            enhanced_info["manager"] = {"error": "Database manager not initialized"}
+        
+        # Get connection pool stats
+        try:
+            from api.db.connection_pool import get_connection_pool
+            pool = get_connection_pool()
+            enhanced_info["connection_pool"] = pool.get_stats().__dict__
+        except RuntimeError:
+            enhanced_info["connection_pool"] = {"error": "Connection pool not initialized"}
+        
+        # Get cache stats
+        try:
+            cache = get_query_cache()
+            enhanced_info["cache"] = await cache.get_cache_info()
+        except RuntimeError:
+            enhanced_info["cache"] = {"error": "Query cache not initialized"}
+        
+        # Get monitoring stats
+        try:
+            monitor = get_database_monitor()
+            enhanced_info["monitoring"] = monitor.get_performance_summary()
+            enhanced_info["optimization_recommendations"] = monitor.get_optimization_recommendations()
+        except RuntimeError:
+            enhanced_info["monitoring"] = {"error": "Database monitor not initialized"}
+        
+        # Get database health check
+        try:
+            monitor = get_database_monitor()
+            health = await monitor.check_database_health(conn)
+            enhanced_info["health"] = {
+                "status": health.status,
+                "integrity_check": health.integrity_check,
+                "table_count": health.table_count,
+                "index_count": health.index_count,
+                "database_size_mb": health.database_size_mb,
+                "wal_size_mb": health.wal_size_mb,
+                "cache_hit_ratio": health.cache_hit_ratio,
+                "slow_queries_count": health.slow_queries_count,
+                "alerts_count": len(health.alerts)
+            }
+        except RuntimeError:
+            enhanced_info["health"] = {"error": "Database monitor not initialized"}
+        
+    except Exception as e:
+        logger.error(f"Error getting enhanced database info: {e}")
+        enhanced_info["error"] = str(e)
+    
+    return enhanced_info
 
 
 async def _check_database_health(conn: sqlite3.Connection) -> dict[str, Any]:
@@ -318,3 +403,63 @@ async def ready(conn: sqlite3.Connection = Depends(get_db_connection)) -> dict[s
     )
     ok = await anyio.to_thread.run_sync(cur.fetchone) is not None
     return {"status": "ready" if ok else "not_ready", "db": {"has_nodes_table": ok}}
+
+
+@router.get("/metrics")
+async def get_metrics() -> dict[str, Any]:
+    """
+    Get detailed metrics and performance data.
+    
+    Returns:
+        200 with comprehensive metrics snapshot
+    """
+    try:
+        metrics = get_metrics_snapshot()
+        return {
+            "timestamp": metrics["timestamp"],
+            "uptime_seconds": metrics["uptime_seconds"],
+            "metrics": metrics,
+        }
+    except Exception as exc:
+        logger.exception("Failed to get metrics")
+        raise HTTPException(status_code=500, detail="Failed to retrieve metrics")
+
+
+@router.get("/errors")
+async def get_error_status() -> dict[str, Any]:
+    """
+    Get error tracking and health status.
+    
+    Returns:
+        200 with error tracking data
+    """
+    try:
+        error_health = get_health_status()
+        error_patterns = get_error_tracker().get_error_patterns(limit=50)
+        
+        return {
+            "health": error_health,
+            "recent_patterns": error_patterns,
+        }
+    except Exception as exc:
+        logger.exception("Failed to get error status")
+        raise HTTPException(status_code=500, detail="Failed to retrieve error status")
+
+
+@router.get("/observability")
+async def get_observability_status() -> dict[str, Any]:
+    """
+    Get comprehensive observability status.
+    
+    Returns:
+        200 with full observability data
+    """
+    try:
+        return {
+            "health": get_health_status(),
+            "metrics": get_metrics_snapshot(),
+            "error_patterns": get_error_tracker().get_error_patterns(limit=100),
+        }
+    except Exception as exc:
+        logger.exception("Failed to get observability status")
+        raise HTTPException(status_code=500, detail="Failed to retrieve observability status")

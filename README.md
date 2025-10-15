@@ -35,29 +35,45 @@ Key contracts
 Quick start
 
 ```bash
-# Backend (VM Core)
+# Backend (VM Core) - Development
 export LORIEN_DB_PATH=/tmp/lorien.db
+export ENVIRONMENT=development
+export AUTH_REQUIRED=false
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn api.app:app --reload --host 127.0.0.1 --port 8000
+
+# Backend (VM Core) - Production
+export LORIEN_DB_PATH=/secure/path/lorien.db
+export ENVIRONMENT=production
+export AUTH_TOKEN=$(python3 -c "import secrets; print(secrets.token_urlsafe(32))")
+export AUTH_REQUIRED=true
+export RATE_LIMIT_ENABLED=true
+export SECURITY_HEADERS_ENABLED=true
+export CORS_ORIGINS=https://yourdomain.com
+uvicorn api.app:app --host 127.0.0.1 --port 8000
 
 # Health probes
 curl -sS http://127.0.0.1:8000/api/v1/live | jq .
 curl -sS http://127.0.0.1:8000/api/v1/ready | jq .
 curl -sS http://127.0.0.1:8000/api/v1/health | jq .
 
-# Conflicts resolution
+# Conflicts resolution (with authentication for write operations)
 curl -sS http://127.0.0.1:8000/api/v1/conflicts/scan | jq
 curl -sS -X POST -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $AUTH_TOKEN" \
   -d '{"label":"hypertension","selected_children":["headache","nausea","vomiting","chest pain","myalgia"],"dry_run":true}' \
   http://127.0.0.1:8000/api/v1/conflicts/resolve | jq
 
-# Parent rename & merge
+# Parent rename & merge (with authentication for write operations)
 curl -sS "http://127.0.0.1:8000/api/v1/tree/search-by-label?label=coughing" | jq .
 curl -sS -X PUT "http://127.0.0.1:8000/api/v1/tree/node/252/rename" \
-  -H "Content-Type: application/json" -d '{"label": "Cough"}' | jq .
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $AUTH_TOKEN" \
+  -d '{"label": "Cough"}' | jq .
 curl -sS -X POST "http://127.0.0.1:8000/api/v1/tree/merge-parents" \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $AUTH_TOKEN" \
   -d '{"current_parent_id": 553, "existing_parent_id": 252, "selected_children": ["Dry Cough", "Wet Cough", "Hemoptysis", "Shortness of breath", "Fever"]}' | jq .
 
 # Flutter (Linux example)
@@ -82,6 +98,16 @@ See `docs/CI.md` for CI pipeline details and `docs/CONTRIBUTING.md` for contribu
 
 ## Recent Updates
 
+### Comprehensive Security Hardening (2025-01-08)
+
+- **Production-Mandatory Authentication**: Automatic authentication enforcement in production environments
+- **Advanced Rate Limiting**: Request rate limiting and failed authentication attempt tracking
+- **Input Validation & Sanitization**: Protection against SQL injection, XSS, path traversal, and command injection
+- **Security Headers**: Complete HTTP security headers including HSTS, CSP, and X-Frame-Options
+- **Secure CORS Configuration**: Environment-based CORS policies with production-safe defaults
+- **Comprehensive Security Logging**: Detailed audit trail for all security events
+- **Environment-Based Security**: Automatic security enforcement based on deployment environment
+
 ### Async Architecture & Thread Offloading (2025-01-08)
 
 - **Fully Async API**: All endpoints converted to `async def` with non-blocking I/O
@@ -103,6 +129,8 @@ See `docs/CI.md` for CI pipeline details and `docs/CONTRIBUTING.md` for contribu
 - Dev Quickstart: ./Dev_Quickstart.md
 - Architecture: ./docs/Architecture.md
 - API: ./docs/API.md
+- Security Guide: ./docs/Security.md
+- Security Deployment: ./docs/Security_Deployment.md
 - UI Guide: ./docs/UI_Guide.md
 - Conflicts Resolution: ./docs/Conflicts_Resolution.md
 - Runbook: ./docs/Runbook.md

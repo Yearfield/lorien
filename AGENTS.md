@@ -33,6 +33,7 @@ Think of this as “what every new agent should know before starting.”
    - Includes WAL-safe backup/restore
    - Serves health metadata: version, db state, feature flags (e.g., LLM)
    - **NEW**: Parent rename/merge endpoints with automatic duplicate detection and children selection
+   - **SECURITY**: Production-mandatory authentication, rate limiting, input validation, security headers
 
 3. **Flutter Desktop UI**
    - Editor + Parent detail flow, state via Riverpod
@@ -89,6 +90,10 @@ Cursor should know the landscape:
   → Issue: Conflicts screen couldn't navigate to VM Builder with specific parent ID
   → Solution: Implement callback system with Riverpod state management for cross-pane navigation
 
+- **Security vulnerabilities** in production deployments
+  → Issue: No authentication, rate limiting, or input validation in production
+  → Solution: Implemented comprehensive security middleware stack with environment-based configuration
+
 ---
 
 ## Dev Workflow & Patterns
@@ -104,14 +109,25 @@ Cursor should know the landscape:
 - After each patch, run:
   - `flutter run -d linux --dart-define=API_BASE_URL=...`
   - Verify PrettyDioLogger shows correct endpoints & payloads
+- **Security Testing**: Test authentication and security features in both development and production modes
+- **Environment Configuration**: Always test with both `ENVIRONMENT=development` and `ENVIRONMENT=production`
 
 ### Rapid Sanity Checks
 
 Use CLI or curl to verify backend:
 
 ```bash
-curl http://127.0.0.1:8000/tree/next-incomplete-parent | jq .
-curl -i GET /tree/1/children
+# Development mode (no authentication required)
+curl http://127.0.0.1:8000/api/v1/tree/next-incomplete-parent | jq .
+curl -i GET http://127.0.0.1:8000/api/v1/tree/1/children
+
+# Production mode (authentication required for write operations)
+curl -H "Authorization: Bearer $AUTH_TOKEN" \
+  http://127.0.0.1:8000/api/v1/tree/next-incomplete-parent | jq .
+curl -H "Authorization: Bearer $AUTH_TOKEN" \
+  -i POST http://127.0.0.1:8000/api/v1/tree/roots \
+  -H "Content-Type: application/json" \
+  -d '{"label": "Test Root"}'
 
 Codegen
 
@@ -150,25 +166,31 @@ CI snapshot for dev → test → release
 Guide testers on CLI-based Excel import workflow
 
 ### Cursor Best Practices & Tips
-    Be explicit about assumptions when they’re necessary (e.g., assume only 1 root parent exists)
+    Be explicit about assumptions when they're necessary (e.g., assume only 1 root parent exists)
     Code references: always mention file names and approximate line numbers
     Use structured diff blocks for patches so they apply seamlessly
     Use PrettyDioLogger output in troubleshooting to pinpoint misaligned endpoints
     Respect safety and medical limitations; flag any requests that may breach guidance-only policy
+    **Security**: Always test authentication and security features when making API changes
+    **Environment**: Test changes in both development and production security configurations
+    **Documentation**: Update security documentation when adding new endpoints or changing authentication requirements
 
 ### Summary Table
 Layer Key Details
 Core SQLite, 5-child enforce, schema
-Backend FastAPI, health + API contracts
+Backend FastAPI, health + API contracts + security middleware
 Frontend Flutter desktop, Riverpod, queues
 Prototyping Streamlit adapter
 Extensions Optional LLM suggestion flow
+Security Authentication, rate limiting, input validation, security headers
 
 See also
 - README: ./README.md
 - Dev Quickstart: ./Dev_Quickstart.md
 - Architecture: ./docs/Architecture.md
 - API: ./docs/API.md
+- Security Guide: ./docs/Security.md
+- Security Deployment: ./docs/Security_Deployment.md
 - UI Guide: ./docs/UI_Guide.md
 - Runbook: ./docs/Runbook.md
 - Migration: ./docs/Migration.md
