@@ -14,7 +14,6 @@ Features:
 """
 
 import logging
-import os
 import time
 
 from fastapi import Request
@@ -52,13 +51,13 @@ class AuthMiddleware(BaseHTTPMiddleware):
     def _log_startup_status(self):
         """Log authentication status at startup."""
         if self.security_config.is_production and not self.security_config.auth_token:
-            logger.error(
-                "❌ CRITICAL: Production environment requires AUTH_TOKEN to be set"
-            )
+            logger.error("❌ CRITICAL: Production environment requires AUTH_TOKEN to be set")
             raise RuntimeError("Production deployment requires AUTH_TOKEN environment variable")
-        
+
         if self.security_config.auth_required:
-            logger.info("✓ Authentication REQUIRED - all write operations require valid Bearer token")
+            logger.info(
+                "✓ Authentication REQUIRED - all write operations require valid Bearer token"
+            )
         else:
             logger.warning(
                 "⚠ Authentication OPTIONAL - set AUTH_TOKEN and AUTH_REQUIRED=true to enable"
@@ -94,14 +93,15 @@ class AuthMiddleware(BaseHTTPMiddleware):
         """Check if client is rate limited due to failed auth attempts."""
         if client_ip not in self.failed_attempts:
             return False
-        
+
         current_time = time.time()
         # Clean old attempts (older than 1 hour)
         self.failed_attempts[client_ip] = [
-            attempt_time for attempt_time in self.failed_attempts[client_ip]
+            attempt_time
+            for attempt_time in self.failed_attempts[client_ip]
             if current_time - attempt_time < 3600
         ]
-        
+
         # Check if too many failed attempts (more than 5 in 1 hour)
         return len(self.failed_attempts[client_ip]) >= 5
 
@@ -125,25 +125,29 @@ class AuthMiddleware(BaseHTTPMiddleware):
         6. Return appropriate error responses
         """
         client_ip = self.security_config._get_client_ip(request)
-        
+
         # Check if this request requires authentication
         if not self._requires_authentication(request):
             return await call_next(request)
 
         # Check rate limiting for failed auth attempts
         if self._is_rate_limited(client_ip):
-            self.security_config.log_security_event("auth_rate_limited", request, {
-                "client_ip": client_ip,
-                "failed_attempts": len(self.failed_attempts.get(client_ip, []))
-            })
-            
+            self.security_config.log_security_event(
+                "auth_rate_limited",
+                request,
+                {
+                    "client_ip": client_ip,
+                    "failed_attempts": len(self.failed_attempts.get(client_ip, [])),
+                },
+            )
+
             return JSONResponse(
                 status_code=429,
                 content={
                     "detail": {
                         "error": "rate_limited",
                         "message": "Too many failed authentication attempts. Please try again later.",
-                        "retry_after": "3600"  # 1 hour
+                        "retry_after": "3600",  # 1 hour
                     }
                 },
             )
@@ -151,10 +155,10 @@ class AuthMiddleware(BaseHTTPMiddleware):
         # Extract and validate token
         auth_header = request.headers.get("Authorization")
         if not auth_header:
-            self.security_config.log_security_event("missing_auth_header", request, {
-                "client_ip": client_ip
-            })
-            
+            self.security_config.log_security_event(
+                "missing_auth_header", request, {"client_ip": client_ip}
+            )
+
             return JSONResponse(
                 status_code=401,
                 content={
@@ -167,11 +171,17 @@ class AuthMiddleware(BaseHTTPMiddleware):
             )
 
         if not auth_header.startswith("Bearer "):
-            self.security_config.log_security_event("invalid_auth_format", request, {
-                "client_ip": client_ip,
-                "auth_header": auth_header[:20] + "..." if len(auth_header) > 20 else auth_header
-            })
-            
+            self.security_config.log_security_event(
+                "invalid_auth_format",
+                request,
+                {
+                    "client_ip": client_ip,
+                    "auth_header": auth_header[:20] + "..."
+                    if len(auth_header) > 20
+                    else auth_header,
+                },
+            )
+
             return JSONResponse(
                 status_code=401,
                 content={
@@ -184,15 +194,14 @@ class AuthMiddleware(BaseHTTPMiddleware):
             )
 
         token = auth_header[7:]  # Remove "Bearer " prefix
-        
+
         # Use timing-safe comparison
         if not self.security_config.validate_auth_token(token):
             self._record_failed_attempt(client_ip)
-            self.security_config.log_security_event("invalid_auth_token", request, {
-                "client_ip": client_ip,
-                "token_length": len(token)
-            })
-            
+            self.security_config.log_security_event(
+                "invalid_auth_token", request, {"client_ip": client_ip, "token_length": len(token)}
+            )
+
             return JSONResponse(
                 status_code=401,
                 content={
@@ -235,12 +244,4 @@ def is_auth_enabled() -> bool:
     return security_config.auth_required
 
 
-def get_security_config() -> 'SecurityConfig':
-    """
-    Get the security configuration instance.
-    
-    Returns:
-        Security configuration instance
-    """
-    from ..security import get_security_config
-    return get_security_config()
+# Removed duplicate function definition - using the one from security.py

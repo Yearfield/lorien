@@ -13,13 +13,13 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from core.version import __version__
 
-from ..dependencies import get_db_connection
-from ..middleware.auth import AuthMiddleware
-from ..observability import get_health_status, get_metrics_snapshot, get_error_tracker
-from ..settings import get_db_path
+from ..db.cache import get_query_cache
 from ..db.init import get_database_manager
 from ..db.monitoring import get_database_monitor
-from ..db.cache import get_query_cache
+from ..dependencies import get_db_connection
+from ..middleware.auth import AuthMiddleware
+from ..observability import get_error_tracker, get_health_status, get_metrics_snapshot
+from ..settings import get_db_path
 
 logger = logging.getLogger(__name__)
 
@@ -45,10 +45,10 @@ async def health_check(conn: sqlite3.Connection = Depends(get_db_connection)) ->
         # Get observability metrics
         error_health = get_health_status()
         metrics_snapshot = get_metrics_snapshot()
-        
+
         # Get enhanced database information
         enhanced_db_info = await _get_enhanced_database_info(conn)
-        
+
         return {
             "ok": status_value == "ok",
             "status": status_value,
@@ -61,7 +61,7 @@ async def health_check(conn: sqlite3.Connection = Depends(get_db_connection)) ->
                 "nodes": db_stats["nodes"],
                 "integrity": db_stats["integrity"],
                 "objects": db_stats.get("objects", 0),
-                **enhanced_db_info
+                **enhanced_db_info,
             },
             "features": feature_flags,
             "observability": {
@@ -74,7 +74,9 @@ async def health_check(conn: sqlite3.Connection = Depends(get_db_connection)) ->
                     "uptime_seconds": metrics_snapshot["uptime_seconds"],
                     "total_requests": metrics_snapshot.get("counters", {}).get("http.requests", 0),
                     "total_errors": metrics_snapshot.get("counters", {}).get("api.errors", 0),
-                    "performance_profiles": metrics_snapshot.get("performance_profiles", {}).get("count", 0),
+                    "performance_profiles": metrics_snapshot.get("performance_profiles", {}).get(
+                        "count", 0
+                    ),
                 },
             },
         }
@@ -170,7 +172,7 @@ async def health_metrics(request: Request) -> dict[str, Any]:
 async def _get_enhanced_database_info(conn: sqlite3.Connection) -> dict[str, Any]:
     """Get enhanced database information including performance metrics."""
     enhanced_info = {}
-    
+
     try:
         # Get database manager info
         try:
@@ -178,30 +180,33 @@ async def _get_enhanced_database_info(conn: sqlite3.Connection) -> dict[str, Any
             enhanced_info["manager"] = await db_manager.get_database_info()
         except RuntimeError:
             enhanced_info["manager"] = {"error": "Database manager not initialized"}
-        
+
         # Get connection pool stats
         try:
             from api.db.connection_pool import get_connection_pool
+
             pool = get_connection_pool()
             enhanced_info["connection_pool"] = pool.get_stats().__dict__
         except RuntimeError:
             enhanced_info["connection_pool"] = {"error": "Connection pool not initialized"}
-        
+
         # Get cache stats
         try:
             cache = get_query_cache()
             enhanced_info["cache"] = await cache.get_cache_info()
         except RuntimeError:
             enhanced_info["cache"] = {"error": "Query cache not initialized"}
-        
+
         # Get monitoring stats
         try:
             monitor = get_database_monitor()
             enhanced_info["monitoring"] = monitor.get_performance_summary()
-            enhanced_info["optimization_recommendations"] = monitor.get_optimization_recommendations()
+            enhanced_info[
+                "optimization_recommendations"
+            ] = monitor.get_optimization_recommendations()
         except RuntimeError:
             enhanced_info["monitoring"] = {"error": "Database monitor not initialized"}
-        
+
         # Get database health check
         try:
             monitor = get_database_monitor()
@@ -215,15 +220,15 @@ async def _get_enhanced_database_info(conn: sqlite3.Connection) -> dict[str, Any
                 "wal_size_mb": health.wal_size_mb,
                 "cache_hit_ratio": health.cache_hit_ratio,
                 "slow_queries_count": health.slow_queries_count,
-                "alerts_count": len(health.alerts)
+                "alerts_count": len(health.alerts),
             }
         except RuntimeError:
             enhanced_info["health"] = {"error": "Database monitor not initialized"}
-        
+
     except Exception as e:
         logger.error(f"Error getting enhanced database info: {e}")
         enhanced_info["error"] = str(e)
-    
+
     return enhanced_info
 
 
@@ -409,7 +414,7 @@ async def ready(conn: sqlite3.Connection = Depends(get_db_connection)) -> dict[s
 async def get_metrics() -> dict[str, Any]:
     """
     Get detailed metrics and performance data.
-    
+
     Returns:
         200 with comprehensive metrics snapshot
     """
@@ -420,7 +425,7 @@ async def get_metrics() -> dict[str, Any]:
             "uptime_seconds": metrics["uptime_seconds"],
             "metrics": metrics,
         }
-    except Exception as exc:
+    except Exception:
         logger.exception("Failed to get metrics")
         raise HTTPException(status_code=500, detail="Failed to retrieve metrics")
 
@@ -429,19 +434,19 @@ async def get_metrics() -> dict[str, Any]:
 async def get_error_status() -> dict[str, Any]:
     """
     Get error tracking and health status.
-    
+
     Returns:
         200 with error tracking data
     """
     try:
         error_health = get_health_status()
         error_patterns = get_error_tracker().get_error_patterns(limit=50)
-        
+
         return {
             "health": error_health,
             "recent_patterns": error_patterns,
         }
-    except Exception as exc:
+    except Exception:
         logger.exception("Failed to get error status")
         raise HTTPException(status_code=500, detail="Failed to retrieve error status")
 
@@ -450,7 +455,7 @@ async def get_error_status() -> dict[str, Any]:
 async def get_observability_status() -> dict[str, Any]:
     """
     Get comprehensive observability status.
-    
+
     Returns:
         200 with full observability data
     """
@@ -460,6 +465,6 @@ async def get_observability_status() -> dict[str, Any]:
             "metrics": get_metrics_snapshot(),
             "error_patterns": get_error_tracker().get_error_patterns(limit=100),
         }
-    except Exception as exc:
+    except Exception:
         logger.exception("Failed to get observability status")
         raise HTTPException(status_code=500, detail="Failed to retrieve observability status")

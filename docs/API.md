@@ -44,6 +44,7 @@ Authorization: Bearer your-secure-token-here
 ### Error Responses
 
 #### Authentication Required (401)
+
 ```json
 {
   "detail": {
@@ -55,6 +56,7 @@ Authorization: Bearer your-secure-token-here
 ```
 
 #### Invalid Token (401)
+
 ```json
 {
   "detail": {
@@ -65,6 +67,7 @@ Authorization: Bearer your-secure-token-here
 ```
 
 #### Rate Limited (429)
+
 ```json
 {
   "detail": {

@@ -8,19 +8,21 @@ import sqlite3
 
 from fastapi import FastAPI, HTTPException
 
+from api.cors import setup_cors
 from api.db.migrate import apply_migrations
+from api.exceptions import (
+    DecisionTreeAPIException,
+    handle_decision_tree_api_exception,
+    handle_generic_exception,
+    handle_http_exception,
+    handle_integrity_error,
+    handle_value_error,
+)
 from api.middleware.auth import AuthMiddleware
 from api.middleware.deprecation import DeprecationMiddleware
 from api.observability import ObservabilityMiddleware, setup_logging
 from api.observability.metrics import increment_counter
 from api.observability.telemetry import setup_opentelemetry, shutdown_opentelemetry
-from api.security import (
-    SecurityHeadersMiddleware,
-    RateLimitMiddleware,
-    InputValidationMiddleware,
-    get_security_config,
-)
-from api.cors import setup_cors
 from api.routers.conflicts import router as conflicts_router
 from api.routers.dictionary import router as dictionary_router
 from api.routers.health import router as health_router
@@ -28,16 +30,14 @@ from api.routers.import_router import router as import_router
 from api.routers.tree_basic import router as tree_basic_router
 from api.routers.tree_delete_restore import router as tree_delete_restore_router
 from api.routers.tree_export_router import router as export_router
+from api.security import (
+    InputValidationMiddleware,
+    RateLimitMiddleware,
+    SecurityHeadersMiddleware,
+    get_security_config,
+)
 from api.settings import get_db_path
 from core.version import __version__
-from api.exceptions import (
-    handle_decision_tree_api_exception,
-    handle_generic_exception,
-    handle_http_exception,
-    handle_integrity_error,
-    handle_value_error,
-    DecisionTreeAPIException,
-)
 
 # Set up structured logging early
 log_level = os.getenv("LOG_LEVEL", "INFO")
@@ -62,7 +62,7 @@ def on_startup() -> None:
 
     # Initialize security configuration
     security_config = get_security_config()
-    
+
     # Validate security configuration
     if security_config.is_production and not security_config.auth_token:
         logger.error("❌ CRITICAL: Production deployment requires AUTH_TOKEN")

@@ -28,6 +28,7 @@ The original SQLite implementation had several performance bottlenecks:
 - **Automatic Cleanup**: Proper connection lifecycle management
 
 **Benefits**:
+
 - 60-80% reduction in connection overhead
 - Better resource utilization
 - Configurable connection limits prevent resource exhaustion
@@ -60,6 +61,7 @@ async with pool.get_connection() as conn:
 - **Statistics**: Comprehensive cache performance metrics
 
 **Benefits**:
+
 - 70-90% reduction in database queries for repeated operations
 - Sub-millisecond response times for cached queries
 - Intelligent invalidation prevents stale data
@@ -96,6 +98,7 @@ await cache.set(
 - **Historical Analysis**: Trend analysis and performance reporting
 
 **Benefits**:
+
 - Proactive performance issue detection
 - Data-driven optimization decisions
 - Historical performance tracking
@@ -132,13 +135,14 @@ recommendations = monitor.get_optimization_recommendations()
 - **Optimized Views**: Pre-computed views for common queries
 
 **Key Indexes Added**:
+
 ```sql
 -- Covering index for children queries
-CREATE INDEX idx_nodes_children_covering ON nodes(parent_id, slot, id, label, depth, is_leaf) 
+CREATE INDEX idx_nodes_children_covering ON nodes(parent_id, slot, id, label, depth, is_leaf)
 WHERE parent_id IS NOT NULL;
 
 -- Partial index for incomplete parents
-CREATE INDEX idx_nodes_incomplete_parents ON nodes(id, depth, parent_id) 
+CREATE INDEX idx_nodes_incomplete_parents ON nodes(id, depth, parent_id)
 WHERE depth < 5 AND parent_id IS NOT NULL;
 
 -- Full-text search index
@@ -146,6 +150,7 @@ CREATE INDEX idx_nodes_label_fts ON nodes(label COLLATE NOCASE);
 ```
 
 **Benefits**:
+
 - 50-80% improvement in query performance
 - Optimized for common query patterns
 - Reduced database file size through efficient indexing
@@ -163,6 +168,7 @@ CREATE INDEX idx_nodes_label_fts ON nodes(label COLLATE NOCASE);
 - **Optimized Queries**: Pre-optimized queries for common operations
 
 **Benefits**:
+
 - Seamless integration of all performance features
 - Consistent API with automatic optimizations
 - Built-in monitoring and error handling
@@ -180,6 +186,7 @@ CREATE INDEX idx_nodes_label_fts ON nodes(label COLLATE NOCASE);
 - **Alerting**: Performance alerts and recommendations
 
 **Benefits**:
+
 - Real-time visibility into database performance
 - Proactive issue detection
 - Comprehensive monitoring dashboard

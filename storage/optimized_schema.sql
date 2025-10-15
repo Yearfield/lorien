@@ -93,20 +93,20 @@ CREATE INDEX IF NOT EXISTS idx_parent_version_parent_id ON tree_parent_version(p
 -- ---- COVERING INDEXES FOR COMMON QUERIES ----
 
 -- Covering index for children queries (includes all commonly accessed columns)
-CREATE INDEX IF NOT EXISTS idx_nodes_children_covering ON nodes(parent_id, slot, id, label, depth, is_leaf) 
+CREATE INDEX IF NOT EXISTS idx_nodes_children_covering ON nodes(parent_id, slot, id, label, depth, is_leaf)
 WHERE parent_id IS NOT NULL;
 
 -- Covering index for depth-based queries
 CREATE INDEX IF NOT EXISTS idx_nodes_depth_covering ON nodes(depth, id, label, parent_id, is_leaf);
 
 -- Covering index for leaf node queries
-CREATE INDEX IF NOT EXISTS idx_nodes_leaf_covering ON nodes(is_leaf, id, label, parent_id, depth) 
+CREATE INDEX IF NOT EXISTS idx_nodes_leaf_covering ON nodes(is_leaf, id, label, parent_id, depth)
 WHERE is_leaf = 1;
 
 -- ---- PARTIAL INDEXES FOR OPTIMIZATION ----
 
 -- Index for incomplete parents (depth < 5 with < 5 children)
-CREATE INDEX IF NOT EXISTS idx_nodes_incomplete_parents ON nodes(id, depth, parent_id) 
+CREATE INDEX IF NOT EXISTS idx_nodes_incomplete_parents ON nodes(id, depth, parent_id)
 WHERE depth < 5 AND parent_id IS NOT NULL;
 
 -- Index for root nodes only
@@ -151,7 +151,7 @@ CREATE TRIGGER IF NOT EXISTS update_parent_version_trigger
             INSERT OR REPLACE INTO tree_parent_version (parent_id, version, updated_at)
             VALUES (OLD.parent_id, COALESCE((SELECT version FROM tree_parent_version WHERE parent_id = OLD.parent_id), 0) + 1, strftime('%Y-%m-%dT%H:%M:%fZ','now'));
         END IF;
-        
+
         IF NEW.parent_id IS NOT NULL AND (OLD.parent_id IS NULL OR OLD.parent_id != NEW.parent_id) THEN
             INSERT OR REPLACE INTO tree_parent_version (parent_id, version, updated_at)
             VALUES (NEW.parent_id, COALESCE((SELECT version FROM tree_parent_version WHERE parent_id = NEW.parent_id), 0) + 1, strftime('%Y-%m-%dT%H:%M:%fZ','now'));
@@ -162,7 +162,7 @@ CREATE TRIGGER IF NOT EXISTS update_parent_version_trigger
 
 -- View for complete node information with parent details
 CREATE VIEW IF NOT EXISTS nodes_with_parent AS
-SELECT 
+SELECT
     n.id,
     n.parent_id,
     n.depth,
@@ -178,7 +178,7 @@ LEFT JOIN nodes p ON n.parent_id = p.id;
 
 -- View for incomplete parents (those with < 5 children)
 CREATE VIEW IF NOT EXISTS incomplete_parents AS
-SELECT 
+SELECT
     n.id,
     n.label,
     n.depth,
@@ -194,7 +194,7 @@ ORDER BY n.id;
 
 -- View for tree statistics
 CREATE VIEW IF NOT EXISTS tree_stats AS
-SELECT 
+SELECT
     COUNT(*) as total_nodes,
     COUNT(CASE WHEN depth = 0 THEN 1 END) as root_nodes,
     COUNT(CASE WHEN is_leaf = 1 THEN 1 END) as leaf_nodes,
@@ -209,7 +209,7 @@ FROM nodes;
 CREATE VIEW IF NOT EXISTS node_hierarchy AS
 WITH RECURSIVE node_tree AS (
     -- Base case: root nodes
-    SELECT 
+    SELECT
         id,
         parent_id,
         depth,
@@ -218,13 +218,13 @@ WITH RECURSIVE node_tree AS (
         is_leaf,
         0 as level,
         CAST(id AS TEXT) as path
-    FROM nodes 
+    FROM nodes
     WHERE parent_id IS NULL
-    
+
     UNION ALL
-    
+
     -- Recursive case: child nodes
-    SELECT 
+    SELECT
         n.id,
         n.parent_id,
         n.depth,
@@ -252,7 +252,7 @@ PRAGMA optimize;
 -- SELECT name, sql FROM sqlite_master WHERE type='index' AND sql IS NOT NULL;
 
 -- Query to check table sizes
--- SELECT name, (SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=m.name) as row_count 
+-- SELECT name, (SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=m.name) as row_count
 -- FROM sqlite_master m WHERE type='table';
 
 -- Query to check WAL file size

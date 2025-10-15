@@ -308,6 +308,7 @@ GET /api/v1/health
 ```
 
 Returns comprehensive health status including:
+
 - Database health
 - Feature flags
 - Error tracking status
@@ -320,6 +321,7 @@ GET /api/v1/metrics
 ```
 
 Returns detailed metrics including:
+
 - Performance counters
 - Response time histograms
 - Business metrics
@@ -332,6 +334,7 @@ GET /api/v1/errors
 ```
 
 Returns error tracking information:
+
 - Health status
 - Recent error patterns
 - Error severity breakdown
@@ -343,6 +346,7 @@ GET /api/v1/observability
 ```
 
 Returns comprehensive observability data:
+
 - Health status
 - All metrics
 - Error patterns and trends

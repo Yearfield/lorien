@@ -11,14 +11,11 @@ Provides:
 """
 
 import asyncio
-import json
-import os
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, UTC
 from threading import Lock
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional
 
 
 @dataclass
@@ -34,14 +31,14 @@ class MetricValue:
 @dataclass
 class PerformanceProfile:
     """Performance profiling data for operations."""
-    
+
     operation_name: str
     start_time: float
     end_time: float
     duration_ms: float
     tags: dict[str, str]
     metadata: dict[str, Any] = field(default_factory=dict)
-    
+
     @property
     def duration_seconds(self) -> float:
         """Get duration in seconds."""
@@ -50,53 +47,47 @@ class PerformanceProfile:
 
 class BusinessMetrics:
     """Business-specific metrics for decision tree operations."""
-    
+
     def __init__(self):
         self._metrics_collector = MetricsCollector()
-    
-    def track_tree_operation(self, operation: str, success: bool, duration_ms: float, **tags) -> None:
+
+    def track_tree_operation(
+        self, operation: str, success: bool, duration_ms: float, **tags
+    ) -> None:
         """Track tree-related operations."""
         self._metrics_collector.increment_counter(
-            f"business.tree_operations",
-            tags={**tags, "operation": operation, "success": str(success)}
+            "business.tree_operations",
+            tags={**tags, "operation": operation, "success": str(success)},
         )
         self._metrics_collector.record_timer(
-            f"business.tree_operation_duration",
-            duration_ms,
-            tags={**tags, "operation": operation}
+            "business.tree_operation_duration", duration_ms, tags={**tags, "operation": operation}
         )
-    
+
     def track_node_operations(self, operation: str, node_count: int, **tags) -> None:
         """Track node-related operations."""
         self._metrics_collector.increment_counter(
-            f"business.node_operations",
-            value=node_count,
-            tags={**tags, "operation": operation}
+            "business.node_operations", value=node_count, tags={**tags, "operation": operation}
         )
-    
+
     def track_export_operations(self, format_type: str, record_count: int, **tags) -> None:
         """Track export operations."""
         self._metrics_collector.increment_counter(
-            f"business.exports",
-            tags={**tags, "format": format_type}
+            "business.exports", tags={**tags, "format": format_type}
         )
         self._metrics_collector.record_histogram(
-            f"business.export_record_count",
-            record_count,
-            tags={**tags, "format": format_type}
+            "business.export_record_count", record_count, tags={**tags, "format": format_type}
         )
-    
-    def track_import_operations(self, format_type: str, record_count: int, success: bool, **tags) -> None:
+
+    def track_import_operations(
+        self, format_type: str, record_count: int, success: bool, **tags
+    ) -> None:
         """Track import operations."""
         self._metrics_collector.increment_counter(
-            f"business.imports",
-            tags={**tags, "format": format_type, "success": str(success)}
+            "business.imports", tags={**tags, "format": format_type, "success": str(success)}
         )
         if success:
             self._metrics_collector.record_histogram(
-                f"business.import_record_count",
-                record_count,
-                tags={**tags, "format": format_type}
+                "business.import_record_count", record_count, tags={**tags, "format": format_type}
             )
 
 
@@ -119,7 +110,7 @@ class MetricsCollector:
 
         # Track when metrics were last reset
         self._start_time = time.time()
-        
+
         # Performance tracking limits
         self._max_profiles = 1000  # Keep last 1000 performance profiles
 
@@ -151,7 +142,9 @@ class MetricsCollector:
             key = self._make_key(name, tags)
             self._gauges[key] = value
 
-    def record_histogram(self, name: str, value: float, tags: Optional[dict[str, str]] = None) -> None:
+    def record_histogram(
+        self, name: str, value: float, tags: Optional[dict[str, str]] = None
+    ) -> None:
         """
         Record a value in a histogram.
 
@@ -168,7 +161,9 @@ class MetricsCollector:
             if len(self._histograms[key]) > 1000:
                 self._histograms[key] = self._histograms[key][-1000:]
 
-    def record_timer(self, name: str, duration_ms: float, tags: Optional[dict[str, str]] = None) -> None:
+    def record_timer(
+        self, name: str, duration_ms: float, tags: Optional[dict[str, str]] = None
+    ) -> None:
         """
         Record a timing measurement.
 
@@ -195,12 +190,12 @@ class MetricsCollector:
         """
         with self._lock:
             self._performance_profiles.append(profile)
-            
+
             # Limit profile count
             if len(self._performance_profiles) > self._max_profiles:
-                self._performance_profiles = self._performance_profiles[-self._max_profiles:]
+                self._performance_profiles = self._performance_profiles[-self._max_profiles :]
 
-    def start_performance_timer(self, operation_name: str, **tags) -> 'PerformanceTimer':
+    def start_performance_timer(self, operation_name: str, **tags) -> "PerformanceTimer":
         """
         Start a performance timer for an operation.
 
@@ -346,22 +341,22 @@ def reset_metrics() -> None:
 # Performance timer context manager
 class PerformanceTimer:
     """Context manager for timing operations."""
-    
+
     def __init__(self, collector: MetricsCollector, operation_name: str, tags: dict[str, str]):
         self.collector = collector
         self.operation_name = operation_name
         self.tags = tags
         self.start_time = None
-    
+
     def __enter__(self):
         self.start_time = time.time()
         return self
-    
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self.start_time is not None:
             end_time = time.time()
             duration_ms = (end_time - self.start_time) * 1000
-            
+
             # Create performance profile
             profile = PerformanceProfile(
                 operation_name=self.operation_name,
@@ -374,10 +369,10 @@ class PerformanceTimer:
                     "success": exc_type is None,
                 },
             )
-            
+
             # Record the profile
             self.collector.record_performance_profile(profile)
-            
+
             # Also record as timer
             self.collector.record_timer(
                 f"performance.{self.operation_name}",
@@ -401,15 +396,21 @@ def get_business_metrics() -> BusinessMetrics:
 # Performance timing decorator
 def time_operation(operation_name: str, **tags) -> Any:
     """Decorator to time function execution."""
+
     def decorator(func):
         if asyncio.iscoroutinefunction(func):
+
             async def async_wrapper(*args, **kwargs):
                 with _metrics_collector.start_performance_timer(operation_name, **tags):
                     return await func(*args, **kwargs)
+
             return async_wrapper
         else:
+
             def sync_wrapper(*args, **kwargs):
                 with _metrics_collector.start_performance_timer(operation_name, **tags):
                     return func(*args, **kwargs)
+
             return sync_wrapper
+
     return decorator

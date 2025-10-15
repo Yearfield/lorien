@@ -1,14 +1,14 @@
-import sqlite3
-from collections.abc import AsyncIterator
 import logging
 import os
+import sqlite3
+from collections.abc import AsyncIterator
 
 from anyio import to_thread
 from fastapi import Depends
 
+from api.db.connection_pool import get_connection_pool
 from api.repositories.tree_repo import TreeRepository
 from api.settings import get_db_path
-from api.db.connection_pool import get_connection_pool
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,7 @@ def _open_sqlite(path: str) -> sqlite3.Connection:
 async def get_db_connection() -> AsyncIterator[sqlite3.Connection]:
     """
     Get a database connection from the connection pool.
-    
+
     This is the preferred method for production use as it provides:
     - Connection pooling and reuse
     - Connection limits and monitoring
@@ -46,7 +46,7 @@ async def get_db_connection() -> AsyncIterator[sqlite3.Connection]:
     """
     # Check if connection pooling is enabled
     use_pool = os.getenv("LORIEN_USE_CONNECTION_POOL", "true").lower() == "true"
-    
+
     if use_pool:
         try:
             pool = get_connection_pool()

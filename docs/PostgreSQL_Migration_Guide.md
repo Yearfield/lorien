@@ -169,7 +169,7 @@ CREATE TRIGGER update_triage_timestamp_trigger
 
 -- Views for common queries
 CREATE VIEW nodes_with_parent AS
-SELECT 
+SELECT
     n.id,
     n.parent_id,
     n.depth,
@@ -184,7 +184,7 @@ FROM nodes n
 LEFT JOIN nodes p ON n.parent_id = p.id;
 
 CREATE VIEW incomplete_parents AS
-SELECT 
+SELECT
     n.id,
     n.label,
     n.depth,
@@ -200,7 +200,7 @@ ORDER BY n.id;
 
 -- Performance monitoring
 CREATE VIEW query_performance AS
-SELECT 
+SELECT
     query,
     calls,
     total_time,
@@ -227,68 +227,68 @@ from api.db.connection_pool import AsyncPGPool
 
 class PostgreSQLRepository:
     """PostgreSQL repository implementation."""
-    
+
     def __init__(self, pool: AsyncPGPool):
         self.pool = pool
-    
+
     async def get_node_by_id(self, node_id: int) -> Optional[Dict[str, Any]]:
         """Get node by ID with caching."""
         query = """
-            SELECT id, parent_id, depth, slot, label, is_leaf, 
+            SELECT id, parent_id, depth, slot, label, is_leaf,
                    created_at, updated_at
-            FROM nodes 
+            FROM nodes
             WHERE id = $1
         """
-        
+
         async with self.pool.acquire() as conn:
             row = await conn.fetchrow(query, node_id)
             return dict(row) if row else None
-    
+
     async def get_children_by_parent_id(self, parent_id: int) -> List[Dict[str, Any]]:
         """Get children with optimized query."""
         query = """
             SELECT id, parent_id, depth, slot, label, is_leaf,
                    created_at, updated_at
-            FROM nodes 
-            WHERE parent_id = $1 
+            FROM nodes
+            WHERE parent_id = $1
             ORDER BY slot ASC
         """
-        
+
         async with self.pool.acquire() as conn:
             rows = await conn.fetch(query, parent_id)
             return [dict(row) for row in rows]
-    
+
     async def search_nodes(self, search_term: str, limit: int = 50) -> List[Dict[str, Any]]:
         """Full-text search using PostgreSQL FTS."""
         query = """
             SELECT id, parent_id, depth, slot, label, is_leaf,
                    created_at, updated_at,
                    ts_rank(to_tsvector('english', label), plainto_tsquery('english', $1)) as rank
-            FROM nodes 
+            FROM nodes
             WHERE to_tsvector('english', label) @@ plainto_tsquery('english', $1)
-            ORDER BY rank DESC, label ASC 
+            ORDER BY rank DESC, label ASC
             LIMIT $2
         """
-        
+
         async with self.pool.acquire() as conn:
             rows = await conn.fetch(query, search_term, limit)
             return [dict(row) for row in rows]
-    
+
     async def get_tree_statistics(self) -> Dict[str, Any]:
         """Get comprehensive tree statistics."""
         queries = {
             'total_nodes': "SELECT COUNT(*) as count FROM nodes",
             'nodes_by_depth': """
-                SELECT depth, COUNT(*) as count 
-                FROM nodes 
-                GROUP BY depth 
+                SELECT depth, COUNT(*) as count
+                FROM nodes
+                GROUP BY depth
                 ORDER BY depth
             """,
             'leaf_nodes': "SELECT COUNT(*) as count FROM nodes WHERE is_leaf = true",
             'triage_count': "SELECT COUNT(*) as count FROM triage",
             'red_flags_count': "SELECT COUNT(*) as count FROM red_flags"
         }
-        
+
         stats = {}
         async with self.pool.acquire() as conn:
             for stat_name, query in queries.items():
@@ -298,7 +298,7 @@ class PostgreSQLRepository:
                 else:
                     row = await conn.fetchrow(query)
                     stats[stat_name] = dict(row)['count'] if row else 0
-        
+
         return stats
 ```
 
@@ -312,13 +312,13 @@ from typing import Optional
 
 class AsyncPGPool:
     """PostgreSQL connection pool wrapper."""
-    
+
     def __init__(self, connection_string: str, min_connections: int = 5, max_connections: int = 20):
         self.connection_string = connection_string
         self.min_connections = min_connections
         self.max_connections = max_connections
         self._pool: Optional[asyncpg.Pool] = None
-    
+
     async def initialize(self):
         """Initialize the connection pool."""
         self._pool = await asyncpg.create_pool(
@@ -331,12 +331,12 @@ class AsyncPGPool:
                 'timezone': 'UTC'
             }
         )
-    
+
     async def close(self):
         """Close the connection pool."""
         if self._pool:
             await self._pool.close()
-    
+
     def acquire(self):
         """Acquire a connection from the pool."""
         if not self._pool:
@@ -357,60 +357,60 @@ from pathlib import Path
 
 async def migrate_data(sqlite_path: str, postgres_url: str):
     """Migrate data from SQLite to PostgreSQL."""
-    
+
     # Connect to both databases
     sqlite_conn = sqlite3.connect(sqlite_path)
     sqlite_conn.row_factory = sqlite3.Row
-    
+
     postgres_pool = await asyncpg.create_pool(postgres_url)
-    
+
     try:
         async with postgres_pool.acquire() as pg_conn:
             # Migrate nodes
             sqlite_cursor = sqlite_conn.execute("SELECT * FROM nodes ORDER BY id")
             nodes_data = sqlite_cursor.fetchall()
-            
+
             for node in nodes_data:
                 await pg_conn.execute("""
                     INSERT INTO nodes (id, parent_id, depth, slot, label, is_leaf, created_at, updated_at)
                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                     ON CONFLICT (id) DO NOTHING
-                """, 
-                node['id'], node['parent_id'], node['depth'], 
+                """,
+                node['id'], node['parent_id'], node['depth'],
                 node['slot'], node['label'], bool(node['is_leaf']),
                 node['created_at'], node['updated_at']
                 )
-            
+
             # Migrate triage data
             sqlite_cursor = sqlite_conn.execute("SELECT * FROM triage")
             triage_data = sqlite_cursor.fetchall()
-            
+
             for triage in triage_data:
                 await pg_conn.execute("""
                     INSERT INTO triage (node_id, diagnostic_triage, actions, created_at, updated_at)
                     VALUES ($1, $2, $3, $4, $5)
                     ON CONFLICT (node_id) DO NOTHING
                 """,
-                triage['node_id'], triage['diagnostic_triage'], 
+                triage['node_id'], triage['diagnostic_triage'],
                 triage['actions'], triage['created_at'], triage['updated_at']
                 )
-            
+
             # Migrate red flags
             sqlite_cursor = sqlite_conn.execute("SELECT * FROM red_flags")
             red_flags_data = sqlite_cursor.fetchall()
-            
+
             for flag in red_flags_data:
                 await pg_conn.execute("""
                     INSERT INTO red_flags (id, name, description, severity, created_at)
                     VALUES ($1, $2, $3, $4, $5)
                     ON CONFLICT (id) DO NOTHING
                 """,
-                flag['id'], flag['name'], flag['description'], 
+                flag['id'], flag['name'], flag['description'],
                 flag['severity'], flag['created_at']
                 )
-            
+
             print(f"Migration completed successfully")
-    
+
     finally:
         sqlite_conn.close()
         await postgres_pool.close()
@@ -420,7 +420,7 @@ if __name__ == "__main__":
     if len(sys.argv) != 3:
         print("Usage: python migrate_to_postgresql.py <sqlite_path> <postgres_url>")
         sys.exit(1)
-    
+
     asyncio.run(migrate_data(sys.argv[1], sys.argv[2]))
 ```
 
@@ -446,7 +446,7 @@ def get_postgresql_url() -> str:
     """Get PostgreSQL connection URL."""
     return os.getenv(
         "LORIEN_POSTGRESQL_URL",
-        "postgresql://lorien:password@localhost:5432/lorien"
+        "postgresql://lorien:password@localhost:5432/lorien"  # pragma: allowlist secret
     )
 
 def get_postgresql_pool_config() -> dict:
@@ -494,7 +494,7 @@ SELECT * FROM pg_stat_database WHERE datname = 'lorien';
 
 -- Index usage statistics
 SELECT schemaname, tablename, indexname, idx_tup_read, idx_tup_fetch
-FROM pg_stat_user_indexes 
+FROM pg_stat_user_indexes
 WHERE schemaname = 'public'
 ORDER BY idx_tup_read DESC;
 ```

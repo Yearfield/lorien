@@ -5,7 +5,6 @@ Provides secure CORS configuration with environment-based settings.
 """
 
 import logging
-from typing import List
 
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -17,12 +16,12 @@ logger = logging.getLogger(__name__)
 def setup_cors(app):
     """
     Configure CORS middleware with security-conscious settings.
-    
+
     Args:
         app: FastAPI application instance
     """
     security_config = get_security_config()
-    
+
     # Determine allowed origins based on environment
     if "*" in security_config.cors_origins:
         # Development mode - allow all origins
@@ -32,7 +31,7 @@ def setup_cors(app):
         # Production mode - specific origins only
         allowed_origins = list(security_config.cors_origins)
         logger.info(f"✓ CORS: Restricting to specific origins: {allowed_origins}")
-    
+
     # Configure CORS middleware
     app.add_middleware(
         CORSMiddleware,
@@ -56,14 +55,14 @@ def setup_cors(app):
         ],
         max_age=3600,  # Cache preflight requests for 1 hour
     )
-    
+
     logger.info("✓ CORS middleware configured")
 
 
-def get_cors_origins() -> List[str]:
+def get_cors_origins() -> list[str]:
     """
     Get the configured CORS origins.
-    
+
     Returns:
         List of allowed CORS origins
     """
@@ -74,7 +73,7 @@ def get_cors_origins() -> List[str]:
 def is_cors_enabled() -> bool:
     """
     Check if CORS is properly configured.
-    
+
     Returns:
         True if CORS origins are configured, False otherwise
     """
