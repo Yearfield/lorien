@@ -56,6 +56,7 @@ Data model (SQLite)
 Tree Operations
 
 - **Basic CRUD**: Create, read, update, delete nodes via `/api/v1/tree/*` endpoints
+- **Safe Child Addition**: Individual child creation via `POST /api/v1/tree/child` that preserves downstream data
 - **Navigation**: Breadcrumb traversal, children listing, ancestor chains
 - **Search**: Find nodes by label for duplicate detection and merge operations
 - **Rename**: Update node labels with automatic duplicate detection

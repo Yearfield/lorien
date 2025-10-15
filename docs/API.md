@@ -182,6 +182,28 @@ curl -sS -F file=@paths.csv "http://127.0.0.1:8000/api/v1/import?mode=replace&en
     }
     ```
 
+- `POST /api/v1/tree/child` → Add single child safely
+  - **Purpose**: Add individual children without affecting existing children or their downstream data
+  - **Body**: `{"parent_id": 123, "label": "New Child"}`
+  - **Success** (200/201): `{"ok": true, "parent_id": 123, "label": "New Child", "slot": 3}`
+  - **Validation** (422): Parent at max depth or already has 5 children
+
+    ```json
+    {
+      "detail": [
+        {"loc": ["parent_id"], "msg": "cannot add children beyond depth 6", "type": "value_error.max_depth"}
+      ]
+    }
+    ```
+
+    ```json
+    {
+      "detail": [
+        {"loc": ["parent_id"], "msg": "parent already has 5 children", "type": "value_error.max_children"}
+      ]
+    }
+    ```
+
 ### Navigation & Drilldown
 
 - `GET /api/v1/tree/node?node_id=123` → Get node details
@@ -380,6 +402,11 @@ curl -sS http://127.0.0.1:8000/api/v1/tree/roots | jq .
 
 # Get children
 curl -sS "http://127.0.0.1:8000/api/v1/tree/children?parent_id=1&only_red=false" | jq .
+
+# Add single child safely
+curl -sS -X POST http://127.0.0.1:8000/api/v1/tree/child \
+  -H "Content-Type: application/json" \
+  -d '{"parent_id": 123, "label": "New Child"}' | jq .
 
 # Find next underfilled parent
 curl -sS "http://127.0.0.1:8000/api/v1/tree/next-underfilled?root_id=1" | jq .

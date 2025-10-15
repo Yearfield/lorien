@@ -19,7 +19,16 @@ The app uses a `NavigationRail` with 5 main sections:
   - Shows validation errors and warnings
 - **Breadcrumbs**: Tap to jump to ancestor's children
 - **Children Editor**: Add labels, drill into children to edit their children
-- **Save Operation**: `PUT /api/v1/tree/children` atomically replaces children for current parent
+- **Child Addition Workflow**:
+  - Type child label in "Add child label" field and press "Add" button
+  - New child appears immediately in the list (local state)
+  - Press "Save" to persist new children to server safely
+  - Click on saved children to drill into them and add their children
+  - System detects unsaved changes and prevents drilling until saved
+- **Save Operation**: Smart save logic that preserves downstream data
+  - **Safe Addition**: When only adding new children, uses `POST /api/v1/tree/child` to add individually
+  - **Full Replacement**: When modifying existing children, uses `PUT /api/v1/tree/children` (with warning)
+  - **User Protection**: Warns before destructive operations that could lose downstream data
 - **Next Incomplete**: Uses `GET /api/v1/tree/next-underfilled` with snackbar feedback
 - **State Management**: Busy overlay during long operations, navigation guarded during save/import
 - **Error Handling**: 409 slot conflicts and 422 validation errors surface as inline messages

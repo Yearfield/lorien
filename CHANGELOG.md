@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **VM Builder Child Addition**: Fixed issue where adding new children would destroy existing downstream data
+  - Added new `POST /api/v1/tree/child` endpoint for safe individual child addition
+  - Implemented smart save logic that detects when only new children are being added
+  - Added user warnings for destructive operations that could lose data
+  - Fixed `addChildLabel` method to properly update both `children` and `childrenWithMeta` lists
+  - Improved `drillIntoChildByIndex` to handle unsaved children gracefully
+
+### Added
+
+- **Safe Child Addition API**: New `POST /api/v1/tree/child` endpoint for incremental child creation
+  - Preserves all existing children and their downstream data
+  - Validates parent constraints (max 5 children, max depth 6)
+  - Automatic slot assignment for new children
+  - Proper error handling and validation messages
+
 ## [6.8.0-beta.1] - 2025-10-08
 
 ### Added
