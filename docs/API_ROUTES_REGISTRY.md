@@ -47,11 +47,21 @@ This document defines the canonical API surface for Lorien v7.0. All endpoints l
 
 | Domain | Method | Path | Notes |
 |---|---|---|---|
-| Dictionary | GET | `/api/v1/dictionary` | type/query/limit/offset |
-| Dictionary | POST | `/api/v1/dictionary` | 422 duplicate normalized |
-| Dictionary | PUT | `/api/v1/dictionary/{id}` | update term |
-| Dictionary | DELETE | `/api/v1/dictionary/{id}` | delete term |
-| Normalize | GET | `/api/v1/dictionary/normalize` | {normalized:"..."} |
+| Dictionary | GET | `/api/v1/dictionary/search` | search terms with pagination |
+| Dictionary | GET | `/api/v1/dictionary/{term_id}` | get term by ID |
+| Dictionary | GET | `/api/v1/dictionary/term/{term_name}` | get term by name |
+| Dictionary | PUT | `/api/v1/dictionary/{term_id}` | update term definition/synonyms/red_flag |
+| Dictionary | PUT | `/api/v1/dictionary/{term_id}/rename` | rename term with conflict detection |
+| Dictionary | POST | `/api/v1/dictionary/{term_id}/merge` | merge terms with children selection |
+| Dictionary | GET | `/api/v1/dictionary/{term_id}/rename-conflicts` | check rename conflicts |
+| Dictionary | GET | `/api/v1/dictionary/{term_id}/merge-conflicts` | check merge conflicts |
+| Dictionary | GET | `/api/v1/dictionary/{term_id}/tree/{term_id}/relationships` | get tree relationships |
+| Dictionary | GET | `/api/v1/dictionary/{term_id}/sync-status` | get sync status |
+| Dictionary | POST | `/api/v1/dictionary/{term_id}/validate-update` | validate update |
+| Dictionary | GET | `/api/v1/dictionary/stats` | dictionary statistics |
+| Dictionary | POST | `/api/v1/dictionary/export` | export dictionary (CSV/XLSX) |
+| Dictionary | POST | `/api/v1/dictionary/upload` | upload dictionary file |
+| Dictionary | POST | `/api/v1/dictionary/upload/validate` | validate upload file |
 
 ## Data Quality & Administration
 
@@ -120,6 +130,7 @@ This document defines the canonical API surface for Lorien v7.0. All endpoints l
 - **Modern**: `PUT /api/v1/tree/parents/{parent_id}/children` with `{"slots": [{"slot": 1, "label": ""}]}` (empty label removes)
 
 **Benefits of Migration:**
+
 - Atomic operations on multiple slots
 - Better error handling and validation
 - Consistent API patterns
@@ -128,12 +139,14 @@ This document defines the canonical API surface for Lorien v7.0. All endpoints l
 ## Route Patterns
 
 ### Path Parameters
+
 - `{parent_id}`: Integer parent node ID (≥1)
-- `{node_id}`: Integer node ID (≥1)  
+- `{node_id}`: Integer node ID (≥1)
 - `{id}`: Integer or UUID identifier
 - `{slot}`: Integer slot number (1-5)
 
 ### Query Parameters
+
 - `limit`: Integer, maximum results (default varies by endpoint)
 - `offset`: Integer, pagination offset
 - `type`: String, filter by type
@@ -141,12 +154,14 @@ This document defines the canonical API surface for Lorien v7.0. All endpoints l
 - `dry_run`: Boolean, preview without applying changes
 
 ### Response Headers
+
 - `Deprecation`: "true" for legacy routes
 - `Sunset`: "v7.0" for legacy routes
 - `ETag`: Version identifier for concurrency control
 - `Content-Type`: "application/json" or "text/csv" or "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 ### Status Codes
+
 - `200`: Success
 - `201`: Created
 - `204`: No Content (e.g., no incomplete parents)
@@ -168,6 +183,7 @@ This document defines the canonical API surface for Lorien v7.0. All endpoints l
 ## Dual-Mount Support
 
 All canonical endpoints are available at both:
+
 - `/api/v1/{endpoint}` (versioned)
 - `/{endpoint}` (bare)
 

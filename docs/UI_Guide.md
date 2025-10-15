@@ -2,13 +2,48 @@
 
 ## Navigation Structure
 
-The app uses a `NavigationRail` with 5 main sections:
+The app uses a `NavigationRail` with 6 main sections:
 
 1. **Home** - Dashboard with conflicts resolution, export tools, and submission placeholders
 2. **VM Builder** - Primary authoring pane (roots list, children editor, breadcrumbs)
-3. **Outcomes** - Read-only outcomes view (future extensibility)
-4. **Flags** - Filter and visualize red-flagged edges
-5. **Settings** - Environment and diagnostics
+3. **Dictionary** - Medical term management with search, edit, and synchronization
+4. **Outcomes** - Read-only outcomes view (future extensibility)
+5. **Flags** - Filter and visualize red-flagged edges
+6. **Settings** - Environment and diagnostics
+
+## Dictionary Pane
+
+### Core Features
+
+- **Search Functionality**: Search medical terms by typing in the search field
+  - Empty search returns all terms with pagination
+  - Real-time search as you type
+  - Results show term name, definition, synonyms, and red flag status
+- **Term Details Dialog**: Click any term to open detailed editing interface
+  - **Editable Fields**: Term name, definition, synonyms (comma-separated)
+  - **Red Flag Toggle**: Mark terms as red flags (syncs to VM Builder)
+  - **Tree Relationships**: View parents and children in the tree structure
+  - **Statistics**: Shows average children count and conflicts count
+- **Rename & Merge Operations**:
+  - **Rename**: Change term name with automatic conflict detection
+  - **Merge**: Combine terms with children selection dialog (max 5 children)
+  - **Conflict Resolution**: Interactive selection for handling merge conflicts
+- **Export Functionality**: Export dictionary to CSV or XLSX format
+  - Includes term, definition, synonyms, red flag status, and statistics
+- **Upload Functionality**: Import medical dictionaries from CSV/XLSX files
+  - **File Validation**: Checks file structure and format
+  - **Matching Logic**: Finds existing terms and suggests spelling corrections
+  - **Batch Processing**: Handles large dictionary files efficiently
+- **Red Flag Synchronization**: Changes in Dictionary immediately reflect in VM Builder
+  - Updates edge_meta table for proper red flag display
+  - Bidirectional sync ensures consistency across the application
+
+### Data Synchronization
+
+- **Bidirectional Sync**: Dictionary changes automatically sync to tree nodes
+- **Database Triggers**: Maintain data consistency between dictionary and tree
+- **Conflict Detection**: Identifies spelling errors and duplicate terms
+- **Real-time Updates**: Changes are immediately visible across all panes
 
 ## VM Builder Pane
 

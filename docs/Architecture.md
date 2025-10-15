@@ -8,18 +8,21 @@ Diagram
 
 ```
 Flutter Shell (Desktop)
-  Panes: Home | VM Builder | Outcomes | Flags | Settings
+  Panes: Home | VM Builder | Dictionary | Outcomes | Flags | Settings
         |                               ^
         |  REST (JSON + CSV/XLSX)       |
         v                               |
 FastAPI (VM Core) — Fully Async
-  Routers: health | import | export | tree_basic
-        |   ^                     |
-        |   |                     v
-        |   |               EngineLongBow
-        |   |           (import/preview/export)
-        v   |                     |
-     SQLite (WAL) — Thread-Offloaded
+  Routers: health | import | export | tree_basic | dictionary | conflicts
+        |   ^                     |                    ^
+        |   |                     v                    |
+        |   |               EngineLongBow             |
+        |   |           (import/preview/export)       |
+        v   |                     |                   |
+     SQLite (WAL) — Thread-Offloaded                 |
+        ^                                           |
+        |         medical_dictionary + sync triggers |
+        +-------------------------------------------+
 ```
 
 State & validation

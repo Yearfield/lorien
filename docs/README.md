@@ -13,6 +13,7 @@ Welcome to the Lorien documentation. This directory contains comprehensive docum
 - **[Monitoring_Telemetry.md](./Monitoring_Telemetry.md)** - Health, metrics, SLOs
 - **[DEPLOYMENT.md](./DEPLOYMENT.md)** - Deployment & operations
 - **[Backup_Restore.md](./Backup_Restore.md)** - Backup/restore
+- **[UI_Guide.md](./UI_Guide.md)** - User interface guide including Dictionary pane
 
 ## Quick Start
 
@@ -24,11 +25,12 @@ Welcome to the Lorien documentation. This directory contains comprehensive docum
 ## Contributing
 
 When updating documentation:
+
 1. Follow the established patterns
 2. Update the relevant SoT documents
 3. Run the documentation audit: `python tools/audit/docs_audit.py`
 4. Ensure all tests pass: `pytest tests/contracts/`
- 5. Follow the release flow: `docs/RELEASE_PROCESS.md`
+5. Follow the release flow: `docs/RELEASE_PROCESS.md`
 
 ## Archive
 
