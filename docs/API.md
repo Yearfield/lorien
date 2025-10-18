@@ -5,7 +5,7 @@ Overview
 - Versioned base: `/api/v1`
 - Fully async architecture with thread-offloaded SQLite operations for high concurrency
 - All endpoints use `async def` with blocking I/O wrapped in `anyio.to_thread()`
-- EngineLongBow is the ingest/export engine; UI and CLI call the API (no client-side CSV building)
+- EngineLongBow is the decision tree ingest/export engine; EngineShelob is the pathogen data import engine; UI and CLI call the API (no client-side CSV building)
 - All endpoints return JSON unless specified otherwise
 - Standard HTTP status codes: 200 (success), 201 (created), 204 (no content), 400 (bad request), 401 (unauthorized), 404 (not found), 409 (conflict), 422 (validation error), 429 (rate limited), 500 (server error)
 - **Security**: Production deployments require Bearer token authentication for write operations

@@ -2,7 +2,7 @@
 
 Overview
 
-- Flutter shell with NavigationRail panes talks to a FastAPI VM Core; SQLite stores the tree. EngineLongBow is the only engine.
+- Flutter shell with NavigationRail panes talks to a FastAPI VM Core; SQLite stores the tree. Two engines: EngineLongBow (decision trees) and EngineShelob (pathogen data).
 
 Diagram
 
@@ -21,21 +21,23 @@ FastAPI (VM Core) — Fully Async + Security
     • Rate Limiting — Request & auth attempt limiting
     • Input Validation — XSS, SQL injection protection
     • Security Headers — HSTS, CSP, X-Frame-Options
-  Routers: health | import | export | tree_basic | dictionary | conflicts
-        |   ^                     |                    ^
-        |   |                     v                    |
-        |   |               EngineLongBow             |
-        |   |           (import/preview/export)       |
-        v   |                     |                   |
-     SQLite (WAL) — Thread-Offloaded                 |
-        ^                                           |
-        |         medical_dictionary + sync triggers |
-        +-------------------------------------------+
+  Routers: health | import | export | tree_basic | dictionary | conflicts | pathogens
+        |   ^                     |                    ^                        ^
+        |   |                     v                    |                        |
+        |   |               EngineLongBow             |                EngineShelob
+        |   |           (import/preview/export)       |            (pathogen import/CRUD)
+        v   |                     |                   |                        |
+     SQLite (WAL) — Thread-Offloaded                 |                        |
+        ^                                           |                        |
+        |         medical_dictionary + sync triggers |                        |
+        |         pathogen tables + associations      |                        |
+        +-------------------------------------------+------------------------+
 ```
 
 State & validation
 
-- EngineLongBow is the sole ingest/export engine
+- EngineLongBow: Decision tree ingest/export engine with ≤5 children enforced at service layer
+- EngineShelob: Pathogen data import/management engine with separate database tables
 - Option B: ≤5 children enforced at the service layer; DB remains flexible with unique `(parent_id, slot)` in 1..5
 - Depth 0..5, root at depth 0; slots 1..5 for children
 

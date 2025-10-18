@@ -2,14 +2,15 @@
 
 ## Navigation Structure
 
-The app uses a `NavigationRail` with 6 main sections:
+The app uses a `NavigationRail` with 7 main sections:
 
 1. **Home** - Dashboard with conflicts resolution, export tools, and submission placeholders
 2. **VM Builder** - Primary authoring pane (roots list, children editor, breadcrumbs)
 3. **Dictionary** - Medical term management with search, edit, and synchronization
-4. **Outcomes** - Read-only outcomes view (future extensibility)
-5. **Flags** - Filter and visualize red-flagged edges
-6. **Settings** - Environment and diagnostics
+4. **P Builder** - Pathogen data import and management system (EngineShelob)
+5. **Outcomes** - Read-only outcomes view (future extensibility)
+6. **Flags** - Filter and visualize red-flagged edges
+7. **Settings** - Environment and diagnostics
 
 ## Dictionary Pane
 
@@ -44,6 +45,36 @@ The app uses a `NavigationRail` with 6 main sections:
 - **Database Triggers**: Maintain data consistency between dictionary and tree
 - **Conflict Detection**: Identifies spelling errors and duplicate terms
 - **Real-time Updates**: Changes are immediately visible across all panes
+
+## P Builder Pane (EngineShelob)
+
+### Core Features
+
+- **Pathogen Database Management**: Import and manage pathogen data from spreadsheet files
+- **Import Functionality**: Upload CSV or XLSX files containing pathogen data
+  - **File Format Support**: Handles both CSV and Excel (.xlsx) formats
+  - **Large File Support**: Up to 50MB file size limit for comprehensive datasets
+  - **Automatic Column Detection**: Intelligently separates pathogen properties from binary associations
+  - **Import Statistics**: Shows detailed results including pathogens created/updated and associations processed
+- **Pathogen List View**: Browse all imported pathogens with pagination and search
+  - **Search Functionality**: Real-time search by pathogen name
+  - **Association Filtering**: Filter pathogens by specific associations or show only pathogens with associations
+  - **Statistics Display**: Shows total pathogens, associations, and average associations per pathogen
+- **Pathogen Detail Dialog**: Click any pathogen to view detailed information
+  - **Comprehensive Information**: Displays all pathogen properties including classification, transmission, resistance, clinical data
+  - **Association Display**: Shows all binary associations (symptoms, diseases, environmental factors)
+  - **Inline Editing**: Edit pathogen name, basic information, and transmission/resistance data
+  - **Create New Pathogen**: Add new pathogens manually with the "+Pathogen" button
+- **Data Management**:
+  - **Upsert Behavior**: Re-importing updates existing data without duplicates
+  - **Association Management**: Binary associations (0/1) are stored efficiently with only positive associations saved
+  - **Data Integrity**: Foreign key constraints ensure data consistency
+
+### Data Structure
+
+- **Pathogen Properties**: Classification, NT, pathogen name, vaccine, toxin, transmission, antibiotic resistance, host, commensal, disease, incubation, diagnosis, treatment, prevention, notes
+- **Binary Associations**: Symptoms, diseases, environmental factors, geographic regions, etc. (stored as 0/1 values)
+- **Separate Database Tables**: Isolated from decision tree data to maintain system separation
 
 ## VM Builder Pane
 

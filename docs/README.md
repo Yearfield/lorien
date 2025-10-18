@@ -14,6 +14,7 @@ Welcome to the Lorien documentation. This directory contains comprehensive docum
 - **[DEPLOYMENT.md](./DEPLOYMENT.md)** - Deployment & operations
 - **[Backup_Restore.md](./Backup_Restore.md)** - Backup/restore
 - **[UI_Guide.md](./UI_Guide.md)** - User interface guide including Dictionary pane
+- **[EngineShelob_Guide.md](./EngineShelob_Guide.md)** - Pathogen data import and management system
 
 ## Quick Start
 
