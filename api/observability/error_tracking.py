@@ -17,10 +17,23 @@ from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import Any, Optional
 
-from ..exceptions import ErrorCodes
 from .context import get_context_dict
 from .logging import get_logger
 from .metrics import increment_counter, set_gauge
+
+
+# Local error codes to avoid circular import
+class ErrorCodes:
+    """Local error codes for error tracking."""
+
+    INTERNAL_SERVER_ERROR = "INTERNAL_SERVER_ERROR"
+    AUTHENTICATION_REQUIRED = "AUTHENTICATION_REQUIRED"
+    INVALID_TOKEN = "INVALID_TOKEN"
+    TOKEN_EXPIRED = "TOKEN_EXPIRED"
+    DATABASE_ERROR = "DATABASE_ERROR"
+    DATABASE_CONNECTION_ERROR = "DATABASE_CONNECTION_ERROR"
+    INTEGRITY_ERROR = "INTEGRITY_ERROR"
+    RATE_LIMIT_EXCEEDED = "RATE_LIMIT_EXCEEDED"
 
 
 class ErrorSeverity(Enum):

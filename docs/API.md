@@ -16,6 +16,174 @@ Canonical header (frozen)
 D0,D1,D2,D3,D4,D5,D6,Notes
 ```
 
+## Pathogen Data (EngineShelob)
+
+### Import Pathogen Data
+
+**POST** `/api/v1/pathogens/import`
+
+Import pathogen data from CSV or Excel files.
+
+**Request:**
+
+- Content-Type: `multipart/form-data`
+- Body: File upload with `file` parameter
+- Query: `strategy=upsert` (optional)
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "pathogens_processed": 150,
+  "pathogens_created": 120,
+  "pathogens_updated": 30,
+  "associations_processed": 450,
+  "associations_created": 300,
+  "errors": [],
+  "warnings": []
+}
+```
+
+### List Pathogens
+
+**GET** `/api/v1/pathogens/`
+
+List pathogens with optional search and pagination.
+
+**Query Parameters:**
+
+- `limit` (int, 1-1000): Maximum number of pathogens to return (default: 100)
+- `offset` (int, ≥0): Number of pathogens to skip (default: 0)
+- `search` (string): Search term for pathogen name (optional)
+
+**Response:**
+
+```json
+[
+  {
+    "id": 1,
+    "classification": "xd",
+    "nt": "Actinobacteria",
+    "pathogen_id": "2205725",
+    "pathogen_name": "Actinomyces gravenitzii",
+    "vaccine": "No",
+    "toxin": "No",
+    "transmission": "Dental work, trauma, surgery, aspiration",
+    "ab_resistance": "",
+    "host": "Ubiquitous soil commensal human and animal",
+    "commensal": "Normal commensal flora oral respiratory tract",
+    "disease": "Lump Jaw Actinomycosis is a chronic suppurative",
+    "incubation": "days to years",
+    "diagnosis": "Oral Periodontal Infection post dental work",
+    "treatment": "Immunocompromised",
+    "prevention": "No",
+    "notes": "oral-cervicofacial disease",
+    "created_at": "2025-01-27T10:30:00.000Z",
+    "updated_at": "2025-01-27T10:30:00.000Z"
+  }
+]
+```
+
+### Get Pathogen
+
+**GET** `/api/v1/pathogens/{pathogen_id}`
+
+Get a single pathogen with its associations.
+
+**Response:**
+
+```json
+{
+  "id": 1,
+  "classification": "xd",
+  "nt": "Actinobacteria",
+  "pathogen_id": "2205725",
+  "pathogen_name": "Actinomyces gravenitzii",
+  "vaccine": "No",
+  "toxin": "No",
+  "transmission": "Dental work, trauma, surgery, aspiration",
+  "ab_resistance": "",
+  "host": "Ubiquitous soil commensal human and animal",
+  "commensal": "Normal commensal flora oral respiratory tract",
+  "disease": "Lump Jaw Actinomycosis is a chronic suppurative",
+  "incubation": "days to years",
+  "diagnosis": "Oral Periodontal Infection post dental work",
+  "treatment": "Immunocompromised",
+  "prevention": "No",
+  "notes": "oral-cervicofacial disease",
+  "created_at": "2025-01-27T10:30:00.000Z",
+  "updated_at": "2025-01-27T10:30:00.000Z",
+  "associations": [
+    {
+      "association_type": "meningitis",
+      "value": 1
+    },
+    {
+      "association_type": "cough",
+      "value": 1
+    }
+  ]
+}
+```
+
+### Get Pathogen Associations
+
+**GET** `/api/v1/pathogens/{pathogen_id}/associations`
+
+Get associations for a specific pathogen.
+
+**Response:**
+
+```json
+[
+  {
+    "association_type": "meningitis",
+    "value": 1
+  },
+  {
+    "association_type": "cough",
+    "value": 1
+  }
+]
+```
+
+### List Association Types
+
+**GET** `/api/v1/pathogens/association-types/`
+
+List all association types.
+
+**Response:**
+
+```json
+[
+  "cough",
+  "diarrhea",
+  "fever",
+  "meningitis",
+  "pneumonia"
+]
+```
+
+### Get Pathogen Statistics
+
+**GET** `/api/v1/pathogens/stats/summary`
+
+Get summary statistics about pathogen data.
+
+**Response:**
+
+```json
+{
+  "total_pathogens": 150,
+  "total_association_types": 25,
+  "total_associations": 300,
+  "pathogens_with_associations": 120,
+  "pathogens_without_associations": 30
+}
+```
+
 ## Authentication & Security
 
 ### Authentication Requirements

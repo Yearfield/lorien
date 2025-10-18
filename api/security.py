@@ -69,7 +69,7 @@ class SecurityConfig:
         self.input_validation_enabled = self.is_production or bool(
             os.getenv("INPUT_VALIDATION_ENABLED", "true").lower() == "true"
         )
-        self.max_request_size = int(os.getenv("MAX_REQUEST_SIZE", "10485760"))  # 10MB
+        self.max_request_size = int(os.getenv("MAX_REQUEST_SIZE", "52428800"))  # 50MB
 
         # Security logging
         self.security_logging_enabled = bool(

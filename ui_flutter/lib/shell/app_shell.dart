@@ -7,6 +7,7 @@ import '../features/home/ui/home_pane.dart';
 import '../features/home/state/conflicts_provider.dart';
 import '../features/vm_builder/ui/vm_builder_screen.dart';
 import '../features/dictionary/ui/dictionary_pane.dart';
+import '../features/pathogens/ui/pathogen_pane.dart';
 import '../features/outcomes/ui/outcomes_pane.dart';
 import '../features/flags/ui/flags_pane.dart';
 import '../features/settings/ui/settings_pane.dart';
@@ -62,9 +63,10 @@ class _AppShellState extends State<AppShell> {
         onParentNavigated: () => _navigateToParentId = null, // Clear after navigation
       );
       case 2: return const DictionaryPane();
-      case 3: return const OutcomesPane();
-      case 4: return const FlagsPane();
-      case 5: return const SettingsPane();
+      case 3: return const PathogenPane();
+      case 4: return const OutcomesPane();
+      case 5: return const FlagsPane();
+      case 6: return const SettingsPane();
       default: return const HomePane();
     }
   }
@@ -88,6 +90,7 @@ class _AppShellState extends State<AppShell> {
                 NavigationRailDestination(icon: Icon(Icons.home), label: Text('Home')),
                 NavigationRailDestination(icon: Icon(Icons.account_tree), label: Text('VM Builder')),
                 NavigationRailDestination(icon: Icon(Icons.medical_services), label: Text('Dictionary')),
+                NavigationRailDestination(icon: Icon(Icons.bug_report), label: Text('P Builder')),
                 NavigationRailDestination(icon: Icon(Icons.assignment), label: Text('Outcomes')),
                 NavigationRailDestination(icon: Icon(Icons.flag), label: Text('Flags')),
                 NavigationRailDestination(icon: Icon(Icons.settings), label: Text('Settings')),

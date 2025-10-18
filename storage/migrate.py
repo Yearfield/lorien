@@ -83,6 +83,7 @@ def main():
         "007_add_large_workbook.sql",
         "008_add_medical_dictionary.sql",
         "009_add_dictionary_sync_triggers.sql",
+        "010_add_pathogen_tables.sql",
     ]
 
     print(f"\nFound {len(migrations)} migration(s) to apply")
