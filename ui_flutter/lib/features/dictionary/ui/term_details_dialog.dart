@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../state/dictionary_provider.dart';
 import '../data/dictionary_dto.dart';
+import '../../warhammer/ui/unified_synonym_management_dialog.dart';
 
 class TermDetailsDialog extends ConsumerStatefulWidget {
   final int termId;
@@ -244,6 +245,12 @@ class _TermDetailsDialogState extends ConsumerState<TermDetailsDialog> {
                   label: const Text('Merge'),
                   onPressed: () => _handleMerge(term),
                 ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.link),
+                  label: const Text('Synonyms'),
+                  onPressed: () => _openUnifiedSynonymManagement(term),
+                ),
               ],
             ),
             const SizedBox(height: 16),
@@ -257,11 +264,14 @@ class _TermDetailsDialogState extends ConsumerState<TermDetailsDialog> {
                   Icons.account_tree,
                 ),
                 const SizedBox(width: 8),
-                _buildInfoChip(
-                  'Conflicts',
-                  term.conflictsCount.toString(),
-                  Icons.warning,
-                  term.conflictsCount > 0 ? Colors.orange : null,
+                GestureDetector(
+                  onTap: term.conflictsCount > 0 ? () => _showConflictsDialog(term.term) : null,
+                  child: _buildInfoChip(
+                    'Conflicts',
+                    term.conflictsCount.toString(),
+                    Icons.warning,
+                    term.conflictsCount > 0 ? Colors.orange : null,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 if (term.isRedFlag)
@@ -610,6 +620,9 @@ class _TermDetailsDialogState extends ConsumerState<TermDetailsDialog> {
           const SnackBar(content: Text('Terms merged successfully')),
         );
 
+        // Refresh the dictionary search to remove the deleted term
+        await ref.read(dictionarySearchProvider.notifier).refresh();
+
         // Close the dialog since the source term no longer exists
         Navigator.of(context).pop();
       }
@@ -619,48 +632,90 @@ class _TermDetailsDialogState extends ConsumerState<TermDetailsDialog> {
   }
 
   Future<DictionaryTerm?> _showTargetTermSelectionDialog() async {
-    // For now, show a simple text input dialog
-    // In a real implementation, this would be a searchable list
+    // Show a searchable list dialog instead of simple text input
     final controller = TextEditingController();
+    List<DictionaryTerm> searchResults = [];
+    DictionaryTerm? selectedTerm;
 
-    final result = await showDialog<String>(
+    return showDialog<DictionaryTerm>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Select Target Term'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(
-            labelText: 'Target term name',
-            hintText: 'Enter the name of the term to merge into...',
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Select Target Term'),
+          content: SizedBox(
+            width: double.maxFinite,
+            height: 400,
+            child: Column(
+              children: [
+                TextField(
+                  controller: controller,
+                  decoration: const InputDecoration(
+                    labelText: 'Search for target term',
+                    hintText: 'Type to search...',
+                    prefixIcon: Icon(Icons.search),
+                  ),
+                  onChanged: (value) async {
+                    if (value.trim().isNotEmpty) {
+                      try {
+                        final results = await ref.read(dictionaryRepoProvider).searchTerms(query: value);
+                        setState(() {
+                          searchResults = results.items;
+                        });
+                      } catch (e) {
+                        setState(() {
+                          searchResults = [];
+                        });
+                      }
+                    } else {
+                      setState(() {
+                        searchResults = [];
+                      });
+                    }
+                  },
+                  autofocus: true,
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: searchResults.isEmpty
+                      ? const Center(
+                          child: Text('Type to search for terms...'),
+                        )
+                      : ListView.builder(
+                          itemCount: searchResults.length,
+                          itemBuilder: (context, index) {
+                            final term = searchResults[index];
+                            final isSelected = selectedTerm?.id == term.id;
+                            return ListTile(
+                              title: Text(term.term),
+                              subtitle: Text('ID: ${term.id} • Children: ${term.avgChildrenCount}'),
+                              selected: isSelected,
+                              onTap: () {
+                                setState(() {
+                                  selectedTerm = term;
+                                });
+                              },
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
           ),
-          autofocus: true,
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: selectedTerm != null
+                  ? () => Navigator.of(context).pop(selectedTerm)
+                  : null,
+              child: const Text('Select'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
-            child: const Text('Select'),
-          ),
-        ],
       ),
     );
-
-    if (result == null || result.isEmpty) return null;
-
-    // Search for the target term
-    try {
-      final searchResults = await ref.read(dictionaryRepoProvider).searchTerms(query: result);
-      if (searchResults.items.isNotEmpty) {
-        return searchResults.items.first;
-      }
-    } catch (e) {
-      _showErrorDialog('Failed to find target term: $e');
-    }
-
-    return null;
   }
 
   Future<List<String>?> _showConflictResolutionDialog(Map<String, dynamic> conflicts) async {
@@ -706,6 +761,106 @@ class _TermDetailsDialogState extends ConsumerState<TermDetailsDialog> {
         ],
       ),
     );
+  }
+
+  void _openUnifiedSynonymManagement(DictionaryTerm term) {
+    showDialog(
+      context: context,
+      builder: (context) => UnifiedSynonymManagementDialog(
+        type: SynonymType.dictionary,
+        termId: term.id,
+        currentSynonyms: term.synonyms,
+      ),
+    );
+  }
+
+  Future<void> _showConflictsDialog(String termName) async {
+    try {
+      final conflicts = await ref.read(dictionaryRepoProvider).getConflictsForTerm(termName);
+
+      if (conflicts.isEmpty) {
+        _showErrorDialog('No conflicts found for this term.');
+        return;
+      }
+
+      final conflict = conflicts.first;
+      final parents = List<Map<String, dynamic>>.from(conflict['parents'] as List);
+      final unionChildren = List<String>.from(conflict['union_children'] as List);
+
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('Conflicts for "$termName"'),
+            content: SizedBox(
+              width: double.maxFinite,
+              height: 400,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'This term has ${conflict['occurrences']} occurrences with different children:',
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Union of all children (${unionChildren.length}):',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: unionChildren.map((child) => Chip(
+                      label: Text(child),
+                      backgroundColor: Colors.orange.shade100,
+                    )).toList(),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Occurrences:',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: parents.length,
+                      itemBuilder: (context, index) {
+                        final parent = parents[index];
+                        final children = List<String>.from(parent['children'] as List);
+                        return Card(
+                          child: ListTile(
+                            title: Text('D${parent['depth']} • Parent #${parent['parent_id']}'),
+                            subtitle: Text(children.isEmpty ? 'No children' : children.join(', ')),
+                            dense: true,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Close'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  // Navigate to Home pane to resolve conflicts
+                  // This would require navigation callback from parent
+                },
+                child: const Text('Resolve in Home'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      _showErrorDialog('Failed to load conflicts: $e');
+    }
   }
 }
 

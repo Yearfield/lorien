@@ -13,9 +13,9 @@ class DictionaryStatsDialog extends ConsumerWidget {
     return Dialog(
       child: Container(
         width: MediaQuery.of(context).size.width * 0.6,
+        height: MediaQuery.of(context).size.height * 0.8,
         padding: const EdgeInsets.all(24),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header
@@ -35,37 +35,46 @@ class DictionaryStatsDialog extends ConsumerWidget {
             ),
             const SizedBox(height: 24),
 
-            if (statsState.isLoading)
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(32),
-                  child: CircularProgressIndicator(),
-                ),
-              )
-            else if (statsState.error != null)
-              Center(
+            // Scrollable content area
+            Expanded(
+              child: SingleChildScrollView(
                 child: Column(
                   children: [
-                    Icon(
-                      Icons.error_outline,
-                      size: 64,
-                      color: Theme.of(context).colorScheme.error,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Error loading statistics',
-                      style: Theme.of(context).textTheme.headlineSmall,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      statsState.error!,
-                      textAlign: TextAlign.center,
-                    ),
+                    if (statsState.isLoading)
+                      const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(32),
+                          child: CircularProgressIndicator(),
+                        ),
+                      )
+                    else if (statsState.error != null)
+                      Center(
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              size: 64,
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Error loading statistics',
+                              style: Theme.of(context).textTheme.headlineSmall,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              statsState.error!,
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      )
+                    else if (statsState.stats != null)
+                      _buildStatsContent(context, statsState.stats!),
                   ],
                 ),
-              )
-            else if (statsState.stats != null)
-              _buildStatsContent(context, statsState.stats!),
+              ),
+            ),
 
             // Footer
             const SizedBox(height: 24),

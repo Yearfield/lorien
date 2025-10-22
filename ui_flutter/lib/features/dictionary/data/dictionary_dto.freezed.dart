@@ -759,10 +759,6 @@ abstract class _DictionaryUpdateRequest implements DictionaryUpdateRequest {
       get copyWith => throw _privateConstructorUsedError;
 }
 
-DictionaryStats _$DictionaryStatsFromJson(Map<String, dynamic> json) {
-  return _DictionaryStats.fromJson(json);
-}
-
 /// @nodoc
 mixin _$DictionaryStats {
   int get totalTerms => throw _privateConstructorUsedError;
@@ -773,9 +769,6 @@ mixin _$DictionaryStats {
   int get totalConflicts => throw _privateConstructorUsedError;
   DictionaryCompletionRate get completionRate =>
       throw _privateConstructorUsedError;
-
-  /// Serializes this DictionaryStats to a JSON map.
-  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
 
   /// Create a copy of DictionaryStats
   /// with the given fields replaced by the non-null parameter values.
@@ -945,7 +938,7 @@ class __$$DictionaryStatsImplCopyWithImpl<$Res>
 }
 
 /// @nodoc
-@JsonSerializable()
+
 class _$DictionaryStatsImpl implements _DictionaryStats {
   const _$DictionaryStatsImpl(
       {required this.totalTerms,
@@ -955,9 +948,6 @@ class _$DictionaryStatsImpl implements _DictionaryStats {
       required this.avgChildrenPerTerm,
       required this.totalConflicts,
       required this.completionRate});
-
-  factory _$DictionaryStatsImpl.fromJson(Map<String, dynamic> json) =>
-      _$$DictionaryStatsImplFromJson(json);
 
   @override
   final int totalTerms;
@@ -1000,7 +990,6 @@ class _$DictionaryStatsImpl implements _DictionaryStats {
                 other.completionRate == completionRate));
   }
 
-  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   int get hashCode => Object.hash(
       runtimeType,
@@ -1020,13 +1009,6 @@ class _$DictionaryStatsImpl implements _DictionaryStats {
   _$$DictionaryStatsImplCopyWith<_$DictionaryStatsImpl> get copyWith =>
       __$$DictionaryStatsImplCopyWithImpl<_$DictionaryStatsImpl>(
           this, _$identity);
-
-  @override
-  Map<String, dynamic> toJson() {
-    return _$$DictionaryStatsImplToJson(
-      this,
-    );
-  }
 }
 
 abstract class _DictionaryStats implements DictionaryStats {
@@ -1039,9 +1021,6 @@ abstract class _DictionaryStats implements DictionaryStats {
           required final int totalConflicts,
           required final DictionaryCompletionRate completionRate}) =
       _$DictionaryStatsImpl;
-
-  factory _DictionaryStats.fromJson(Map<String, dynamic> json) =
-      _$DictionaryStatsImpl.fromJson;
 
   @override
   int get totalTerms;
@@ -1066,18 +1045,10 @@ abstract class _DictionaryStats implements DictionaryStats {
       throw _privateConstructorUsedError;
 }
 
-DictionaryCompletionRate _$DictionaryCompletionRateFromJson(
-    Map<String, dynamic> json) {
-  return _DictionaryCompletionRate.fromJson(json);
-}
-
 /// @nodoc
 mixin _$DictionaryCompletionRate {
   double get definitions => throw _privateConstructorUsedError;
   double get synonyms => throw _privateConstructorUsedError;
-
-  /// Serializes this DictionaryCompletionRate to a JSON map.
-  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
 
   /// Create a copy of DictionaryCompletionRate
   /// with the given fields replaced by the non-null parameter values.
@@ -1171,13 +1142,10 @@ class __$$DictionaryCompletionRateImplCopyWithImpl<$Res>
 }
 
 /// @nodoc
-@JsonSerializable()
+
 class _$DictionaryCompletionRateImpl implements _DictionaryCompletionRate {
   const _$DictionaryCompletionRateImpl(
       {required this.definitions, required this.synonyms});
-
-  factory _$DictionaryCompletionRateImpl.fromJson(Map<String, dynamic> json) =>
-      _$$DictionaryCompletionRateImplFromJson(json);
 
   @override
   final double definitions;
@@ -1200,7 +1168,6 @@ class _$DictionaryCompletionRateImpl implements _DictionaryCompletionRate {
                 other.synonyms == synonyms));
   }
 
-  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   int get hashCode => Object.hash(runtimeType, definitions, synonyms);
 
@@ -1212,22 +1179,12 @@ class _$DictionaryCompletionRateImpl implements _DictionaryCompletionRate {
   _$$DictionaryCompletionRateImplCopyWith<_$DictionaryCompletionRateImpl>
       get copyWith => __$$DictionaryCompletionRateImplCopyWithImpl<
           _$DictionaryCompletionRateImpl>(this, _$identity);
-
-  @override
-  Map<String, dynamic> toJson() {
-    return _$$DictionaryCompletionRateImplToJson(
-      this,
-    );
-  }
 }
 
 abstract class _DictionaryCompletionRate implements DictionaryCompletionRate {
   const factory _DictionaryCompletionRate(
       {required final double definitions,
       required final double synonyms}) = _$DictionaryCompletionRateImpl;
-
-  factory _DictionaryCompletionRate.fromJson(Map<String, dynamic> json) =
-      _$DictionaryCompletionRateImpl.fromJson;
 
   @override
   double get definitions;

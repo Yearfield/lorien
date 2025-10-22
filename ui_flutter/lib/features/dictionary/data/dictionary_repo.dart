@@ -272,4 +272,18 @@ class DictionaryRepo {
 
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
+
+  // Add method to get conflicts for a specific term using the same system as Home pane
+  Future<List<Map<String, dynamic>>> getConflictsForTerm(String termName) async {
+    final response = await http.get(Uri.parse('$base/conflicts/scan'));
+    if (response.statusCode != 200) {
+      throw Exception('Failed to scan conflicts: ${response.statusCode} ${response.body}');
+    }
+
+    final allConflicts = jsonDecode(response.body) as List;
+    // Filter conflicts for the specific term (case-insensitive)
+    return allConflicts.where((conflict) =>
+      conflict['label'].toString().toLowerCase() == termName.toLowerCase()
+    ).cast<Map<String, dynamic>>().toList();
+  }
 }

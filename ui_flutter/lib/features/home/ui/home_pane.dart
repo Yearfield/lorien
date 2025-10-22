@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 import '../../../core/api_config.dart';
 import '../data/conflicts_repo.dart';
 import '../state/conflicts_provider.dart';
+import '../../dictionary/state/dictionary_provider.dart';
 
 final conflictsProvider = ChangeNotifierProvider<ConflictsState>((ref) {
   final conflictsState = ConflictsState(ConflictsRepo(ApiConfig.base));
@@ -157,7 +158,23 @@ class _ConflictDetail extends ConsumerWidget {
       return const Card(
         child: Padding(
           padding: EdgeInsets.all(16),
-          child: Text('Select a conflict to review…'),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.check_circle_outline, size: 48, color: Colors.green),
+              SizedBox(height: 16),
+              Text(
+                'No conflict selected',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Select a conflict from the list to review and resolve it',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -360,8 +377,19 @@ class _ConflictDetail extends ConsumerWidget {
                                 ? 'Updated $updatedCount parents; skipped $skippedCount at max depth'
                                 : 'Resolved and updated $updatedCount parents';
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(message)),
+                              SnackBar(
+                                content: Text(message),
+                                backgroundColor: Colors.green,
+                                duration: const Duration(seconds: 3),
+                              ),
                             );
+
+                            // Refresh Dictionary pane to update conflict counts
+                            try {
+                              await ref.read(dictionarySearchProvider.notifier).refresh();
+                            } catch (e) {
+                              // Ignore errors if Dictionary pane is not active
+                            }
                           }
                         }
                       : null,

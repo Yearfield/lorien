@@ -131,6 +131,11 @@ class ConflictsState extends ChangeNotifier {
         dryRun: false,
       );
 
+      // Clear the current selection since the conflict is resolved
+      selectedConflict = null;
+      unionSelected.clear();
+      unionOptions.clear();
+
       // Refresh conflicts list after successful apply
       await scan();
       return result;

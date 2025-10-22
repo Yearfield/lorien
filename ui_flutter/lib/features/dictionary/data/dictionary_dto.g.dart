@@ -15,11 +15,11 @@ _$DictionaryTermImpl _$$DictionaryTermImplFromJson(Map<String, dynamic> json) =>
               ?.map((e) => e as String)
               .toList() ??
           const [],
-      isRedFlag: json['is_red_flag'] as bool? ?? false,
-      avgChildrenCount: (json['avg_children_count'] as num?)?.toInt() ?? 0,
-      conflictsCount: (json['conflicts_count'] as num?)?.toInt() ?? 0,
-      createdAt: json['created_at'] as String,
-      updatedAt: json['updated_at'] as String,
+      isRedFlag: json['isRedFlag'] as bool? ?? false,
+      avgChildrenCount: (json['avgChildrenCount'] as num?)?.toInt() ?? 0,
+      conflictsCount: (json['conflictsCount'] as num?)?.toInt() ?? 0,
+      createdAt: json['createdAt'] as String,
+      updatedAt: json['updatedAt'] as String,
     );
 
 Map<String, dynamic> _$$DictionaryTermImplToJson(
@@ -29,11 +29,11 @@ Map<String, dynamic> _$$DictionaryTermImplToJson(
       'term': instance.term,
       'definition': instance.definition,
       'synonyms': instance.synonyms,
-      'is_red_flag': instance.isRedFlag,
-      'avg_children_count': instance.avgChildrenCount,
-      'conflicts_count': instance.conflictsCount,
-      'created_at': instance.createdAt,
-      'updated_at': instance.updatedAt,
+      'isRedFlag': instance.isRedFlag,
+      'avgChildrenCount': instance.avgChildrenCount,
+      'conflictsCount': instance.conflictsCount,
+      'createdAt': instance.createdAt,
+      'updatedAt': instance.updatedAt,
     };
 
 _$DictionarySearchResultImpl _$$DictionarySearchResultImplFromJson(
@@ -70,45 +70,6 @@ Map<String, dynamic> _$$DictionaryUpdateRequestImplToJson(
       'definition': instance.definition,
       'synonyms': instance.synonyms,
       'isRedFlag': instance.isRedFlag,
-    };
-
-_$DictionaryStatsImpl _$$DictionaryStatsImplFromJson(
-        Map<String, dynamic> json) =>
-    _$DictionaryStatsImpl(
-      totalTerms: (json['totalTerms'] as num).toInt(),
-      redFlagTerms: (json['redFlagTerms'] as num).toInt(),
-      termsWithDefinitions: (json['termsWithDefinitions'] as num).toInt(),
-      termsWithSynonyms: (json['termsWithSynonyms'] as num).toInt(),
-      avgChildrenPerTerm: (json['avgChildrenPerTerm'] as num).toDouble(),
-      totalConflicts: (json['totalConflicts'] as num).toInt(),
-      completionRate: DictionaryCompletionRate.fromJson(
-          json['completionRate'] as Map<String, dynamic>),
-    );
-
-Map<String, dynamic> _$$DictionaryStatsImplToJson(
-        _$DictionaryStatsImpl instance) =>
-    <String, dynamic>{
-      'totalTerms': instance.totalTerms,
-      'redFlagTerms': instance.redFlagTerms,
-      'termsWithDefinitions': instance.termsWithDefinitions,
-      'termsWithSynonyms': instance.termsWithSynonyms,
-      'avgChildrenPerTerm': instance.avgChildrenPerTerm,
-      'totalConflicts': instance.totalConflicts,
-      'completionRate': instance.completionRate,
-    };
-
-_$DictionaryCompletionRateImpl _$$DictionaryCompletionRateImplFromJson(
-        Map<String, dynamic> json) =>
-    _$DictionaryCompletionRateImpl(
-      definitions: (json['definitions'] as num).toDouble(),
-      synonyms: (json['synonyms'] as num).toDouble(),
-    );
-
-Map<String, dynamic> _$$DictionaryCompletionRateImplToJson(
-        _$DictionaryCompletionRateImpl instance) =>
-    <String, dynamic>{
-      'definitions': instance.definitions,
-      'synonyms': instance.synonyms,
     };
 
 _$TreeRelationshipImpl _$$TreeRelationshipImplFromJson(

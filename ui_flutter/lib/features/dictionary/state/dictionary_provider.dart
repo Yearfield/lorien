@@ -45,8 +45,22 @@ class DictionarySearchNotifier extends StateNotifier<DictionarySearchState> {
 
     try {
       final result = await _repo.searchTerms(query: query);
+
+      // Update conflicts count for each term using the same system as Home pane
+      final updatedItems = <DictionaryTerm>[];
+      for (final term in result.items) {
+        try {
+          final conflicts = await _repo.getConflictsForTerm(term.term);
+          final conflictsCount = conflicts.isNotEmpty ? conflicts.first['occurrences'] as int : 0;
+          updatedItems.add(term.copyWith(conflictsCount: conflictsCount));
+        } catch (e) {
+          // If conflicts lookup fails, keep original term
+          updatedItems.add(term);
+        }
+      }
+
       state = state.copyWith(
-        items: result.items,
+        items: updatedItems,
         total: result.total,
         isLoading: false,
         error: null,
@@ -61,6 +75,35 @@ class DictionarySearchNotifier extends StateNotifier<DictionarySearchState> {
 
   void clearSearch() {
     state = const DictionarySearchState();
+  }
+
+  /// Refresh the current search results
+  Future<void> refresh() async {
+    if (state.query.isNotEmpty) {
+      await search(state.query);
+    } else if (state.items.isNotEmpty) {
+      // If no search query but we have items, refresh their conflict counts
+      await _refreshConflictCounts();
+    }
+  }
+
+  /// Refresh conflict counts for currently displayed terms
+  Future<void> _refreshConflictCounts() async {
+    if (state.items.isEmpty) return;
+
+    final updatedItems = <DictionaryTerm>[];
+    for (final term in state.items) {
+      try {
+        final conflicts = await _repo.getConflictsForTerm(term.term);
+        final conflictsCount = conflicts.isNotEmpty ? conflicts.first['occurrences'] as int : 0;
+        updatedItems.add(term.copyWith(conflictsCount: conflictsCount));
+      } catch (e) {
+        // If conflicts lookup fails, keep original term
+        updatedItems.add(term);
+      }
+    }
+
+    state = state.copyWith(items: updatedItems);
   }
 }
 
@@ -93,8 +136,15 @@ class TermDetailsNotifier extends StateNotifier<TermDetailsState> {
       final term = await _repo.getTermById(termId);
       final relationships = await _repo.getTreeRelationships(termId);
 
+      // Get conflicts for this term using the same system as Home pane
+      final conflicts = await _repo.getConflictsForTerm(term.term);
+      final conflictsCount = conflicts.isNotEmpty ? conflicts.first['occurrences'] as int : 0;
+
+      // Create updated term with correct conflicts count
+      final updatedTerm = term.copyWith(conflictsCount: conflictsCount);
+
       state = state.copyWith(
-        term: term,
+        term: updatedTerm,
         relationships: relationships,
         isLoading: false,
         error: null,

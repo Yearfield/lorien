@@ -79,7 +79,14 @@ class VmRepo {
       body: body,
     );
     if (r.statusCode != 200 && r.statusCode != 201) {
-      throw Exception('add child failed: ${r.statusCode} ${r.body}');
+      // Parse the error response to get the actual error message
+      try {
+        final errorJson = jsonDecode(r.body);
+        final errorMessage = errorJson['error']?['message'] ?? r.body;
+        throw Exception('add child failed: $errorMessage');
+      } catch (e) {
+        throw Exception('add child failed: ${r.statusCode} ${r.body}');
+      }
     }
   }
 

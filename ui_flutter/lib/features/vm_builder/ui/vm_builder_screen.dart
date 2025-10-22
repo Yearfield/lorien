@@ -417,11 +417,25 @@ class _VmBuilderScreenState extends State<VmBuilderScreen> {
           ),
         ),
         const SizedBox(width: 8),
+        // Refresh button
+        FilledButton.icon(
+          onPressed: s.isBusy ? null : () => s.refreshAll(),
+          icon: s.isBusy ? const SizedBox(width:16,height:16,child:CircularProgressIndicator(strokeWidth:2)) : const Icon(Icons.refresh),
+          label: const Text('Refresh'),
+        ),
+        const SizedBox(width: 8),
         // Export button
         FilledButton.icon(
           onPressed: s.exporting ? null : () => s.exportCurrentRoot(),
           icon: s.exporting ? const SizedBox(width:16,height:16,child:CircularProgressIndicator(strokeWidth:2)) : const Icon(Icons.download),
           label: const Text('Export'),
+        ),
+        const SizedBox(width: 8),
+        // Drill Down button
+        FilledButton.icon(
+          onPressed: s.childrenWithMeta.isNotEmpty ? () => s.drillDownAllChildren() : null,
+          icon: const Icon(Icons.explore),
+          label: const Text('Drill Down'),
         ),
         const SizedBox(width: 8),
         // Next <5 button
@@ -678,6 +692,20 @@ class _VmBuilderScreenState extends State<VmBuilderScreen> {
                                 trailing: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
+                                    // Individual drill down button - only show if child has an ID
+                                    if (child['id'] != null)
+                                      IconButton(
+                                        icon: const Icon(Icons.explore),
+                                        tooltip: 'Navigate to ${child['label']} children',
+                                        onPressed: () => s.drillIntoChildByIndex(i),
+                                      ),
+                                    // Clone subtree button - only show if child has an ID
+                                    if (child['id'] != null)
+                                      IconButton(
+                                        icon: const Icon(Icons.copy),
+                                        tooltip: 'Clone subtree into ${child['label']}',
+                                        onPressed: () => s.drillDownChild(child['id'] as int, child['label'] as String),
+                                      ),
                                     // Red flag icon
                                     IconButton(
                                       icon: Icon(redFlag ? Icons.flag : Icons.outlined_flag,
@@ -685,15 +713,16 @@ class _VmBuilderScreenState extends State<VmBuilderScreen> {
                                       tooltip: redFlag ? 'Unflag red' : 'Mark as red flag',
                                       onPressed: () => s.toggleEdgeFlag(child['id'] as int, redFlag),
                                     ),
-                                    // Clone menu
-                                    PopupMenuButton<String>(
-                                      onSelected: (v) {
-                                        if (v == 'clone') s.tryCloneSubtreeForChildLabel(label);
-                                      },
-                                      itemBuilder: (ctx) => [
-                                        const PopupMenuItem(value: 'clone', child: Text('Clone subtree here'))
-                                      ],
-                                    ),
+                                    // Drill down menu - only show if child has an ID
+                                    if (child['id'] != null)
+                                      PopupMenuButton<String>(
+                                        onSelected: (v) {
+                                          if (v == 'drill') s.drillIntoChildByIndex(i);
+                                        },
+                                        itemBuilder: (ctx) => [
+                                          const PopupMenuItem(value: 'drill', child: Text('View children'))
+                                        ],
+                                      ),
                                     // Delete button
                                     IconButton(
                                       icon: const Icon(Icons.delete),
@@ -741,6 +770,152 @@ class _VmBuilderScreenState extends State<VmBuilderScreen> {
                       ],
                     ),
                   ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<Map<String, dynamic>?> _showSubtreeSelectionDialog(String childLabel, List<Map<String, dynamic>> existingParents) async {
+    if (existingParents.length == 1) {
+      // Only one parent, no need for dialog
+      return existingParents.first;
+    }
+
+    return await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Select Subtree for "$childLabel"'),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 400,
+          child: Column(
+            children: [
+              Text(
+                'Multiple parents found with the label "$childLabel". Choose which subtree to clone:',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: existingParents.length,
+                  itemBuilder: (context, index) {
+                    final parent = existingParents[index];
+                    final id = parent['id'] as int? ?? 0;
+                    final label = parent['label'] as String? ?? 'Unknown';
+                    final depth = parent['depth'] as int? ?? 0;
+                    final childCount = parent['child_count'] as int? ?? 0;
+
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: ListTile(
+                        title: Text(
+                          label,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Parent ID: $id'),
+                            Text('Depth: $depth'),
+                            Text('Children: $childCount'),
+                          ],
+                        ),
+                        onTap: () => Navigator.of(context).pop(parent),
+                        trailing: const Icon(Icons.arrow_forward_ios),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDrillDownDialog(BuildContext context, VmState s) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Drill Down into Decision Tree'),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 400,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Choose a child to drill down into and build the decision tree:',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: s.childrenWithMeta.length,
+                  itemBuilder: (context, index) {
+                    final child = s.childrenWithMeta[index];
+                    final childId = child['id'] as int?;
+                    final childLabel = child['label'] as String? ?? 'Unknown';
+                    final redFlag = child['red_flag'] as bool? ?? false;
+
+                    if (childId == null) {
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: ListTile(
+                          title: Text(
+                            childLabel,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                          subtitle: const Text('No ID - please save changes first'),
+                          leading: Icon(
+                            redFlag ? Icons.flag : Icons.outlined_flag,
+                            color: redFlag ? Colors.red : Colors.grey,
+                          ),
+                          enabled: false,
+                        ),
+                      );
+                    }
+
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: ListTile(
+                        title: Text(
+                          childLabel,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: Text('ID: $childId'),
+                        leading: Icon(
+                          redFlag ? Icons.flag : Icons.outlined_flag,
+                          color: redFlag ? Colors.red : null,
+                        ),
+                        trailing: const Icon(Icons.arrow_forward_ios),
+                        onTap: () {
+                          Navigator.of(context).pop();
+                          s.drillIntoChildByIndex(index);
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
           ),
         ],
       ),

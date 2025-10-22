@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'dart:typed_data';
 import '../data/vm_repo.dart';
 
 class VmState extends ChangeNotifier {
@@ -124,6 +123,7 @@ class VmState extends ChangeNotifier {
       // Handle error silently for now
       childrenWithMeta = [];
       children = [];
+      toast?.call('Error reloading children: $e');
     }
     loading = false;
     notifyListeners();
@@ -150,88 +150,213 @@ class VmState extends ChangeNotifier {
   }
 
   Future<void> save() async {
-    if (currentParentId == null) return;
+    if (loading) return;
     loading = true;
     notifyListeners();
+
     try {
-      // Get current server children to compare with local state
-      final serverChildren = await repo.getChildren(currentParentId!);
-      final serverLabels = serverChildren.map((c) => c['label'] as String).toList();
-
-      // Check if we only have new children added (not modifications to existing ones)
-      final onlyNewChildren = _onlyNewChildrenAdded(children, serverLabels);
-
-      if (onlyNewChildren) {
-        // Safe case: only adding new children, use the safe addChild method
-        final newChildren = children.skip(serverLabels.length).toList();
-        for (final childLabel in newChildren) {
-          await repo.addChild(currentParentId!, childLabel);
-        }
-        toast?.call('${newChildren.length} child(ren) added successfully');
-      } else if (_listsEqual(children, serverLabels)) {
-        // No changes needed
-        toast?.call('No changes to save');
-      } else {
-        // Unsafe case: modifications detected, warn user
-        toast?.call('WARNING: This will replace all children. Existing child data may be lost.');
-        // For now, don't save automatically - let user decide
-        loading = false;
-        notifyListeners();
+      if (currentParentId == null) {
+        toast?.call('No parent selected');
         return;
       }
 
-      // Reload children after save to get fresh server data with IDs
-      await reloadChildren();
+      // Get current server state
+      final serverChildren = await repo.getChildren(currentParentId!);
+      final serverLabels = serverChildren.map((child) => child['label'] as String).toList();
+
+      // Find new children (those not in server)
+      final newChildren = children.where((child) => !serverLabels.contains(child)).toList();
+
+      if (newChildren.isEmpty) {
+        toast?.call('No changes to save');
+        return;
+      }
+
+      // Add each new child using the simple API endpoint
+      int successCount = 0;
+      for (final childLabel in newChildren) {
+        try {
+          await repo.addChild(currentParentId!, childLabel);
+          successCount++;
+        } catch (e) {
+          final errorMsg = e.toString();
+          if (errorMsg.contains('parent already has 5 children')) {
+            toast?.call('Cannot add "$childLabel": Parent already has 5 children. Please delete a child first or use a different parent.');
+          } else {
+            toast?.call('Failed to add "$childLabel": $errorMsg');
+          }
+        }
+      }
+
+      if (successCount > 0) {
+        toast?.call('$successCount child(ren) added successfully');
+
+        // Reload children to get fresh data with IDs
+        await reloadChildren();
+      }
     } catch (e) {
       toast?.call('Save failed: $e');
+    } finally {
+      loading = false;
+      notifyListeners();
     }
-    loading = false;
-    notifyListeners();
   }
 
-  bool _onlyNewChildrenAdded(List<String> local, List<String> server) {
-    // Check if local children are just server children + new ones at the end
-    if (local.length <= server.length) return false;
 
-    for (int i = 0; i < server.length; i++) {
-      if (local[i] != server[i]) return false;
-    }
-    return true;
-  }
-
-  bool _listsEqual(List<String> a, List<String> b) {
-    if (a.length != b.length) return false;
-    for (int i = 0; i < a.length; i++) {
-      if (a[i] != b[i]) return false;
-    }
-    return true;
-  }
 
   Future<void> drillIntoChildByIndex(int index) async {
-    if (index < 0 || index >= children.length) return;
-
-    // Check if this index corresponds to an unsaved child
-    final serverChildren = await repo.getChildren(currentParentId!);
-    final isUnsavedChild = index >= serverChildren.length;
-
-    if (isUnsavedChild) {
-      // For unsaved children, show a message that they need to be saved first
-      toast?.call('Please save changes before drilling into new children');
+    if (index < 0 || index >= childrenWithMeta.length) {
+      toast?.call('Invalid child index: $index');
       return;
     }
 
-    // For existing children, proceed with normal drill logic
-    final child = serverChildren[index];
+    final child = childrenWithMeta[index];
     final childId = child['id'] as int?;
     final childLabel = child['label'] as String;
 
     if (childId == null) {
-      toast?.call('Child has no ID - this should not happen');
+      toast?.call('Child has no ID - please save changes first');
       return;
     }
 
-    await selectParent(childId, childLabel, currentDepth + 1);
+    // Drill down into the child to show its children
+    try {
+      await selectParent(childId, childLabel, currentDepth + 1);
+      toast?.call('Navigated to $childLabel');
+    } catch (e) {
+      toast?.call('Failed to navigate to $childLabel: $e');
+    }
   }
+
+  Future<void> drillDownChild(int childId, String childLabel) async {
+    toast?.call('Starting drill down for $childLabel...');
+
+    // Find clone candidates for this specific child
+    final items = await repo.findCloneCandidates(childLabel);
+    if (items.isEmpty) {
+      toast?.call('No subtrees found for "$childLabel"');
+      return;
+    }
+
+    // Filter out the current child to avoid circular references
+    final filteredItems = items.where((item) => item['id'] != childId).toList();
+
+    if (filteredItems.isEmpty) {
+      toast?.call('No other parents found with label "$childLabel" to clone from');
+      return;
+    }
+
+    // If multiple candidates, show selection dialog
+    Map<String, dynamic>? selectedItem;
+    if (filteredItems.length == 1) {
+      selectedItem = filteredItems.first;
+    } else {
+      // For now, just use the first item if multiple exist
+      selectedItem = filteredItems.first;
+      toast?.call('Multiple parents found for "$childLabel", using first one');
+    }
+
+    final srcId = selectedItem['id'] as int?;
+    if (srcId == null) {
+      toast?.call('Invalid source ID for clone operation');
+      return;
+    }
+
+    try {
+      // Get the children of the source parent to clone from
+      final sourceChildren = await repo.getChildren(srcId);
+      if (sourceChildren.isEmpty) {
+        toast?.call('No children found in source subtree for "$childLabel"');
+        return;
+      }
+
+      // Clone each child from the source into the destination
+      int clonedCount = 0;
+      for (var sourceChild in sourceChildren) {
+        try {
+          await repo.addChild(childId, sourceChild['label'] as String);
+          clonedCount++;
+        } catch (e) {
+          // Skip if child already exists or other error
+          continue;
+        }
+      }
+
+      toast?.call('Cloned $clonedCount children for "$childLabel"');
+
+      // Navigate to the child to show the drilled down results
+      await selectParent(childId, childLabel, currentDepth + 1);
+      toast?.call('Navigated to $childLabel to show drilled down children');
+
+    } catch (e) {
+      final errorMsg = e.toString();
+      if (errorMsg.contains('max_children_exceeded') || errorMsg.contains('destination parent already has 5 children')) {
+        toast?.call('Cannot drill down: $childLabel already has 5 children');
+      } else if (errorMsg.contains('depth_limit_exceeded') || errorMsg.contains('cloned subtree would exceed depth limit')) {
+        // Just add as simple child when depth limit is reached
+        try {
+          await repo.addChild(childId, childLabel);
+          toast?.call('Added "$childLabel" as simple child (depth limit reached)');
+
+          // Navigate to the child to show the result
+          await selectParent(childId, childLabel, currentDepth + 1);
+        } catch (partialError) {
+          toast?.call('Failed to add "$childLabel": $partialError');
+        }
+      } else {
+        toast?.call('Drill down failed for $childLabel: $e');
+      }
+    }
+  }
+
+  Future<void> drillDownAllChildren() async {
+    if (childrenWithMeta.isEmpty) {
+      toast?.call('No children to drill down into');
+      return;
+    }
+
+    toast?.call('Starting automatic drill down...');
+
+    // For each child with an ID, try to clone a subtree from existing parents
+    int clonedCount = 0;
+    for (final child in childrenWithMeta) {
+      final childLabel = child['label'] as String? ?? '';
+      final childId = child['id'] as int?;
+
+      if (childId == null) {
+        toast?.call('Skipping "$childLabel" - no ID (please save changes first)');
+        continue;
+      }
+
+      try {
+        await tryCloneSubtreeForChildLabelAutomatic(childLabel);
+        clonedCount++;
+        // Wait a moment between clones to allow UI to update
+        await Future.delayed(const Duration(milliseconds: 500));
+      } catch (e) {
+        toast?.call('Error cloning subtree for "$childLabel": $e');
+      }
+    }
+
+    if (clonedCount == 0) {
+      toast?.call('No children with IDs found - please save changes first');
+    } else {
+      toast?.call('Drill down completed - cloned $clonedCount subtrees');
+
+      // Navigate to the first child to show the drilled down results
+      if (childrenWithMeta.isNotEmpty) {
+        final firstChild = childrenWithMeta.first;
+        final firstChildId = firstChild['id'] as int?;
+        final firstChildLabel = firstChild['label'] as String? ?? '';
+
+        if (firstChildId != null) {
+          await selectParent(firstChildId, firstChildLabel, currentDepth + 1);
+          toast?.call('Navigated to $firstChildLabel to show drilled down children');
+        }
+      }
+    }
+  }
+
 
   bool canGoBack() => crumbs.length > 1;
 
@@ -348,18 +473,90 @@ class VmState extends ChangeNotifier {
     return null; // Successfully navigated, no error message
   }
 
+  Future<void> tryCloneSubtreeForChildLabelAutomatic(String label) async {
+    final items = await repo.findCloneCandidates(label);
+    if (items.isEmpty) {
+      toast?.call('No subtrees found for "$label"');
+      return;
+    }
+
+    // Find the child ID that matches the label
+    final child = childrenWithMeta.firstWhere(
+      (c) => c['label'] == label,
+      orElse: () => <String, dynamic>{},
+    );
+
+    if (child.isEmpty || child['id'] == null) {
+      toast?.call('Child "$label" not found or has no ID');
+      return;
+    }
+
+    final destChildId = child['id'] as int;
+
+    // Automatically select the first candidate for drill down
+    final selectedItem = items.first;
+
+    final srcId = selectedItem['id'] as int?;
+    if (srcId == null) {
+      toast?.call('Invalid source ID for clone operation');
+      return;
+    }
+
+    try {
+      await repo.cloneSubtree(sourceId: srcId, destParentId: destChildId);
+      toast?.call('Subtree cloned successfully for "$label"');
+      await reloadChildren();
+    } catch (e) {
+      final errorMsg = e.toString();
+      if (errorMsg.contains('max_children_exceeded') || errorMsg.contains('destination parent already has 5 children')) {
+        toast?.call('Cannot clone: destination parent already has 5 children');
+      } else if (errorMsg.contains('depth_limit_exceeded') || errorMsg.contains('cloned subtree would exceed depth limit')) {
+        toast?.call('Cannot clone: subtree would exceed depth limit');
+      } else {
+        toast?.call('Clone failed: ${e.toString()}');
+      }
+    }
+  }
+
   Future<void> tryCloneSubtreeForChildLabel(String label) async {
     final items = await repo.findCloneCandidates(label);
     if (items.isEmpty) {
-      // Show toast message - we'll need to implement this
+      toast?.call('No subtrees found for "$label"');
       return;
     }
-    // if 1 item, use it; else prompt simple dialog to pick
-    final srcId = items.first['id'] as int;
+
     final dest = currentParentId!;
-    final res = await repo.cloneSubtree(sourceId: srcId, destParentId: dest);
-    // Show toast message - we'll need to implement this
-    await reloadChildren();
+
+    // If multiple candidates, show selection dialog
+    Map<String, dynamic>? selectedItem;
+    if (items.length == 1) {
+      selectedItem = items.first;
+    } else {
+      // For now, just use the first item if multiple exist
+      selectedItem = items.first;
+      toast?.call('Multiple parents found for "$label", using first one');
+    }
+
+    final srcId = selectedItem['id'] as int?;
+    if (srcId == null) {
+      toast?.call('Invalid source ID for clone operation');
+      return;
+    }
+
+    try {
+      await repo.cloneSubtree(sourceId: srcId, destParentId: dest);
+      toast?.call('Subtree cloned successfully for "$label"');
+      await reloadChildren();
+    } catch (e) {
+      final errorMsg = e.toString();
+      if (errorMsg.contains('max_children_exceeded') || errorMsg.contains('destination parent already has 5 children')) {
+        toast?.call('Cannot clone: destination parent already has 5 children');
+      } else if (errorMsg.contains('depth_limit_exceeded') || errorMsg.contains('cloned subtree would exceed depth limit')) {
+        toast?.call('Cannot clone: subtree would exceed depth limit');
+      } else {
+        toast?.call('Clone failed: ${e.toString()}');
+      }
+    }
   }
 
   Future<void> exportCurrentRoot() async {
@@ -521,6 +718,31 @@ class VmState extends ChangeNotifier {
       return false;
     } finally {
       isBusy = false; notifyListeners();
+    }
+  }
+
+  /// Refreshes the entire VM Builder by reloading all data from the database
+  Future<void> refreshAll() async {
+    isBusy = true;
+    bannerError = null;
+    notifyListeners();
+
+    try {
+      // Reload roots to get fresh data from database
+      await loadRoots();
+
+      // If we have a current parent selected, reload its children too
+      if (currentParentId != null) {
+        await reloadChildren();
+      }
+
+      toast?.call('Database refreshed successfully');
+    } catch (e) {
+      bannerError = 'Refresh failed: $e';
+      toast?.call('Refresh failed: $e');
+    } finally {
+      isBusy = false;
+      notifyListeners();
     }
   }
 }

@@ -57,8 +57,23 @@ class DictionaryStats with _$DictionaryStats {
     required DictionaryCompletionRate completionRate,
   }) = _DictionaryStats;
 
-  factory DictionaryStats.fromJson(Map<String, dynamic> json) =>
-      _$DictionaryStatsFromJson(json);
+  factory DictionaryStats.fromJson(Map<String, dynamic> json) {
+    // Handle potential null values from API
+    return DictionaryStats(
+      totalTerms: (json['total_terms'] as num?)?.toInt() ?? 0,
+      redFlagTerms: (json['red_flag_terms'] as num?)?.toInt() ?? 0,
+      termsWithDefinitions: (json['terms_with_definitions'] as num?)?.toInt() ?? 0,
+      termsWithSynonyms: (json['terms_with_synonyms'] as num?)?.toInt() ?? 0,
+      avgChildrenPerTerm: (json['avg_children_per_term'] as num?)?.toDouble() ?? 0.0,
+      totalConflicts: (json['total_conflicts'] as num?)?.toInt() ?? 0,
+      completionRate: DictionaryCompletionRate.fromJson(
+        json['completion_rate'] as Map<String, dynamic>? ?? {
+          'definitions': 0.0,
+          'synonyms': 0.0,
+        },
+      ),
+    );
+  }
 }
 
 @freezed
@@ -68,8 +83,12 @@ class DictionaryCompletionRate with _$DictionaryCompletionRate {
     required double synonyms,
   }) = _DictionaryCompletionRate;
 
-  factory DictionaryCompletionRate.fromJson(Map<String, dynamic> json) =>
-      _$DictionaryCompletionRateFromJson(json);
+  factory DictionaryCompletionRate.fromJson(Map<String, dynamic> json) {
+    return DictionaryCompletionRate(
+      definitions: (json['definitions'] as num?)?.toDouble() ?? 0.0,
+      synonyms: (json['synonyms'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
 }
 
 @freezed
