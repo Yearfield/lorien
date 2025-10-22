@@ -138,6 +138,127 @@ def _dict_to_term(row: sqlite3.Row) -> DictionaryTerm:
     )
 
 
+_DICTIONARY_TRIGGER_SQLS_WITH_CONFLICTS = (
+    """
+    CREATE TRIGGER IF NOT EXISTS tr_sync_dictionary_on_node_change
+    AFTER UPDATE OF label, is_red_flag ON nodes
+    FOR EACH ROW
+    BEGIN
+        UPDATE medical_dictionary
+        SET
+            avg_children_count = (SELECT COUNT(*) FROM nodes WHERE parent_id = NEW.id),
+            conflicts_count = (SELECT COUNT(*) FROM conflicts WHERE node_id = NEW.id),
+            is_red_flag = (SELECT MAX(is_red_flag) FROM nodes WHERE LOWER(TRIM(label)) = LOWER(TRIM(NEW.label)))
+        WHERE LOWER(TRIM(term)) = LOWER(TRIM(NEW.label));
+    END;
+    """,
+    """
+    CREATE TRIGGER IF NOT EXISTS tr_sync_dictionary_on_node_insert
+    AFTER INSERT ON nodes
+    FOR EACH ROW
+    BEGIN
+        INSERT OR IGNORE INTO medical_dictionary (term, avg_children_count, conflicts_count, is_red_flag)
+        VALUES (
+            NEW.label,
+            (SELECT COUNT(*) FROM nodes WHERE parent_id = NEW.id),
+            (SELECT COUNT(*) FROM conflicts WHERE node_id = NEW.id),
+            NEW.is_red_flag
+        );
+        UPDATE medical_dictionary
+        SET
+            avg_children_count = (SELECT COUNT(*) FROM nodes WHERE parent_id = NEW.id),
+            conflicts_count = (SELECT COUNT(*) FROM conflicts WHERE node_id = NEW.id),
+            is_red_flag = (SELECT MAX(is_red_flag) FROM nodes WHERE LOWER(TRIM(label)) = LOWER(TRIM(NEW.label)))
+        WHERE LOWER(TRIM(term)) = LOWER(TRIM(NEW.label));
+    END;
+    """,
+    """
+    CREATE TRIGGER IF NOT EXISTS tr_sync_nodes_on_dictionary_change
+    AFTER UPDATE OF term ON medical_dictionary
+    FOR EACH ROW
+    WHEN NEW.term != OLD.term
+    BEGIN
+        UPDATE nodes
+        SET label = NEW.term
+        WHERE LOWER(TRIM(label)) = LOWER(TRIM(OLD.term));
+    END;
+    """,
+)
+
+
+_DICTIONARY_TRIGGER_SQLS_FALLBACK = (
+    """
+    CREATE TRIGGER IF NOT EXISTS tr_sync_dictionary_on_node_change
+    AFTER UPDATE OF label, is_red_flag ON nodes
+    FOR EACH ROW
+    BEGIN
+        UPDATE medical_dictionary
+        SET
+            avg_children_count = (SELECT COUNT(*) FROM nodes WHERE parent_id = NEW.id),
+            conflicts_count = 0,
+            is_red_flag = (SELECT MAX(is_red_flag) FROM nodes WHERE LOWER(TRIM(label)) = LOWER(TRIM(NEW.label)))
+        WHERE LOWER(TRIM(term)) = LOWER(TRIM(NEW.label));
+    END;
+    """,
+    """
+    CREATE TRIGGER IF NOT EXISTS tr_sync_dictionary_on_node_insert
+    AFTER INSERT ON nodes
+    FOR EACH ROW
+    BEGIN
+        INSERT OR IGNORE INTO medical_dictionary (term, avg_children_count, conflicts_count, is_red_flag)
+        VALUES (
+            NEW.label,
+            (SELECT COUNT(*) FROM nodes WHERE parent_id = NEW.id),
+            0,
+            NEW.is_red_flag
+        );
+        UPDATE medical_dictionary
+        SET
+            avg_children_count = (SELECT COUNT(*) FROM nodes WHERE parent_id = NEW.id),
+            conflicts_count = 0,
+            is_red_flag = (SELECT MAX(is_red_flag) FROM nodes WHERE LOWER(TRIM(label)) = LOWER(TRIM(NEW.label)))
+        WHERE LOWER(TRIM(term)) = LOWER(TRIM(NEW.label));
+    END;
+    """,
+    """
+    CREATE TRIGGER IF NOT EXISTS tr_sync_nodes_on_dictionary_change
+    AFTER UPDATE OF term ON medical_dictionary
+    FOR EACH ROW
+    WHEN NEW.term != OLD.term
+    BEGIN
+        UPDATE nodes
+        SET label = NEW.term
+        WHERE LOWER(TRIM(label)) = LOWER(TRIM(OLD.term));
+    END;
+    """,
+)
+
+
+async def _drop_dictionary_sync_triggers(conn: sqlite3.Connection) -> None:
+    """Remove dictionary sync triggers during disruptive operations."""
+    for name in (
+        "tr_sync_dictionary_on_node_change",
+        "tr_sync_dictionary_on_node_insert",
+        "tr_sync_nodes_on_dictionary_change",
+    ):
+        await anyio.to_thread.run_sync(conn.execute, f"DROP TRIGGER IF EXISTS {name}")
+
+
+async def _create_dictionary_sync_triggers(
+    conn: sqlite3.Connection,
+    *,
+    use_conflicts_table: bool = True,
+) -> None:
+    """Recreate dictionary sync triggers after disruptive operations."""
+    sqls = (
+        _DICTIONARY_TRIGGER_SQLS_WITH_CONFLICTS
+        if use_conflicts_table
+        else _DICTIONARY_TRIGGER_SQLS_FALLBACK
+    )
+    for sql in sqls:
+        await anyio.to_thread.run_sync(conn.execute, sql)
+
+
 # API Endpoints
 
 
@@ -225,13 +346,23 @@ async def get_dictionary_stats(
     cursor = await anyio.to_thread.run_sync(
         conn.execute, "SELECT AVG(avg_children_count) as avg_children FROM medical_dictionary"
     )
-    avg_children = (await anyio.to_thread.run_sync(cursor.fetchone))["avg_children"] or 0
+    avg_children_result = await anyio.to_thread.run_sync(cursor.fetchone)
+    avg_children = (
+        avg_children_result["avg_children"]
+        if avg_children_result["avg_children"] is not None
+        else 0.0
+    )
 
     # Total conflicts
     cursor = await anyio.to_thread.run_sync(
         conn.execute, "SELECT SUM(conflicts_count) as total_conflicts FROM medical_dictionary"
     )
-    total_conflicts = (await anyio.to_thread.run_sync(cursor.fetchone))["total_conflicts"] or 0
+    total_conflicts_result = await anyio.to_thread.run_sync(cursor.fetchone)
+    total_conflicts = (
+        total_conflicts_result["total_conflicts"]
+        if total_conflicts_result["total_conflicts"] is not None
+        else 0
+    )
 
     return {
         "total_terms": total_terms,
@@ -724,16 +855,7 @@ async def rename_dictionary_term(
         )
 
     try:
-        # Temporarily disable dictionary sync triggers to avoid conflicts
-        await anyio.to_thread.run_sync(
-            conn.execute, "DROP TRIGGER IF EXISTS tr_sync_dictionary_on_node_change"
-        )
-        await anyio.to_thread.run_sync(
-            conn.execute, "DROP TRIGGER IF EXISTS tr_sync_dictionary_on_node_insert"
-        )
-        await anyio.to_thread.run_sync(
-            conn.execute, "DROP TRIGGER IF EXISTS tr_sync_nodes_on_dictionary_change"
-        )
+        await _drop_dictionary_sync_triggers(conn)
 
         # Update dictionary term
         await anyio.to_thread.run_sync(
@@ -749,122 +871,13 @@ async def rename_dictionary_term(
             (new_term, old_term),
         )
 
-        # Re-enable the dictionary sync triggers
-        await anyio.to_thread.run_sync(
-            conn.execute,
-            """
-            CREATE TRIGGER IF NOT EXISTS tr_sync_dictionary_on_node_change
-            AFTER UPDATE OF label, is_red_flag ON nodes
-            FOR EACH ROW
-            BEGIN
-                UPDATE medical_dictionary
-                SET
-                    avg_children_count = (SELECT COUNT(*) FROM nodes WHERE parent_id = NEW.id),
-                    conflicts_count = (SELECT COUNT(*) FROM conflicts WHERE node_id = NEW.id),
-                    is_red_flag = (SELECT MAX(is_red_flag) FROM nodes WHERE LOWER(TRIM(label)) = LOWER(TRIM(NEW.label)))
-                WHERE LOWER(TRIM(term)) = LOWER(TRIM(NEW.label));
-            END;
-        """,
-        )
-
-        await anyio.to_thread.run_sync(
-            conn.execute,
-            """
-            CREATE TRIGGER IF NOT EXISTS tr_sync_dictionary_on_node_insert
-            AFTER INSERT ON nodes
-            FOR EACH ROW
-            BEGIN
-                INSERT OR IGNORE INTO medical_dictionary (term, avg_children_count, conflicts_count, is_red_flag)
-                VALUES (
-                    NEW.label,
-                    (SELECT COUNT(*) FROM nodes WHERE parent_id = NEW.id),
-                    (SELECT COUNT(*) FROM conflicts WHERE node_id = NEW.id),
-                    NEW.is_red_flag
-                );
-                UPDATE medical_dictionary
-                SET
-                    avg_children_count = (SELECT COUNT(*) FROM nodes WHERE parent_id = NEW.id),
-                    conflicts_count = (SELECT COUNT(*) FROM conflicts WHERE node_id = NEW.id),
-                    is_red_flag = (SELECT MAX(is_red_flag) FROM nodes WHERE LOWER(TRIM(label)) = LOWER(TRIM(NEW.label)))
-                WHERE LOWER(TRIM(term)) = LOWER(TRIM(NEW.label));
-            END;
-        """,
-        )
-
-        await anyio.to_thread.run_sync(
-            conn.execute,
-            """
-            CREATE TRIGGER IF NOT EXISTS tr_sync_nodes_on_dictionary_change
-            AFTER UPDATE OF term ON medical_dictionary
-            FOR EACH ROW
-            WHEN NEW.term != OLD.term
-            BEGIN
-                UPDATE nodes
-                SET label = NEW.term
-                WHERE LOWER(TRIM(label)) = LOWER(TRIM(OLD.term));
-            END;
-        """,
-        )
+        await _create_dictionary_sync_triggers(conn)
 
     except Exception as e:
         # Re-enable triggers even on error
         try:
-            await anyio.to_thread.run_sync(
-                conn.execute,
-                """
-                CREATE TRIGGER IF NOT EXISTS tr_sync_dictionary_on_node_change
-                AFTER UPDATE OF label, is_red_flag ON nodes
-                FOR EACH ROW
-                BEGIN
-                    UPDATE medical_dictionary
-                    SET
-                        avg_children_count = (SELECT COUNT(*) FROM nodes WHERE parent_id = NEW.id),
-                        conflicts_count = (SELECT COUNT(*) FROM conflicts WHERE node_id = NEW.id),
-                        is_red_flag = (SELECT MAX(is_red_flag) FROM nodes WHERE LOWER(TRIM(label)) = LOWER(TRIM(NEW.label)))
-                    WHERE LOWER(TRIM(term)) = LOWER(TRIM(NEW.label));
-                END;
-            """,
-            )
-
-            await anyio.to_thread.run_sync(
-                conn.execute,
-                """
-                CREATE TRIGGER IF NOT EXISTS tr_sync_dictionary_on_node_insert
-                AFTER INSERT ON nodes
-                FOR EACH ROW
-                BEGIN
-                    INSERT OR IGNORE INTO medical_dictionary (term, avg_children_count, conflicts_count, is_red_flag)
-                    VALUES (
-                        NEW.label,
-                        (SELECT COUNT(*) FROM nodes WHERE parent_id = NEW.id),
-                        (SELECT COUNT(*) FROM conflicts WHERE node_id = NEW.id),
-                        NEW.is_red_flag
-                    );
-                    UPDATE medical_dictionary
-                    SET
-                        avg_children_count = (SELECT COUNT(*) FROM nodes WHERE parent_id = NEW.id),
-                        conflicts_count = (SELECT COUNT(*) FROM conflicts WHERE node_id = NEW.id),
-                        is_red_flag = (SELECT MAX(is_red_flag) FROM nodes WHERE LOWER(TRIM(label)) = LOWER(TRIM(NEW.label)))
-                    WHERE LOWER(TRIM(term)) = LOWER(TRIM(NEW.label));
-                END;
-            """,
-            )
-
-            await anyio.to_thread.run_sync(
-                conn.execute,
-                """
-                CREATE TRIGGER IF NOT EXISTS tr_sync_nodes_on_dictionary_change
-                AFTER UPDATE OF term ON medical_dictionary
-                FOR EACH ROW
-                WHEN NEW.term != OLD.term
-                BEGIN
-                    UPDATE nodes
-                    SET label = NEW.term
-                    WHERE LOWER(TRIM(label)) = LOWER(TRIM(OLD.term));
-                END;
-            """,
-            )
-        except:
+            await _create_dictionary_sync_triggers(conn, use_conflicts_table=False)
+        except Exception:
             pass  # Ignore trigger recreation errors during rollback
 
         raise HTTPException(
@@ -892,6 +905,27 @@ async def rename_dictionary_term(
     )
 
 
+@router.get("/{term_id}/test-merge")
+async def test_merge_query(
+    term_id: int,
+    target_term_id: int = Query(..., description="Target term ID"),
+    conn: sqlite3.Connection = Depends(get_db_connection),
+):
+    """Test endpoint to debug merge query issues."""
+    try:
+        cursor = await anyio.to_thread.run_sync(
+            conn.execute,
+            "SELECT id, term FROM medical_dictionary WHERE id IN (?, ?)",
+            (term_id, target_term_id),
+        )
+        if cursor is None:
+            return {"error": "cursor is None"}
+        rows = await anyio.to_thread.run_sync(cursor.fetchall)
+        return {"success": True, "rows": [dict(row) for row in rows]}
+    except Exception as e:
+        return {"error": str(e), "type": type(e).__name__}
+
+
 @router.post("/{term_id}/merge")
 async def merge_dictionary_terms(
     term_id: int,
@@ -909,16 +943,28 @@ async def merge_dictionary_terms(
         )
 
     # Get source and target terms
-    cursor = await anyio.to_thread.run_sync(
-        conn.execute,
-        "SELECT id, term FROM medical_dictionary WHERE id IN (?, ?)",
-        (term_id, target_term_id),
-    )
-    rows = await anyio.to_thread.run_sync(cursor.fetchall)
+    try:
+        cursor = await anyio.to_thread.run_sync(
+            conn.execute,
+            "SELECT id, term FROM medical_dictionary WHERE id IN (?, ?)",
+            (term_id, target_term_id),
+        )
+        if cursor is None:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Database cursor is None for merge query with term_id={term_id}, target_term_id={target_term_id}",
+            )
+        rows = await anyio.to_thread.run_sync(cursor.fetchall)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Merge database query failed: {str(e)}",
+        )
 
     if len(rows) != 2:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="One or both dictionary terms not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"One or both dictionary terms not found. Found {len(rows)} terms for IDs {term_id}, {target_term_id}",
         )
 
     source_term = None
@@ -931,244 +977,77 @@ async def merge_dictionary_terms(
 
     if not source_term or not target_term:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Source or target term not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Source or target term not found. Source: {source_term}, Target: {target_term}",
         )
 
     try:
-        # Temporarily disable dictionary sync triggers to avoid conflicts
-        await anyio.to_thread.run_sync(
-            conn.execute, "DROP TRIGGER IF EXISTS tr_sync_dictionary_on_node_change"
-        )
-        await anyio.to_thread.run_sync(
-            conn.execute, "DROP TRIGGER IF EXISTS tr_sync_dictionary_on_node_insert"
-        )
-        await anyio.to_thread.run_sync(
-            conn.execute, "DROP TRIGGER IF EXISTS tr_sync_nodes_on_dictionary_change"
-        )
+        await _drop_dictionary_sync_triggers(conn)
 
-        # Get all nodes that use the source term
-        cursor = await anyio.to_thread.run_sync(
+        # Disable recursive triggers and foreign keys to prevent trigger feedback loops
+        await anyio.to_thread.run_sync(conn.execute, "PRAGMA recursive_triggers = OFF")
+        await anyio.to_thread.run_sync(conn.execute, "PRAGMA foreign_keys = OFF")
+
+        # STEP 1: Update all nodes with source term to target term FIRST
+        # This ensures the triggers see the correct state when they fire
+        print(f"DEBUG: About to update nodes from '{source_term}' to '{target_term}'")
+        update_cursor = await anyio.to_thread.run_sync(
             conn.execute,
-            "SELECT id, parent_id, depth FROM nodes WHERE LOWER(TRIM(label)) = LOWER(TRIM(?))",
-            (source_term,),
+            "UPDATE nodes SET label = ? WHERE LOWER(TRIM(label)) = LOWER(TRIM(?))",
+            (target_term, source_term),
         )
-        source_nodes = await anyio.to_thread.run_sync(cursor.fetchall)
+        updated_nodes = update_cursor.rowcount
+        print(f"DEBUG: Updated {updated_nodes} nodes")
 
-        # Get all nodes that use the target term
-        cursor = await anyio.to_thread.run_sync(
-            conn.execute,
-            "SELECT id, parent_id, depth FROM nodes WHERE LOWER(TRIM(label)) = LOWER(TRIM(?))",
-            (target_term,),
-        )
-        target_nodes = await anyio.to_thread.run_sync(cursor.fetchall)
-
-        # For each source node, merge its children into the corresponding target node
-        for source_node in source_nodes:
-            source_node_id = source_node["id"]
-            source_parent_id = source_node["parent_id"]
-            source_depth = source_node["depth"]
-
-            # Find corresponding target node with same parent and depth
-            target_node_id = None
-            for target_node in target_nodes:
-                if (
-                    target_node["parent_id"] == source_parent_id
-                    and target_node["depth"] == source_depth
-                ):
-                    target_node_id = target_node["id"]
-                    break
-
-            if not target_node_id:
-                # If no corresponding target node, just rename the source node
-                await anyio.to_thread.run_sync(
-                    conn.execute,
-                    "UPDATE nodes SET label = ? WHERE id = ?",
-                    (target_term, source_node_id),
-                )
-            else:
-                # Get children of source node
-                cursor = await anyio.to_thread.run_sync(
-                    conn.execute,
-                    "SELECT label FROM nodes WHERE parent_id = ? ORDER BY slot",
-                    (source_node_id,),
-                )
-                source_children = await anyio.to_thread.run_sync(cursor.fetchall)
-
-                # Get children of target node
-                cursor = await anyio.to_thread.run_sync(
-                    conn.execute,
-                    "SELECT label FROM nodes WHERE parent_id = ? ORDER BY slot",
-                    (target_node_id,),
-                )
-                target_children = await anyio.to_thread.run_sync(cursor.fetchall)
-
-                # Combine children (use selected_children if provided, otherwise combine all)
-                if selected_children:
-                    combined_children = selected_children
-                else:
-                    combined_children = [child["label"] for child in target_children]
-                    for child in source_children:
-                        if child["label"] not in combined_children:
-                            combined_children.append(child["label"])
-
-                if len(combined_children) > 5:
-                    # If too many children, truncate to 5
-                    combined_children = combined_children[:5]
-
-                # Delete all children from target node
-                await anyio.to_thread.run_sync(
-                    conn.execute,
-                    "DELETE FROM nodes WHERE parent_id = ?",
-                    (target_node_id,),
-                )
-
-                # Add combined children to target node
-                for i, child_label in enumerate(combined_children, 1):
-                    child_depth = source_depth + 1
-                    is_leaf = 1 if child_depth >= 5 else 0
-
-                    await anyio.to_thread.run_sync(
-                        conn.execute,
-                        """INSERT INTO nodes (parent_id, depth, slot, label, is_leaf, created_at, updated_at)
-                           VALUES (?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'))""",
-                        (target_node_id, child_depth, i, child_label, is_leaf),
-                    )
-
-                # Delete the source node and its remaining children
-                await anyio.to_thread.run_sync(
-                    conn.execute,
-                    "DELETE FROM nodes WHERE id = ?",
-                    (source_node_id,),
-                )
-
-        # Delete the source dictionary term BEFORE re-enabling triggers
-        await anyio.to_thread.run_sync(
+        # STEP 2: Delete the source dictionary term AFTER updating nodes
+        # Now that all nodes point to the target term, the triggers won't recreate the source term
+        print(f"DEBUG: About to delete term with id {term_id}")
+        delete_cursor = await anyio.to_thread.run_sync(
             conn.execute,
             "DELETE FROM medical_dictionary WHERE id = ?",
             (term_id,),
         )
+        deleted_rows = delete_cursor.rowcount
+        print(f"DEBUG: Delete executed, deleted_rows = {deleted_rows}")
+        if deleted_rows == 0:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to delete source term with id {term_id}",
+            )
 
-        # Re-enable the dictionary sync triggers
-        await anyio.to_thread.run_sync(
+        # Verify deletion within the same transaction
+        verify_cursor = await anyio.to_thread.run_sync(
             conn.execute,
-            """
-            CREATE TRIGGER IF NOT EXISTS tr_sync_dictionary_on_node_change
-            AFTER UPDATE OF label, is_red_flag ON nodes
-            FOR EACH ROW
-            BEGIN
-                UPDATE medical_dictionary
-                SET
-                    avg_children_count = (SELECT COUNT(*) FROM nodes WHERE parent_id = NEW.id),
-                    conflicts_count = (SELECT COUNT(*) FROM conflicts WHERE node_id = NEW.id),
-                    is_red_flag = (SELECT MAX(is_red_flag) FROM nodes WHERE LOWER(TRIM(label)) = LOWER(TRIM(NEW.label)))
-                WHERE LOWER(TRIM(term)) = LOWER(TRIM(NEW.label));
-            END;
-        """,
+            "SELECT COUNT(*) FROM medical_dictionary WHERE id = ?",
+            (term_id,),
+        )
+        verify_count = await anyio.to_thread.run_sync(verify_cursor.fetchone)
+        print(
+            f"DEBUG: Verification - term {term_id} count = {verify_count[0] if verify_count else 'None'}"
         )
 
-        await anyio.to_thread.run_sync(
-            conn.execute,
-            """
-            CREATE TRIGGER IF NOT EXISTS tr_sync_dictionary_on_node_insert
-            AFTER INSERT ON nodes
-            FOR EACH ROW
-            BEGIN
-                INSERT OR IGNORE INTO medical_dictionary (term, avg_children_count, conflicts_count, is_red_flag)
-                VALUES (
-                    NEW.label,
-                    (SELECT COUNT(*) FROM nodes WHERE parent_id = NEW.id),
-                    (SELECT COUNT(*) FROM conflicts WHERE node_id = NEW.id),
-                    NEW.is_red_flag
-                );
-                UPDATE medical_dictionary
-                SET
-                    avg_children_count = (SELECT COUNT(*) FROM nodes WHERE parent_id = NEW.id),
-                    conflicts_count = (SELECT COUNT(*) FROM conflicts WHERE node_id = NEW.id),
-                    is_red_flag = (SELECT MAX(is_red_flag) FROM nodes WHERE LOWER(TRIM(label)) = LOWER(TRIM(NEW.label)))
-                WHERE LOWER(TRIM(term)) = LOWER(TRIM(NEW.label));
-            END;
-        """,
-        )
+        # Re-enable recursive triggers and foreign keys
+        await anyio.to_thread.run_sync(conn.execute, "PRAGMA recursive_triggers = ON")
+        await anyio.to_thread.run_sync(conn.execute, "PRAGMA foreign_keys = ON")
 
-        await anyio.to_thread.run_sync(
-            conn.execute,
-            """
-            CREATE TRIGGER IF NOT EXISTS tr_sync_nodes_on_dictionary_change
-            AFTER UPDATE OF term ON medical_dictionary
-            FOR EACH ROW
-            WHEN NEW.term != OLD.term
-            BEGIN
-                UPDATE nodes
-                SET label = NEW.term
-                WHERE LOWER(TRIM(label)) = LOWER(TRIM(OLD.term));
-            END;
-        """,
-        )
+        await _create_dictionary_sync_triggers(conn, use_conflicts_table=False)
 
         # Update target dictionary term metrics
-        sync_service = DictionarySyncService(conn)
-        await sync_service.sync_dictionary_metrics(target_term)
+        # sync_service = DictionarySyncService(conn)
+        # await sync_service.sync_dictionary_metrics(target_term)
 
     except Exception as e:
-        # Re-enable triggers even on error
+        # Re-enable PRAGMA settings even on error
         try:
-            await anyio.to_thread.run_sync(
-                conn.execute,
-                """
-                CREATE TRIGGER IF NOT EXISTS tr_sync_dictionary_on_node_change
-                AFTER UPDATE OF label, is_red_flag ON nodes
-                FOR EACH ROW
-                BEGIN
-                    UPDATE medical_dictionary
-                    SET
-                        avg_children_count = (SELECT COUNT(*) FROM nodes WHERE parent_id = NEW.id),
-                        conflicts_count = (SELECT COUNT(*) FROM conflicts WHERE node_id = NEW.id),
-                        is_red_flag = (SELECT MAX(is_red_flag) FROM nodes WHERE LOWER(TRIM(label)) = LOWER(TRIM(NEW.label)))
-                    WHERE LOWER(TRIM(term)) = LOWER(TRIM(NEW.label));
-                END;
-            """,
-            )
+            await anyio.to_thread.run_sync(conn.execute, "PRAGMA recursive_triggers = ON")
+            await anyio.to_thread.run_sync(conn.execute, "PRAGMA foreign_keys = ON")
+        except Exception:
+            pass  # Ignore PRAGMA errors during rollback
 
-            await anyio.to_thread.run_sync(
-                conn.execute,
-                """
-                CREATE TRIGGER IF NOT EXISTS tr_sync_dictionary_on_node_insert
-                AFTER INSERT ON nodes
-                FOR EACH ROW
-                BEGIN
-                    INSERT OR IGNORE INTO medical_dictionary (term, avg_children_count, conflicts_count, is_red_flag)
-                    VALUES (
-                        NEW.label,
-                        (SELECT COUNT(*) FROM nodes WHERE parent_id = NEW.id),
-                        (SELECT COUNT(*) FROM conflicts WHERE node_id = NEW.id),
-                        NEW.is_red_flag
-                    );
-                    UPDATE medical_dictionary
-                    SET
-                        avg_children_count = (SELECT COUNT(*) FROM nodes WHERE parent_id = NEW.id),
-                        conflicts_count = (SELECT COUNT(*) FROM conflicts WHERE node_id = NEW.id),
-                        is_red_flag = (SELECT MAX(is_red_flag) FROM nodes WHERE LOWER(TRIM(label)) = LOWER(TRIM(NEW.label)))
-                    WHERE LOWER(TRIM(term)) = LOWER(TRIM(NEW.label));
-                END;
-            """,
-            )
-
-            await anyio.to_thread.run_sync(
-                conn.execute,
-                """
-                CREATE TRIGGER IF NOT EXISTS tr_sync_nodes_on_dictionary_change
-                AFTER UPDATE OF term ON medical_dictionary
-                FOR EACH ROW
-                WHEN NEW.term != OLD.term
-                BEGIN
-                    UPDATE nodes
-                    SET label = NEW.term
-                    WHERE LOWER(TRIM(label)) = LOWER(TRIM(OLD.term));
-                END;
-            """,
-            )
-        except:
-            pass  # Ignore trigger recreation errors during rollback
+        try:
+            await _create_dictionary_sync_triggers(conn, use_conflicts_table=False)
+        except Exception:
+            pass
 
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Merge failed: {str(e)}"
@@ -1181,6 +1060,12 @@ async def merge_dictionary_terms(
         (target_term_id,),
     )
     term_row = await anyio.to_thread.run_sync(cursor.fetchone)
+
+    if not term_row:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Target term with id {target_term_id} not found after merge",
+        )
 
     return {
         "ok": True,
@@ -1280,12 +1165,23 @@ async def get_merge_conflicts(
 ):
     """Get conflicts that would occur when merging dictionary terms."""
     # Get source and target terms
-    cursor = await anyio.to_thread.run_sync(
-        conn.execute,
-        "SELECT id, term FROM medical_dictionary WHERE id IN (?, ?)",
-        (term_id, target_term_id),
-    )
-    rows = await anyio.to_thread.run_sync(cursor.fetchall)
+    try:
+        cursor = await anyio.to_thread.run_sync(
+            conn.execute,
+            "SELECT id, term FROM medical_dictionary WHERE id IN (?, ?)",
+            (term_id, target_term_id),
+        )
+        if cursor is None:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Database cursor is None for query with term_id={term_id}, target_term_id={target_term_id}",
+            )
+        rows = await anyio.to_thread.run_sync(cursor.fetchall)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Database query failed: {str(e)}",
+        )
 
     if len(rows) != 2:
         raise HTTPException(

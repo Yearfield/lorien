@@ -31,6 +31,7 @@ from api.routers.pathogens import router as pathogens_router
 from api.routers.tree_basic import router as tree_basic_router
 from api.routers.tree_delete_restore import router as tree_delete_restore_router
 from api.routers.tree_export_router import router as export_router
+from api.routers.warhammer import router as warhammer_router
 from api.security import (
     InputValidationMiddleware,
     RateLimitMiddleware,
@@ -157,6 +158,7 @@ app.include_router(import_router, prefix="/api/v1")
 app.include_router(export_router, prefix="/api/v1")
 app.include_router(conflicts_router, prefix="/api/v1")
 app.include_router(pathogens_router)
+app.include_router(warhammer_router)
 app.include_router(dictionary_router)
 
 # Note: tree_basic_router already has prefix="/api/v1/tree" internally

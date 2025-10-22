@@ -1,0 +1,101 @@
+﻿Category,Disease,Estimated Lifetime Risk
+Cardiovascular Diseases,Hypertension,0.315
+Cardiovascular Diseases,Coronary artery disease,0.18
+Cardiovascular Diseases,Heart attack (Myocardial infarction),0.12
+Cardiovascular Diseases,Heart failure,0.02
+Cardiovascular Diseases,Arrhythmia,0.149
+Cardiovascular Diseases,Peripheral artery disease,0.137
+Cardiovascular Diseases,Stroke,0.249
+Cardiovascular Diseases,Atherosclerosis,0.022
+Cardiovascular Diseases,Atrial fibrillation,0.03
+Cardiovascular Diseases,Deep vein thrombosis (DVT),0.011
+Respiratory Diseases,Asthma,0.1
+Respiratory Diseases,Chronic obstructive pulmonary disease (COPD),0.085
+Respiratory Diseases,Pneumonia,0.08
+Respiratory Diseases,Bronchitis,0.044
+Respiratory Diseases,Tuberculosis,0.05
+Respiratory Diseases,Pulmonary embolism,0.111
+Respiratory Diseases,Lung cancer,0.048
+Respiratory Diseases,Cystic fibrosis,0.12
+Respiratory Diseases,Sleep apnea,0.163
+Respiratory Diseases,Influenza (Flu),0.1
+Neurological Disorders,Alzheimer’s disease,0.1
+Neurological Disorders,Parkinson’s disease,0.01
+Neurological Disorders,Epilepsy,0.01
+Neurological Disorders,Migraine,0.15
+Neurological Disorders,Multiple sclerosis (MS),0.192
+Neurological Disorders,Amyotrophic lateral sclerosis (ALS),0.071
+Neurological Disorders,Dementia,0.023
+Neurological Disorders,Peripheral neuropathy,0.024
+Neurological Disorders,Bell’s palsy,0.17
+Neurological Disorders,Stroke (neurological),0.123
+Endocrine and Metabolic Disorders,Diabetes mellitus (Type 1 & Type 2),0.112
+Endocrine and Metabolic Disorders,Hypothyroidism,0.147
+Endocrine and Metabolic Disorders,Hyperthyroidism,0.11
+Endocrine and Metabolic Disorders,Cushing’s syndrome,0.195
+Endocrine and Metabolic Disorders,Addison’s disease,0.079
+Endocrine and Metabolic Disorders,Polycystic ovary syndrome (PCOS),0.113
+Endocrine and Metabolic Disorders,Metabolic syndrome,0.167
+Endocrine and Metabolic Disorders,Obesity,0.126
+Endocrine and Metabolic Disorders,Gout,0.173
+Endocrine and Metabolic Disorders,Hypoglycemia,0.118
+Infectious Diseases,Common cold,0.142
+Infectious Diseases,COVID-19,0.4
+Infectious Diseases,"Hepatitis A, B, or C",0.049
+Infectious Diseases,HIV/AIDS,0.01
+Infectious Diseases,Malaria,0.021
+Infectious Diseases,Lyme disease,0.05
+Infectious Diseases,Chickenpox (Varicella),0.025
+Infectious Diseases,Measles,0.059
+Infectious Diseases,Mumps,0.129
+Infectious Diseases,Rubella,0.076
+Autoimmune and Inflammatory Diseases,Rheumatoid arthritis,0.01
+Autoimmune and Inflammatory Diseases,Lupus (Systemic lupus erythematosus),0.046
+Autoimmune and Inflammatory Diseases,Psoriasis,0.057
+Autoimmune and Inflammatory Diseases,Celiac disease,0.188
+Autoimmune and Inflammatory Diseases,Crohn’s disease,0.131
+Autoimmune and Inflammatory Diseases,Ulcerative colitis,0.124
+Autoimmune and Inflammatory Diseases,Ankylosing spondylitis,0.038
+Autoimmune and Inflammatory Diseases,Graves’ disease,0.147
+Autoimmune and Inflammatory Diseases,Sjögren’s syndrome,0.037
+Autoimmune and Inflammatory Diseases,Scleroderma,0.079
+Digestive and Gastrointestinal Disorders,Gastroesophageal reflux disease (GERD),0.198
+Digestive and Gastrointestinal Disorders,Peptic ulcer disease,0.13
+Digestive and Gastrointestinal Disorders,Irritable bowel syndrome (IBS),0.114
+Digestive and Gastrointestinal Disorders,Gallstones,0.138
+Digestive and Gastrointestinal Disorders,Pancreatitis,0.169
+Digestive and Gastrointestinal Disorders,Liver cirrhosis,0.156
+Digestive and Gastrointestinal Disorders,Hepatitis,0.05
+Digestive and Gastrointestinal Disorders,Constipation,0.011
+Digestive and Gastrointestinal Disorders,Hemorrhoids,0.067
+Digestive and Gastrointestinal Disorders,Gastritis,0.057
+Musculoskeletal and Bone Disorders,Osteoarthritis,0.25
+Musculoskeletal and Bone Disorders,Osteoporosis,0.189
+Musculoskeletal and Bone Disorders,Fibromyalgia,0.176
+Musculoskeletal and Bone Disorders,Back pain,0.066
+Musculoskeletal and Bone Disorders,Scoliosis,0.133
+Musculoskeletal and Bone Disorders,Tendonitis,0.082
+Musculoskeletal and Bone Disorders,Carpal tunnel syndrome,0.183
+Musculoskeletal and Bone Disorders,Bursitis,0.094
+Musculoskeletal and Bone Disorders,Gout (musculoskeletal),0.057
+Musculoskeletal and Bone Disorders,Fractures,0.053
+Eye and Ear Disorders,Cataracts,0.114
+Eye and Ear Disorders,Glaucoma,0.056
+Eye and Ear Disorders,Macular degeneration,0.119
+Eye and Ear Disorders,Conjunctivitis (Pink eye),0.18
+Eye and Ear Disorders,Tinnitus,0.083
+Eye and Ear Disorders,Hearing loss,0.048
+Eye and Ear Disorders,Meniere’s disease,0.2
+Eye and Ear Disorders,Dry eye syndrome,0.104
+Eye and Ear Disorders,Retinal detachment,0.023
+Eye and Ear Disorders,Ear infection (Otitis media),0.014
+Skin Conditions,Acne,0.026
+Skin Conditions,Eczema (Atopic dermatitis),0.127
+Skin Conditions,Psoriasis (skin),0.159
+Skin Conditions,Rosacea,0.087
+Skin Conditions,"Skin cancer (Melanoma, BCC, SCC)",0.017
+Skin Conditions,Warts,0.079
+Skin Conditions,Fungal infections,0.199
+Skin Conditions,Hives (Urticaria),0.108
+Skin Conditions,Shingles (Herpes zoster),0.194
+Skin Conditions,Vitiligo,0.173

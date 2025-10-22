@@ -61,6 +61,7 @@ async def create_root(body: CreateRootBody, conn: sqlite3.Connection = Depends(g
         (lab,),
     )
     row = await anyio.to_thread.run_sync(cur.fetchone)
+    await anyio.to_thread.run_sync(conn.commit)
     return {"id": row[0], "label": row[1], "depth": row[2]}
 
 
@@ -136,6 +137,9 @@ async def put_children(
                 # Re-raise non-slot integrity errors
                 raise
             assigned_slot += 1
+
+        # Commit all changes
+        await anyio.to_thread.run_sync(conn.commit)
     except HTTPException:
         # Let FastAPI handle structured HTTP errors
         raise
@@ -209,6 +213,7 @@ async def add_child(
             "INSERT INTO nodes (parent_id, depth, slot, label) VALUES (?,?,?,?)",
             (parent_id, depth, next_slot, label),
         )
+        await anyio.to_thread.run_sync(conn.commit)
 
         return {"ok": True, "parent_id": parent_id, "label": label, "slot": next_slot}
 

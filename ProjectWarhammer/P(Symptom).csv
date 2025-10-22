@@ -1,0 +1,207 @@
+﻿Symptom,P(symptom),Source
+Fever,0.3,WHO; Global Burden of Disease (IHME); CDC
+Fatigue,0.4,Global Burden of Disease (IHME); MedlinePlus
+Headache,0.7,Global Burden of Disease (IHME); World Health Organization
+Cough,0.5,BMC Primary Care review; WHO
+Sore throat,0.25,CDC; NHS
+Shortness of breath,0.12,Global Burden of Disease (IHME); CDC
+Nausea,0.1,MedlinePlus; CDC
+Vomiting,0.06,MedlinePlus; WHO
+Diarrhea,0.08,WHO; Global Burden of Disease (IHME)
+Abdominal pain,0.15,MedlinePlus; Global Burden of Disease (IHME)
+Loss of appetite,0.06,MedlinePlus
+Weight loss,0.05,Global Burden of Disease (IHME)
+Weight gain,0.1,Global Burden of Disease (IHME)
+Chest pain,0.03,AHA; CDC
+Palpitations,0.04,AHA; Mayo Clinic
+Dizziness,0.08,MedlinePlus; NHS
+Lightheadedness,0.05,MedlinePlus
+Fainting,0.005,NHS; Mayo Clinic
+Swelling,0.07,MedlinePlus
+Joint pain,0.2,Global Burden of Disease (IHME); WHO
+Muscle pain,0.15,Global Burden of Disease; MedlinePlus
+Stiffness,0.12,AAOS; MedlinePlus
+Back pain,0.25,Global Burden of Disease (IHME); WHO
+Neck pain,0.1,Global Burden of Disease (IHME)
+Shoulder pain,0.08,AAOS; MedlinePlus
+Tingling,0.03,MedlinePlus
+Numbness,0.03,MedlinePlus
+Weakness,0.12,MedlinePlus; WHO
+Tremor,0.01,NINDS; Mayo Clinic
+Confusion,0.02,NINDS; MedlinePlus
+Memory loss,0.04,Alzheimer's Association; WHO
+Blurred vision,0.07,NEI; WHO
+Double vision,0.005,NEI; MedlinePlus
+Dry eyes,0.06,NEI; MedlinePlus
+Eye pain,0.02,NEI
+Red eyes,0.05,MedlinePlus
+Hearing loss,0.12,WHO; NIDCD
+Ear pain,0.03,NHS; CDC
+Ringing in ears,0.05,NIDCD; WHO
+Runny nose,0.4,CDC; WHO
+Nasal congestion,0.35,CDC; NHS
+Sneezing,0.3,CDC
+Postnasal drip,0.1,MedlinePlus
+Hoarseness,0.03,MedlinePlus
+Difficulty swallowing,0.02,NHS; MedlinePlus
+Dry mouth,0.05,NIH; MedlinePlus
+Mouth ulcers,0.02,NHS; MedlinePlus
+Gum bleeding,0.01,WHO; MedlinePlus
+Tooth pain,0.1,WHO; ADA
+Bad breath,0.1,ADA; NHS
+Itching,0.15,AAD; MedlinePlus
+Rash,0.12,WHO; AAD
+Hives,0.02,AAD; MedlinePlus
+Dry skin,0.1,AAD; MedlinePlus
+Flushing,0.03,MedlinePlus
+Pale skin,0.02,MedlinePlus
+Blue lips,0.001,MedlinePlus
+Jaundice,0.005,WHO; MedlinePlus
+Hair loss,0.04,MedlinePlus; AAD
+Night sweats,0.03,WHO; MedlinePlus
+Chills,0.05,WHO; CDC
+Sensitivity to light,0.03,Migraine literature; NEI
+Insomnia,0.2,WHO; NIH
+Anxiety,0.15,WHO; NIMH
+Depression,0.1,WHO; NIMH
+Irritability,0.08,NIMH; MedlinePlus
+Mood swings,0.05,NIMH
+Panic attacks,0.01,NIMH
+Crying spells,0.02,NIMH
+Loss of interest,0.06,NIMH
+Difficulty concentrating,0.08,NIMH; MedlinePlus
+Increased thirst,0.02,NIDDK; ADA
+Frequent urination,0.03,NIDDK; ADA
+Painful urination,0.02,CDC; NHS
+Blood in urine,0.005,NHS; MedlinePlus
+Decreased urination,0.01,MedlinePlus
+Urine leakage,0.03,NHS; NIDDK
+Menstrual cramps,0.3,WHO; NHS
+Irregular periods,0.1,NHS; NIDDK
+Missed periods,0.02,NHS
+Vaginal discharge,0.08,NHS; CDC
+Vaginal itching,0.05,NHS; CDC
+Erectile dysfunction,0.08,WHO; Mayo Clinic
+Loss of libido,0.06,MedlinePlus
+Nighttime urination,0.12,NHS; NIDDK
+Constipation,0.1,WHO; NHS
+Bloating,0.12,NHS; MedlinePlus
+Gas,0.15,NHS
+Indigestion,0.12,NHS; MedlinePlus
+Heartburn,0.12,NHS; MedlinePlus
+Acid reflux,0.1,NHS; Mayo Clinic
+Belching,0.08,NHS
+Bad taste in mouth,0.03,MedlinePlus
+Difficulty breathing,0.12,WHO; CDC
+Wheezing,0.08,CDC; WHO
+Coughing blood,0.002,NHS; MedlinePlus
+Productive cough,0.12,WHO; NHS
+Dry cough,0.2,WHO; NHS
+Persistent cough,0.08,NHS; CDC
+Sputum production,0.1,WHO; NHS
+Hoarse voice,0.03,MedlinePlus
+Difficulty speaking,0.01,NINDS; MedlinePlus
+Loss of smell,0.02,CDC; WHO
+Loss of taste,0.02,CDC; WHO
+Sensitivity to noise,0.03,Migraine literature
+Loss of balance,0.03,NINDS
+Coordination problems,0.02,NINDS
+Muscle cramps,0.08,NHS; MedlinePlus
+Muscle weakness,0.06,MedlinePlus
+Muscle twitching,0.01,NINDS
+Joint swelling,0.05,MedlinePlus
+Joint redness,0.02,MedlinePlus
+Bone pain,0.03,AAOS; MedlinePlus
+Fractures,0.01,WHO; AAOS
+Limp,0.02,AAOS
+Hand tremor,0.01,NINDS
+Foot pain,0.04,Podiatry literature; NHS
+Heel pain,0.03,NHS
+Ankle pain,0.03,NHS
+Knee pain,0.06,AAOS; WHO
+Hip pain,0.04,AAOS
+Shoulder stiffness,0.03,AAOS
+Finger numbness,0.02,MedlinePlus
+Finger pain,0.03,MedlinePlus
+Hand swelling,0.02,MedlinePlus
+Cold hands,0.02,NHS
+Cold feet,0.02,NHS
+Burning sensation,0.02,MedlinePlus
+Tingling fingers,0.02,MedlinePlus
+Tingling toes,0.02,MedlinePlus
+Skin peeling,0.01,Dermatology sources
+Skin thickening,0.005,Dermatology sources
+Ulcers,0.01,WHO; MedlinePlus
+Open sores,0.01,WHO; MedlinePlus
+Bruising easily,0.01,MedlinePlus
+Bleeding gums,0.01,Dental / WHO
+Nosebleeds,0.02,NHS; MedlinePlus
+Chapped lips,0.02,NHS
+Dry lips,0.02,NHS
+Facial swelling,0.01,MedlinePlus
+Puffy eyes,0.02,NHS
+Dark circles,0.05,NHS
+Swollen eyelids,0.01,NHS
+Itchy eyes,0.03,NEI; NHS
+Watery eyes,0.04,NEI; NHS
+Difficulty focusing,0.02,NEI; MedlinePlus
+Tunnel vision,0.005,NEI
+Eye floaters,0.02,NEI
+Blind spots,0.005,NEI
+Increased sensitivity to touch,0.01,Neurology sources
+Pain on movement,0.05,MedlinePlus
+Fatigue after exertion,0.06,NHS; MedlinePlus
+Muscle stiffness in the morning,0.04,Rheumatology sources
+Feeling cold,0.03,MedlinePlus
+Feeling hot,0.03,MedlinePlus
+Low-grade fever,0.1,WHO; CDC
+High fever,0.05,WHO; CDC
+Rapid heartbeat,0.03,AHA; MedlinePlus
+Slow heartbeat,0.005,AHA; MedlinePlus
+Irregular heartbeat,0.02,AHA; MedlinePlus
+Shaking,0.02,MedlinePlus
+Sweating,0.06,MedlinePlus
+Clammy skin,0.01,MedlinePlus
+Dry skin patches,0.05,AAD; NHS
+Itchy scalp,0.03,AAD; NHS
+Scalp tenderness,0.01,Dermatology sources
+Neck stiffness,0.04,NHS; MedlinePlus
+Difficulty turning head,0.02,NHS
+Chronic cough,0.05,WHO; NHS
+Phlegm buildup,0.06,WHO; NHS
+Bloated stomach,0.06,NHS; MedlinePlus
+Burning urination,0.05,CDC; NHS
+Pelvic pain,0.06,NHS; MedlinePlus
+Lower back pain,0.2,Global Burden of Disease; WHO
+Side pain,0.03,MedlinePlus
+Pain radiating to leg,0.03,NHS; MedlinePlus
+Shoulder blade pain,0.02,MedlinePlus
+Arm weakness,0.02,NINDS; MedlinePlus
+Leg weakness,0.02,NINDS; MedlinePlus
+Hand tremor,0.01,NINDS
+Finger twitching,0.01,NINDS
+Nail changes,0.01,Dermatology sources
+Pale nails,0.005,MedlinePlus
+Spoon-shaped nails,0.001,Hematology sources
+Shortness of breath on exertion,0.1,WHO; MedlinePlus
+Cough worsening at night,0.03,NHS
+Loss of coordination,0.02,NINDS
+Forgetfulness,0.05,NHS; Alzheimer's Association
+Difficulty walking,0.04,NHS; NINDS
+Trouble sleeping,0.2,WHO; NIH
+Loss of balance,0.03,NINDS
+Irregular breathing,0.01,MedlinePlus
+Snoring,0.12,WHO; NHS
+Daytime sleepiness,0.1,NHS; WHO
+Restless legs,0.05,NHS
+Muscle spasms,0.03,MedlinePlus
+Feeling faint,0.01,NHS
+Loss of consciousness,0.002,NHS; MedlinePlus
+Hallucinations,0.002,NHS; NIMH
+Delusions,0.001,NIMH
+Slurred speech,0.01,NINDS
+Difficulty understanding speech,0.01,NINDS
+Facial drooping,0.01,NINDS
+Trouble swallowing,0.02,MedlinePlus
+Drooling,0.01,MedlinePlus
+Jaw pain,0.02,NHS; MedlinePlus

@@ -46,6 +46,7 @@ async def delete_node(
         return {"dry_run": True, "snapshot": snap}
     try:
         await anyio.to_thread.run_sync(conn.execute, "DELETE FROM nodes WHERE id = ?", (node_id,))
+        await anyio.to_thread.run_sync(conn.commit)
         return {"dry_run": False, "snapshot": snap}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"delete_failed: {e}")

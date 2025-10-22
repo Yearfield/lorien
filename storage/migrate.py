@@ -84,6 +84,8 @@ def main():
         "008_add_medical_dictionary.sql",
         "009_add_dictionary_sync_triggers.sql",
         "010_add_pathogen_tables.sql",
+        "011_add_warhammer_tables.sql",
+        "012_add_symptom_synonyms.sql",
     ]
 
     print(f"\nFound {len(migrations)} migration(s) to apply")

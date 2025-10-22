@@ -155,7 +155,7 @@ class TreeRepository:
             raise ValueError("dest_parent_not_found")
 
         dest_depth = dest_row[0]
-        if dest_depth >= 5:
+        if dest_depth >= 6:
             raise ValueError("dest_parent_at_max_depth")
 
         subtree_rows = await anyio.to_thread.run_sync(
