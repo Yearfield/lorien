@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:typed_data';
 import '../state/vm_provider.dart';
+import '../../shortbow/ui/shortbow_screen.dart';
 
 class VmBuilderScreen extends StatefulWidget {
   final String baseUrl;
@@ -468,6 +469,17 @@ class _VmBuilderScreenState extends State<VmBuilderScreen> {
       appBar: AppBar(
         title: const Text('VM Builder'),
         actions: [
+          IconButton(
+            tooltip: 'ShortBow Navigator',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const ShortBowScreen(),
+                ),
+              );
+            },
+            icon: const Icon(Icons.navigation),
+          ),
           IconButton(
             tooltip: 'Next Incomplete',
             onPressed: s.isBusy ? null : () => s.goToNextIncomplete(),

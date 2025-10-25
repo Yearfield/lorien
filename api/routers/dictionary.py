@@ -382,6 +382,111 @@ async def get_dictionary_stats(
     }
 
 
+@router.get("/stats/tree")
+async def get_tree_dictionary_stats(
+    conn: sqlite3.Connection = Depends(get_db_connection),
+):
+    """Get dictionary statistics specifically for decision tree terms (terms that exist in nodes table)."""
+    # Get terms that exist in both medical_dictionary and nodes tables
+    cursor = await anyio.to_thread.run_sync(
+        conn.execute,
+        """
+        SELECT COUNT(*) as total
+        FROM medical_dictionary md
+        INNER JOIN nodes n ON LOWER(TRIM(md.term)) = LOWER(TRIM(n.label))
+        """,
+    )
+    total_tree_terms = (await anyio.to_thread.run_sync(cursor.fetchone))["total"]
+
+    # Red flag terms in tree
+    cursor = await anyio.to_thread.run_sync(
+        conn.execute,
+        """
+        SELECT COUNT(*) as red_flags
+        FROM medical_dictionary md
+        INNER JOIN nodes n ON LOWER(TRIM(md.term)) = LOWER(TRIM(n.label))
+        WHERE md.is_red_flag = 1
+        """,
+    )
+    red_flag_tree_terms = (await anyio.to_thread.run_sync(cursor.fetchone))["red_flags"]
+
+    # Tree terms with definitions
+    cursor = await anyio.to_thread.run_sync(
+        conn.execute,
+        """
+        SELECT COUNT(*) as with_definitions
+        FROM medical_dictionary md
+        INNER JOIN nodes n ON LOWER(TRIM(md.term)) = LOWER(TRIM(n.label))
+        WHERE md.definition IS NOT NULL AND md.definition != ''
+        """,
+    )
+    tree_terms_with_definitions = (await anyio.to_thread.run_sync(cursor.fetchone))[
+        "with_definitions"
+    ]
+
+    # Tree terms with synonyms
+    cursor = await anyio.to_thread.run_sync(
+        conn.execute,
+        """
+        SELECT COUNT(*) as with_synonyms
+        FROM medical_dictionary md
+        INNER JOIN nodes n ON LOWER(TRIM(md.term)) = LOWER(TRIM(n.label))
+        WHERE md.synonyms IS NOT NULL AND md.synonyms != '[]' AND md.synonyms != ''
+        """,
+    )
+    tree_terms_with_synonyms = (await anyio.to_thread.run_sync(cursor.fetchone))["with_synonyms"]
+
+    # Average children count for tree terms
+    cursor = await anyio.to_thread.run_sync(
+        conn.execute,
+        """
+        SELECT AVG(md.avg_children_count) as avg_children
+        FROM medical_dictionary md
+        INNER JOIN nodes n ON LOWER(TRIM(md.term)) = LOWER(TRIM(n.label))
+        """,
+    )
+    avg_children_result = await anyio.to_thread.run_sync(cursor.fetchone)
+    avg_children = (
+        avg_children_result["avg_children"]
+        if avg_children_result["avg_children"] is not None
+        else 0.0
+    )
+
+    # Total conflicts for tree terms
+    cursor = await anyio.to_thread.run_sync(
+        conn.execute,
+        """
+        SELECT SUM(md.conflicts_count) as total_conflicts
+        FROM medical_dictionary md
+        INNER JOIN nodes n ON LOWER(TRIM(md.term)) = LOWER(TRIM(n.label))
+        """,
+    )
+    total_conflicts_result = await anyio.to_thread.run_sync(cursor.fetchone)
+    total_conflicts = (
+        total_conflicts_result["total_conflicts"]
+        if total_conflicts_result["total_conflicts"] is not None
+        else 0
+    )
+
+    return {
+        "total_terms": total_tree_terms,
+        "red_flag_terms": red_flag_tree_terms,
+        "terms_with_definitions": tree_terms_with_definitions,
+        "terms_with_synonyms": tree_terms_with_synonyms,
+        "avg_children_per_term": round(avg_children, 2),
+        "total_conflicts": total_conflicts,
+        "completion_rate": {
+            "definitions": round((tree_terms_with_definitions / total_tree_terms * 100), 1)
+            if total_tree_terms > 0
+            else 0,
+            "synonyms": round((tree_terms_with_synonyms / total_tree_terms * 100), 1)
+            if total_tree_terms > 0
+            else 0,
+        },
+        "scope": "decision_tree_terms",
+    }
+
+
 @router.get("/{term_id}", response_model=DictionaryTerm)
 async def get_term(
     term_id: int,

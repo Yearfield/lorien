@@ -2,9 +2,9 @@
 
 VM‑first decision‑tree builder; EngineLongBow powers import/export; VM Builder is a core pane in a multi‑pane Flutter shell.
 
-- UI: Flutter desktop shell with NavigationRail panes (Home dashboard, VM Builder, Outcomes, Flags, Settings)
-- Engine: EngineLongBow is the sole engine for import/preview/apply/export
-- API: Fully async FastAPI `/api/v1` with thread-offloaded SQLite operations for high concurrency, health, import, export, conflicts resolution, and tree editing
+- UI: Flutter desktop shell with NavigationRail panes (Home dashboard, VM Builder, Dictionary, Outcomes, Flags, Settings)
+- Engines: EngineLongBow (decision tree import/export), EngineShelob (pathogen data), EngineShortBow (symptom navigation)
+- API: Fully async FastAPI `/api/v1` with thread-offloaded SQLite operations for high concurrency, health, import, export, conflicts resolution, tree editing, dictionary management, and symptom navigation
 
 Key contracts
 
@@ -31,6 +31,26 @@ Key contracts
 - **Error Handling**: Clear error messages for 404 (parent not found), 500 (server errors), and validation failures
 - **State Management**: Automatic refresh of UI state after operations to prevent stale data
 - **Cross-Pane Navigation**: Edit buttons in conflicts list navigate directly to VM Builder with target parent loaded
+
+### EngineShortBow - Interactive Symptom Navigator
+
+- **Symptom Navigation**: Interactive navigation through related symptoms using probability matrices
+- **Excel Import**: Upload symptom matrices with co-occurrence probabilities for guided diagnosis
+- **Top Symptom Discovery**: Automatically identifies symptoms with highest average linkage for starting navigation
+- **Navigation History**: Save and track symptom navigation sessions for reference
+- **VM Builder Integration**: Accessible via navigation button in VM Builder for seamless workflow
+- **Probability Visualization**: Clear display of symptom linkage strengths and percentages
+
+### Medical Dictionary System
+
+- **Universal Symptoms List**: Centralized medical term management serving as the universal symptoms list
+- **Bidirectional Sync**: Automatic synchronization between dictionary and decision tree structure
+- **Search & Browse**: Real-time search with pagination and filtering capabilities
+- **Term Management**: Edit definitions, synonyms, and red flag status with conflict detection
+- **Accurate Statistics**: Tree-specific statistics showing completion rates for decision tree terms only
+- **Import/Export**: Upload medical dictionaries from CSV/XLSX files and export with customization options
+- **Refresh Functionality**: Manual refresh button to update search results and statistics
+- **Cross-System Integration**: Connects VM Builder, EngineWarhammer, and EngineShortBow through shared symptom data
 
 Quick start
 

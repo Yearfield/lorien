@@ -705,6 +705,228 @@ curl -sS -X POST http://127.0.0.1:8000/api/v1/conflicts/resolve \
   -d '{"label":"hypertension","selected_children":["headache","nausea","vomiting","chest pain","myalgia"],"dry_run":false}' | jq .
 ```
 
+## Symptom Navigation (EngineShortBow)
+
+### Import Symptom Matrix
+
+**POST** `/api/v1/shortbow/import`
+
+Import symptom probability matrix from Excel files.
+
+**Request:**
+
+- Content-Type: `multipart/form-data`
+- Body: File upload with `file` parameter
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "symptoms_processed": 15,
+  "symptoms_created": 15,
+  "symptoms_updated": 0,
+  "links_processed": 210,
+  "links_created": 210,
+  "links_updated": 0,
+  "errors": [],
+  "warnings": []
+}
+```
+
+### Navigate Symptoms
+
+**POST** `/api/v1/shortbow/navigate`
+
+Get top linked symptoms for navigation.
+
+**Request:**
+
+```json
+{
+  "current_symptom": "fever",
+  "exclude": ["cough", "headache"]
+}
+```
+
+**Response:**
+
+```json
+{
+  "current_symptom": "fever",
+  "top_linked": [
+    {
+      "from_symptom": "fever",
+      "to_symptom": "fatigue",
+      "probability": 0.7
+    },
+    {
+      "from_symptom": "fever",
+      "to_symptom": "nausea",
+      "probability": 0.3
+    }
+  ],
+  "excluded_symptoms": ["cough", "headache"],
+  "total_available": 12
+}
+```
+
+### Get Top Symptoms
+
+**GET** `/api/v1/shortbow/top-symptoms`
+
+Get symptoms with highest average linkage for starting navigation.
+
+**Query Parameters:**
+
+- `limit` (int, 1-20): Maximum number of symptoms to return (default: 6)
+
+**Response:**
+
+```json
+[
+  {
+    "from_symptom": "",
+    "to_symptom": "fever",
+    "probability": 0.45
+  },
+  {
+    "from_symptom": "",
+    "to_symptom": "cough",
+    "probability": 0.42
+  }
+]
+```
+
+### List Symptoms
+
+**GET** `/api/v1/shortbow/symptoms`
+
+List available symptoms.
+
+**Query Parameters:**
+
+- `limit` (int, 1-1000): Maximum number of symptoms to return (default: 50)
+- `offset` (int, ≥0): Number of symptoms to skip (default: 0)
+
+**Response:**
+
+```json
+[
+  {
+    "id": 1,
+    "symptom_name": "fever",
+    "created_at": "2025-01-27T10:30:00.000Z",
+    "updated_at": "2025-01-27T10:30:00.000Z"
+  }
+]
+```
+
+### Get Statistics
+
+**GET** `/api/v1/shortbow/stats/summary`
+
+Get summary statistics about symptom data.
+
+**Response:**
+
+```json
+{
+  "total_symptoms": 15,
+  "total_links": 210,
+  "total_calculations": 25,
+  "saved_calculations": 10
+}
+```
+
+### Create Calculation
+
+**POST** `/api/v1/shortbow/calculations`
+
+Create a new navigation calculation record.
+
+**Request:**
+
+```json
+{
+  "initial_symptom": "fever",
+  "selected_symptoms": ["fever", "fatigue", "cough", "headache", "nausea"]
+}
+```
+
+**Response:**
+
+```json
+{
+  "id": 123,
+  "calculation_date": "2025-01-27T10:30:00.000Z",
+  "initial_symptom": "fever",
+  "selected_symptoms": ["fever", "fatigue", "cough", "headache", "nausea"],
+  "saved": false,
+  "created_at": "2025-01-27T10:30:00.000Z"
+}
+```
+
+### List Calculations
+
+**GET** `/api/v1/shortbow/calculations`
+
+List navigation calculations.
+
+**Query Parameters:**
+
+- `limit` (int, 1-100): Maximum number of calculations to return (default: 20)
+- `offset` (int, ≥0): Number of calculations to skip (default: 0)
+
+**Response:**
+
+```json
+[
+  {
+    "id": 123,
+    "calculation_date": "2025-01-27T10:30:00.000Z",
+    "initial_symptom": "fever",
+    "selected_symptoms": ["fever", "fatigue", "cough"],
+    "saved": true,
+    "created_at": "2025-01-27T10:30:00.000Z"
+  }
+]
+```
+
+### Get Calculation
+
+**GET** `/api/v1/shortbow/calculations/{calculation_id}`
+
+Get specific calculation details.
+
+**Response:**
+
+```json
+{
+  "id": 123,
+  "calculation_date": "2025-01-27T10:30:00.000Z",
+  "initial_symptom": "fever",
+  "selected_symptoms": ["fever", "fatigue", "cough"],
+  "saved": true,
+  "created_at": "2025-01-27T10:30:00.000Z"
+}
+```
+
+### Save Calculation
+
+**POST** `/api/v1/shortbow/calculations/{calculation_id}/save`
+
+Mark a calculation as saved.
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Calculation saved"
+}
+```
+
 ## API Contracts & Rules
 
 ### Core Constraints
@@ -727,6 +949,251 @@ curl -sS -X POST http://127.0.0.1:8000/api/v1/conflicts/resolve \
 - **Scope**: Applies to all parents with matching label across all depths
 - **Validation**: Enforces ≤5 children and max depth D6
 - **Transaction**: All changes are atomic
+
+## Medical Dictionary Management
+
+The dictionary system provides comprehensive medical term management with bidirectional synchronization to the decision tree structure.
+
+### Dictionary Search
+
+**GET** `/api/v1/dictionary/search`
+
+Search medical terms with case-insensitive partial matching.
+
+**Query Parameters:**
+
+- `q` (string): Search query (default: empty string returns all terms)
+- `limit` (int, 1-200): Maximum results (default: 50)
+- `offset` (int, ≥0): Results offset (default: 0)
+
+**Response:**
+
+```json
+{
+  "items": [
+    {
+      "id": 5409,
+      "term": "Abdominal pain",
+      "definition": null,
+      "synonyms": [],
+      "is_red_flag": false,
+      "avg_children_count": 0,
+      "conflicts_count": 0,
+      "created_at": "2025-10-21T17:07:47.804Z",
+      "updated_at": "2025-10-21T17:07:47.804Z"
+    }
+  ],
+  "total": 1,
+  "query": "Abdominal"
+}
+```
+
+### Dictionary Statistics
+
+**GET** `/api/v1/dictionary/stats`
+
+Get overall dictionary statistics.
+
+**Response:**
+
+```json
+{
+  "total_terms": 68,
+  "red_flag_terms": 18,
+  "terms_with_definitions": 51,
+  "terms_with_synonyms": 51,
+  "avg_children_per_term": 0.01,
+  "total_conflicts": 2,
+  "completion_rate": {
+    "definitions": 75.0,
+    "synonyms": 75.0
+  }
+}
+```
+
+**GET** `/api/v1/dictionary/stats/tree`
+
+Get statistics specifically for decision tree terms (terms that exist in both dictionary and nodes tables).
+
+**Response:**
+
+```json
+{
+  "total_terms": 19,
+  "red_flag_terms": 0,
+  "terms_with_definitions": 0,
+  "terms_with_synonyms": 0,
+  "avg_children_per_term": 0.11,
+  "total_conflicts": 4,
+  "completion_rate": {
+    "definitions": 0.0,
+    "synonyms": 0.0
+  },
+  "scope": "decision_tree_terms"
+}
+```
+
+### Get Dictionary Term
+
+**GET** `/api/v1/dictionary/{term_id}`
+
+Get detailed information about a specific dictionary term.
+
+**Response:**
+
+```json
+{
+  "id": 5409,
+  "term": "Abdominal pain",
+  "definition": null,
+  "synonyms": [],
+  "is_red_flag": false,
+  "avg_children_count": 0,
+  "conflicts_count": 0,
+  "created_at": "2025-10-21T17:07:47.804Z",
+  "updated_at": "2025-10-21T17:07:47.804Z"
+}
+```
+
+**GET** `/api/v1/dictionary/term/{term_name}`
+
+Get dictionary term by name (case-insensitive).
+
+### Update Dictionary Term
+
+**PUT** `/api/v1/dictionary/{term_id}`
+
+Update dictionary term definition, synonyms, or red-flag status with bidirectional sync to tree nodes.
+
+**Request Body:**
+
+```json
+{
+  "definition": "Pain in the abdominal region",
+  "synonyms": ["stomach pain", "belly ache"],
+  "is_red_flag": true
+}
+```
+
+**Response:** Updated dictionary term object
+
+### Dictionary Export
+
+**GET** `/api/v1/dictionary/export/csv`
+
+Export dictionary as CSV file.
+
+**Query Parameters:**
+
+- `include_synonyms` (bool): Include synonyms column (default: true)
+- `include_red_flags` (bool): Include red flag column (default: true)
+
+**Response:** CSV file with Content-Disposition header
+
+### Dictionary Upload
+
+**POST** `/api/v1/dictionary/upload`
+
+Upload medical dictionary file (CSV/XLSX) to find matches, fill definitions, and detect spelling errors.
+
+**Request:**
+
+- Content-Type: `multipart/form-data`
+- Body: File upload with `file` parameter
+
+**Query Parameters:**
+
+- `update_existing` (bool): Update existing terms (default: true)
+- `create_new_terms` (bool): Create new terms (default: true)
+- `min_similarity` (float, 0.0-1.0): Minimum similarity for suggestions (default: 0.8)
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "terms_processed": 150,
+  "terms_updated": 120,
+  "terms_created": 30,
+  "spelling_suggestions": 5,
+  "errors": [],
+  "warnings": []
+}
+```
+
+### Dictionary Term Management
+
+**PUT** `/api/v1/dictionary/{term_id}/rename`
+
+Rename a dictionary term and sync changes to tree nodes.
+
+**Request Body:**
+
+```json
+{
+  "new_term": "Updated Term Name"
+}
+```
+
+**POST** `/api/v1/dictionary/{term_id}/merge`
+
+Merge two dictionary terms by combining their children and deleting the source term.
+
+**Request Body:**
+
+```json
+{
+  "target_term_id": 123,
+  "selected_children": ["child1", "child2", "child3"]
+}
+```
+
+### Tree Relationships
+
+**GET** `/api/v1/dictionary/tree/{term_id}/relationships`
+
+Get tree relationships for a dictionary term (parents and children).
+
+**Response:**
+
+```json
+{
+  "term": "Abdominal pain",
+  "nodes": [
+    {
+      "id": 123,
+      "depth": 2,
+      "slot": 1,
+      "parent_id": 45
+    }
+  ],
+  "parents": [
+    {
+      "id": 45,
+      "label": "Gastrointestinal symptoms",
+      "depth": 1,
+      "slot": 2
+    }
+  ],
+  "children": [
+    {
+      "id": 124,
+      "label": "Severe pain",
+      "depth": 3,
+      "slot": 1
+    }
+  ]
+}
+```
+
+### Dictionary Synchronization
+
+The dictionary system maintains bidirectional synchronization with the decision tree:
+
+- **Tree → Dictionary**: When nodes are created/updated, dictionary entries are automatically created/updated
+- **Dictionary → Tree**: When dictionary terms are updated, corresponding tree node labels are updated
+- **Conflict Detection**: Dictionary terms show conflict counts from the decision tree structure
+- **Red Flag Sync**: Red flag status is synchronized between dictionary and tree nodes
 
 ### Response Standards
 

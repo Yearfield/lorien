@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **EngineShortBow - Interactive Symptom Navigator**: New engine for interactive symptom navigation using probability matrices
+  - **Backend Implementation**: Complete Python engine with Excel import, navigation logic, and calculation history
+  - **Database Schema**: New tables for symptoms, symptom links, and navigation calculations (Migration 012)
+  - **API Endpoints**: Full RESTful API under `/api/v1/shortbow` for import, navigation, and history management
+  - **Flutter UI**: Dedicated ShortBow Navigator screen with import and navigation tabs
+  - **VM Builder Integration**: Navigation button in VM Builder app bar for seamless access
+  - **Sample Data**: Automatic sample matrix generation with 15 symptoms and realistic probabilities
+  - **Documentation**: Comprehensive guides for API usage, UI workflow, and troubleshooting
+
 ### Fixed
 
 - **VM Builder Child Addition**: Fixed issue where adding new children would destroy existing downstream data

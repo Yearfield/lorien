@@ -74,12 +74,24 @@ Think of this as “what every new agent should know before starting.”
    - **NEW**: "Scan VM Builder" button to refresh decision tree data (properly updates state)
    - Supports calculation history and data import/export workflows
 
-6. **Optional Local LLM Integration**
+6. **EngineShortBow - Interactive Symptom Navigator**
+   - Interactive symptom navigator based on conditional probabilities
+   - Uses probability matrices where rows/columns are symptoms and cells are co-occurrence probabilities
+   - Mimics differential diagnosis systems like symptom checkers
+   - Integrated into VM Builder with navigation button access
+   - **NEW**: Excel matrix import with symptom linkage data
+   - **NEW**: Top symptom discovery - identifies symptoms with highest average linkage
+   - **NEW**: Guided navigation through related symptoms (up to 5 selections)
+   - **NEW**: Navigation history and calculation saving
+   - **NEW**: Probability visualization with percentage displays
+   - Supports non-symmetric matrices and excludes previously selected symptoms
+
+7. **Optional Local LLM Integration**
    - Guidance-only suggestions for diagnostic triage and actions
    - Feature-flagged off by default
    - Strict input/output shape; safety guardrails mandatory
 
-7. **Subtree Cloning System**
+8. **Subtree Cloning System**
    - **Full Subtree Cloning**: Copies entire subtree structure with all descendants
    - **Partial Subtree Creation**: When full clone fails due to depth limits, creates as much as possible
    - **User Selection Dialog**: When multiple parents exist with same label, user chooses which to clone
@@ -354,6 +366,7 @@ Extensions Optional LLM suggestion flow, EngineWarhammer Bayesian calculator wit
 Cloning Full/partial subtree cloning with depth validation and user selection
 Security Authentication, rate limiting, input validation, security headers
 EngineWarhammer Decision tree integration, synonym management, confidence visualization, auto-calculation
+EngineShortBow Interactive symptom navigation, probability matrices, guided diagnosis, navigation history
 Conflict Resolution Home pane conflict detection, Dictionary pane conflict indicators, cross-pane synchronization
 Dictionary Management Search, term details, merge operations, statistics, null-safe data handling
 
@@ -368,3 +381,4 @@ See also
 - Runbook: ./docs/Runbook.md
 - Migration: ./docs/Migration.md
 - EngineWarhammer Guide: ./docs/EngineWarhammer_Guide.md
+- EngineShortBow Guide: ./docs/EngineShortBow_Guide.md

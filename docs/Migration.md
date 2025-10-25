@@ -60,3 +60,40 @@ After migration, verify:
 - Red flag synchronization works between Dictionary and VM Builder
 - Export/import functionality operates correctly
 - Database triggers maintain data consistency
+
+## EngineShortBow Migration
+
+### Database Schema Updates
+
+The following migration is applied automatically when the database is initialized:
+
+**Migration 012**: `012_add_shortbow_tables.sql`
+
+- Creates `shortbow_symptoms` table for symptom name storage
+- Creates `shortbow_symptom_links` table for probability matrix data
+- Creates `shortbow_calculations` table for navigation session history
+- Adds indexes for performance optimization
+- Creates triggers for timestamp management
+
+### ShortBow Data Population
+
+For new installations, import sample data to get started:
+
+```bash
+# Generate sample symptom matrix
+python3 Engines/EngineShortBow/sample_generator.py
+
+# Import via API (or use Flutter UI)
+curl -X POST "http://localhost:8000/api/v1/shortbow/import" \
+  -F "file=@sample_symptom_matrix.xlsx"
+```
+
+### Post-Migration Verification
+
+After migration, verify:
+
+- ShortBow Navigator accessible via VM Builder navigation button
+- Import functionality works with Excel symptom matrices
+- Navigation shows top symptoms and linked symptoms
+- Calculation history saves and loads correctly
+- Statistics endpoint returns accurate data

@@ -20,11 +20,13 @@ The app uses a `NavigationRail` with 7 main sections:
   - Empty search returns all terms with pagination
   - Real-time search as you type
   - Results show term name, definition, synonyms, and red flag status
+- **Refresh Button**: Manual refresh to update search results and statistics
 - **Term Details Dialog**: Click any term to open detailed editing interface
   - **Editable Fields**: Term name, definition, synonyms (comma-separated)
   - **Red Flag Toggle**: Mark terms as red flags (syncs to VM Builder)
   - **Tree Relationships**: View parents and children in the tree structure
   - **Statistics**: Shows average children count and conflicts count
+- **Accurate Statistics**: Tree-specific statistics showing completion rates for decision tree terms only
 - **Rename & Merge Operations**:
   - **Rename**: Change term name with automatic conflict detection
   - **Merge**: Combine terms with children selection dialog (max 5 children)
@@ -126,6 +128,19 @@ The app uses a `NavigationRail` with 7 main sections:
   - Validates input and provides feedback
   - Clears search field on successful navigation
 - **Navigation from Conflicts**: Click edit icon in conflicts list to navigate to parent in VM Builder
+
+### EngineShortBow Integration
+
+- **Navigation Button**: Click the navigation icon (🧭) in the VM Builder app bar to access ShortBow Navigator
+- **ShortBow Navigator**: Dedicated screen for interactive symptom navigation with two main tabs:
+  - **Import Data Tab**: Upload Excel symptom matrices and view statistics
+  - **Navigate Tab**: Interactive symptom navigation with probability visualization
+- **Symptom Navigation Workflow**:
+  - **Starting Symptoms**: Dropdown shows top symptoms with highest average linkage
+  - **Linked Symptoms**: After selecting a symptom, shows top 5 related symptoms with probabilities
+  - **Selection Management**: Add symptoms to selection (max 5), remove with chip delete buttons
+  - **Navigation History**: Save navigation sessions and view recent calculations
+  - **Probability Display**: Clear percentage display of symptom linkage strengths
 
 ## API Configuration
 

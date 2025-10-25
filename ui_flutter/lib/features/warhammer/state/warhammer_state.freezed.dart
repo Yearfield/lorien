@@ -18,16 +18,6 @@ final _privateConstructorUsedError = UnsupportedError(
 mixin _$WarhammerState {
   List<Symptom> get symptoms => throw _privateConstructorUsedError;
   List<Disease> get diseases => throw _privateConstructorUsedError;
-  List<String> get selectedSymptoms => throw _privateConstructorUsedError;
-  List<Map<String, dynamic>> get decisionTreeRoots =>
-      throw _privateConstructorUsedError;
-  List<Map<String, dynamic>> get currentTreeOptions =>
-      throw _privateConstructorUsedError;
-  int get currentParentId => throw _privateConstructorUsedError;
-  CalculationResponse? get lastCalculation =>
-      throw _privateConstructorUsedError;
-  List<SavedCalculation> get savedCalculations =>
-      throw _privateConstructorUsedError;
   WarhammerStats? get stats => throw _privateConstructorUsedError;
   SymptomComparison? get symptomComparison =>
       throw _privateConstructorUsedError;
@@ -38,6 +28,16 @@ mixin _$WarhammerState {
   bool get isLoadingComparison => throw _privateConstructorUsedError;
   bool get isLoadingSynonyms => throw _privateConstructorUsedError;
   String? get error => throw _privateConstructorUsedError;
+  List<String> get selectedSymptoms => throw _privateConstructorUsedError;
+  CalculationResponse? get lastCalculation =>
+      throw _privateConstructorUsedError;
+  List<SavedCalculation> get savedCalculations =>
+      throw _privateConstructorUsedError;
+  int get currentParentId => throw _privateConstructorUsedError;
+  List<Map<String, dynamic>> get currentTreeOptions =>
+      throw _privateConstructorUsedError;
+  List<Map<String, dynamic>> get decisionTreeRoots =>
+      throw _privateConstructorUsedError;
 
   /// Create a copy of WarhammerState
   /// with the given fields replaced by the non-null parameter values.
@@ -55,12 +55,6 @@ abstract class $WarhammerStateCopyWith<$Res> {
   $Res call(
       {List<Symptom> symptoms,
       List<Disease> diseases,
-      List<String> selectedSymptoms,
-      List<Map<String, dynamic>> decisionTreeRoots,
-      List<Map<String, dynamic>> currentTreeOptions,
-      int currentParentId,
-      CalculationResponse? lastCalculation,
-      List<SavedCalculation> savedCalculations,
       WarhammerStats? stats,
       SymptomComparison? symptomComparison,
       List<SymptomSynonym> synonyms,
@@ -69,11 +63,17 @@ abstract class $WarhammerStateCopyWith<$Res> {
       bool isImporting,
       bool isLoadingComparison,
       bool isLoadingSynonyms,
-      String? error});
+      String? error,
+      List<String> selectedSymptoms,
+      CalculationResponse? lastCalculation,
+      List<SavedCalculation> savedCalculations,
+      int currentParentId,
+      List<Map<String, dynamic>> currentTreeOptions,
+      List<Map<String, dynamic>> decisionTreeRoots});
 
-  $CalculationResponseCopyWith<$Res>? get lastCalculation;
   $WarhammerStatsCopyWith<$Res>? get stats;
   $SymptomComparisonCopyWith<$Res>? get symptomComparison;
+  $CalculationResponseCopyWith<$Res>? get lastCalculation;
 }
 
 /// @nodoc
@@ -93,12 +93,6 @@ class _$WarhammerStateCopyWithImpl<$Res, $Val extends WarhammerState>
   $Res call({
     Object? symptoms = null,
     Object? diseases = null,
-    Object? selectedSymptoms = null,
-    Object? decisionTreeRoots = null,
-    Object? currentTreeOptions = null,
-    Object? currentParentId = null,
-    Object? lastCalculation = freezed,
-    Object? savedCalculations = null,
     Object? stats = freezed,
     Object? symptomComparison = freezed,
     Object? synonyms = null,
@@ -108,6 +102,12 @@ class _$WarhammerStateCopyWithImpl<$Res, $Val extends WarhammerState>
     Object? isLoadingComparison = null,
     Object? isLoadingSynonyms = null,
     Object? error = freezed,
+    Object? selectedSymptoms = null,
+    Object? lastCalculation = freezed,
+    Object? savedCalculations = null,
+    Object? currentParentId = null,
+    Object? currentTreeOptions = null,
+    Object? decisionTreeRoots = null,
   }) {
     return _then(_value.copyWith(
       symptoms: null == symptoms
@@ -118,30 +118,6 @@ class _$WarhammerStateCopyWithImpl<$Res, $Val extends WarhammerState>
           ? _value.diseases
           : diseases // ignore: cast_nullable_to_non_nullable
               as List<Disease>,
-      selectedSymptoms: null == selectedSymptoms
-          ? _value.selectedSymptoms
-          : selectedSymptoms // ignore: cast_nullable_to_non_nullable
-              as List<String>,
-      decisionTreeRoots: null == decisionTreeRoots
-          ? _value.decisionTreeRoots
-          : decisionTreeRoots // ignore: cast_nullable_to_non_nullable
-              as List<Map<String, dynamic>>,
-      currentTreeOptions: null == currentTreeOptions
-          ? _value.currentTreeOptions
-          : currentTreeOptions // ignore: cast_nullable_to_non_nullable
-              as List<Map<String, dynamic>>,
-      currentParentId: null == currentParentId
-          ? _value.currentParentId
-          : currentParentId // ignore: cast_nullable_to_non_nullable
-              as int,
-      lastCalculation: freezed == lastCalculation
-          ? _value.lastCalculation
-          : lastCalculation // ignore: cast_nullable_to_non_nullable
-              as CalculationResponse?,
-      savedCalculations: null == savedCalculations
-          ? _value.savedCalculations
-          : savedCalculations // ignore: cast_nullable_to_non_nullable
-              as List<SavedCalculation>,
       stats: freezed == stats
           ? _value.stats
           : stats // ignore: cast_nullable_to_non_nullable
@@ -178,21 +154,31 @@ class _$WarhammerStateCopyWithImpl<$Res, $Val extends WarhammerState>
           ? _value.error
           : error // ignore: cast_nullable_to_non_nullable
               as String?,
+      selectedSymptoms: null == selectedSymptoms
+          ? _value.selectedSymptoms
+          : selectedSymptoms // ignore: cast_nullable_to_non_nullable
+              as List<String>,
+      lastCalculation: freezed == lastCalculation
+          ? _value.lastCalculation
+          : lastCalculation // ignore: cast_nullable_to_non_nullable
+              as CalculationResponse?,
+      savedCalculations: null == savedCalculations
+          ? _value.savedCalculations
+          : savedCalculations // ignore: cast_nullable_to_non_nullable
+              as List<SavedCalculation>,
+      currentParentId: null == currentParentId
+          ? _value.currentParentId
+          : currentParentId // ignore: cast_nullable_to_non_nullable
+              as int,
+      currentTreeOptions: null == currentTreeOptions
+          ? _value.currentTreeOptions
+          : currentTreeOptions // ignore: cast_nullable_to_non_nullable
+              as List<Map<String, dynamic>>,
+      decisionTreeRoots: null == decisionTreeRoots
+          ? _value.decisionTreeRoots
+          : decisionTreeRoots // ignore: cast_nullable_to_non_nullable
+              as List<Map<String, dynamic>>,
     ) as $Val);
-  }
-
-  /// Create a copy of WarhammerState
-  /// with the given fields replaced by the non-null parameter values.
-  @override
-  @pragma('vm:prefer-inline')
-  $CalculationResponseCopyWith<$Res>? get lastCalculation {
-    if (_value.lastCalculation == null) {
-      return null;
-    }
-
-    return $CalculationResponseCopyWith<$Res>(_value.lastCalculation!, (value) {
-      return _then(_value.copyWith(lastCalculation: value) as $Val);
-    });
   }
 
   /// Create a copy of WarhammerState
@@ -222,6 +208,20 @@ class _$WarhammerStateCopyWithImpl<$Res, $Val extends WarhammerState>
       return _then(_value.copyWith(symptomComparison: value) as $Val);
     });
   }
+
+  /// Create a copy of WarhammerState
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @pragma('vm:prefer-inline')
+  $CalculationResponseCopyWith<$Res>? get lastCalculation {
+    if (_value.lastCalculation == null) {
+      return null;
+    }
+
+    return $CalculationResponseCopyWith<$Res>(_value.lastCalculation!, (value) {
+      return _then(_value.copyWith(lastCalculation: value) as $Val);
+    });
+  }
 }
 
 /// @nodoc
@@ -235,12 +235,6 @@ abstract class _$$WarhammerStateImplCopyWith<$Res>
   $Res call(
       {List<Symptom> symptoms,
       List<Disease> diseases,
-      List<String> selectedSymptoms,
-      List<Map<String, dynamic>> decisionTreeRoots,
-      List<Map<String, dynamic>> currentTreeOptions,
-      int currentParentId,
-      CalculationResponse? lastCalculation,
-      List<SavedCalculation> savedCalculations,
       WarhammerStats? stats,
       SymptomComparison? symptomComparison,
       List<SymptomSynonym> synonyms,
@@ -249,14 +243,20 @@ abstract class _$$WarhammerStateImplCopyWith<$Res>
       bool isImporting,
       bool isLoadingComparison,
       bool isLoadingSynonyms,
-      String? error});
+      String? error,
+      List<String> selectedSymptoms,
+      CalculationResponse? lastCalculation,
+      List<SavedCalculation> savedCalculations,
+      int currentParentId,
+      List<Map<String, dynamic>> currentTreeOptions,
+      List<Map<String, dynamic>> decisionTreeRoots});
 
-  @override
-  $CalculationResponseCopyWith<$Res>? get lastCalculation;
   @override
   $WarhammerStatsCopyWith<$Res>? get stats;
   @override
   $SymptomComparisonCopyWith<$Res>? get symptomComparison;
+  @override
+  $CalculationResponseCopyWith<$Res>? get lastCalculation;
 }
 
 /// @nodoc
@@ -274,12 +274,6 @@ class __$$WarhammerStateImplCopyWithImpl<$Res>
   $Res call({
     Object? symptoms = null,
     Object? diseases = null,
-    Object? selectedSymptoms = null,
-    Object? decisionTreeRoots = null,
-    Object? currentTreeOptions = null,
-    Object? currentParentId = null,
-    Object? lastCalculation = freezed,
-    Object? savedCalculations = null,
     Object? stats = freezed,
     Object? symptomComparison = freezed,
     Object? synonyms = null,
@@ -289,6 +283,12 @@ class __$$WarhammerStateImplCopyWithImpl<$Res>
     Object? isLoadingComparison = null,
     Object? isLoadingSynonyms = null,
     Object? error = freezed,
+    Object? selectedSymptoms = null,
+    Object? lastCalculation = freezed,
+    Object? savedCalculations = null,
+    Object? currentParentId = null,
+    Object? currentTreeOptions = null,
+    Object? decisionTreeRoots = null,
   }) {
     return _then(_$WarhammerStateImpl(
       symptoms: null == symptoms
@@ -299,30 +299,6 @@ class __$$WarhammerStateImplCopyWithImpl<$Res>
           ? _value._diseases
           : diseases // ignore: cast_nullable_to_non_nullable
               as List<Disease>,
-      selectedSymptoms: null == selectedSymptoms
-          ? _value._selectedSymptoms
-          : selectedSymptoms // ignore: cast_nullable_to_non_nullable
-              as List<String>,
-      decisionTreeRoots: null == decisionTreeRoots
-          ? _value._decisionTreeRoots
-          : decisionTreeRoots // ignore: cast_nullable_to_non_nullable
-              as List<Map<String, dynamic>>,
-      currentTreeOptions: null == currentTreeOptions
-          ? _value._currentTreeOptions
-          : currentTreeOptions // ignore: cast_nullable_to_non_nullable
-              as List<Map<String, dynamic>>,
-      currentParentId: null == currentParentId
-          ? _value.currentParentId
-          : currentParentId // ignore: cast_nullable_to_non_nullable
-              as int,
-      lastCalculation: freezed == lastCalculation
-          ? _value.lastCalculation
-          : lastCalculation // ignore: cast_nullable_to_non_nullable
-              as CalculationResponse?,
-      savedCalculations: null == savedCalculations
-          ? _value._savedCalculations
-          : savedCalculations // ignore: cast_nullable_to_non_nullable
-              as List<SavedCalculation>,
       stats: freezed == stats
           ? _value.stats
           : stats // ignore: cast_nullable_to_non_nullable
@@ -359,6 +335,30 @@ class __$$WarhammerStateImplCopyWithImpl<$Res>
           ? _value.error
           : error // ignore: cast_nullable_to_non_nullable
               as String?,
+      selectedSymptoms: null == selectedSymptoms
+          ? _value._selectedSymptoms
+          : selectedSymptoms // ignore: cast_nullable_to_non_nullable
+              as List<String>,
+      lastCalculation: freezed == lastCalculation
+          ? _value.lastCalculation
+          : lastCalculation // ignore: cast_nullable_to_non_nullable
+              as CalculationResponse?,
+      savedCalculations: null == savedCalculations
+          ? _value._savedCalculations
+          : savedCalculations // ignore: cast_nullable_to_non_nullable
+              as List<SavedCalculation>,
+      currentParentId: null == currentParentId
+          ? _value.currentParentId
+          : currentParentId // ignore: cast_nullable_to_non_nullable
+              as int,
+      currentTreeOptions: null == currentTreeOptions
+          ? _value._currentTreeOptions
+          : currentTreeOptions // ignore: cast_nullable_to_non_nullable
+              as List<Map<String, dynamic>>,
+      decisionTreeRoots: null == decisionTreeRoots
+          ? _value._decisionTreeRoots
+          : decisionTreeRoots // ignore: cast_nullable_to_non_nullable
+              as List<Map<String, dynamic>>,
     ));
   }
 }
@@ -369,12 +369,6 @@ class _$WarhammerStateImpl implements _WarhammerState {
   const _$WarhammerStateImpl(
       {final List<Symptom> symptoms = const [],
       final List<Disease> diseases = const [],
-      final List<String> selectedSymptoms = const [],
-      final List<Map<String, dynamic>> decisionTreeRoots = const [],
-      final List<Map<String, dynamic>> currentTreeOptions = const [],
-      this.currentParentId = 0,
-      this.lastCalculation,
-      final List<SavedCalculation> savedCalculations = const [],
       this.stats,
       this.symptomComparison,
       final List<SymptomSynonym> synonyms = const [],
@@ -383,14 +377,20 @@ class _$WarhammerStateImpl implements _WarhammerState {
       this.isImporting = false,
       this.isLoadingComparison = false,
       this.isLoadingSynonyms = false,
-      this.error})
+      this.error,
+      final List<String> selectedSymptoms = const [],
+      this.lastCalculation,
+      final List<SavedCalculation> savedCalculations = const [],
+      this.currentParentId = 0,
+      final List<Map<String, dynamic>> currentTreeOptions = const [],
+      final List<Map<String, dynamic>> decisionTreeRoots = const []})
       : _symptoms = symptoms,
         _diseases = diseases,
+        _synonyms = synonyms,
         _selectedSymptoms = selectedSymptoms,
-        _decisionTreeRoots = decisionTreeRoots,
-        _currentTreeOptions = currentTreeOptions,
         _savedCalculations = savedCalculations,
-        _synonyms = synonyms;
+        _currentTreeOptions = currentTreeOptions,
+        _decisionTreeRoots = decisionTreeRoots;
 
   final List<Symptom> _symptoms;
   @override
@@ -408,51 +408,6 @@ class _$WarhammerStateImpl implements _WarhammerState {
     if (_diseases is EqualUnmodifiableListView) return _diseases;
     // ignore: implicit_dynamic_type
     return EqualUnmodifiableListView(_diseases);
-  }
-
-  final List<String> _selectedSymptoms;
-  @override
-  @JsonKey()
-  List<String> get selectedSymptoms {
-    if (_selectedSymptoms is EqualUnmodifiableListView)
-      return _selectedSymptoms;
-    // ignore: implicit_dynamic_type
-    return EqualUnmodifiableListView(_selectedSymptoms);
-  }
-
-  final List<Map<String, dynamic>> _decisionTreeRoots;
-  @override
-  @JsonKey()
-  List<Map<String, dynamic>> get decisionTreeRoots {
-    if (_decisionTreeRoots is EqualUnmodifiableListView)
-      return _decisionTreeRoots;
-    // ignore: implicit_dynamic_type
-    return EqualUnmodifiableListView(_decisionTreeRoots);
-  }
-
-  final List<Map<String, dynamic>> _currentTreeOptions;
-  @override
-  @JsonKey()
-  List<Map<String, dynamic>> get currentTreeOptions {
-    if (_currentTreeOptions is EqualUnmodifiableListView)
-      return _currentTreeOptions;
-    // ignore: implicit_dynamic_type
-    return EqualUnmodifiableListView(_currentTreeOptions);
-  }
-
-  @override
-  @JsonKey()
-  final int currentParentId;
-  @override
-  final CalculationResponse? lastCalculation;
-  final List<SavedCalculation> _savedCalculations;
-  @override
-  @JsonKey()
-  List<SavedCalculation> get savedCalculations {
-    if (_savedCalculations is EqualUnmodifiableListView)
-      return _savedCalculations;
-    // ignore: implicit_dynamic_type
-    return EqualUnmodifiableListView(_savedCalculations);
   }
 
   @override
@@ -485,10 +440,54 @@ class _$WarhammerStateImpl implements _WarhammerState {
   final bool isLoadingSynonyms;
   @override
   final String? error;
+  final List<String> _selectedSymptoms;
+  @override
+  @JsonKey()
+  List<String> get selectedSymptoms {
+    if (_selectedSymptoms is EqualUnmodifiableListView)
+      return _selectedSymptoms;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_selectedSymptoms);
+  }
+
+  @override
+  final CalculationResponse? lastCalculation;
+  final List<SavedCalculation> _savedCalculations;
+  @override
+  @JsonKey()
+  List<SavedCalculation> get savedCalculations {
+    if (_savedCalculations is EqualUnmodifiableListView)
+      return _savedCalculations;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_savedCalculations);
+  }
+
+  @override
+  @JsonKey()
+  final int currentParentId;
+  final List<Map<String, dynamic>> _currentTreeOptions;
+  @override
+  @JsonKey()
+  List<Map<String, dynamic>> get currentTreeOptions {
+    if (_currentTreeOptions is EqualUnmodifiableListView)
+      return _currentTreeOptions;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_currentTreeOptions);
+  }
+
+  final List<Map<String, dynamic>> _decisionTreeRoots;
+  @override
+  @JsonKey()
+  List<Map<String, dynamic>> get decisionTreeRoots {
+    if (_decisionTreeRoots is EqualUnmodifiableListView)
+      return _decisionTreeRoots;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_decisionTreeRoots);
+  }
 
   @override
   String toString() {
-    return 'WarhammerState(symptoms: $symptoms, diseases: $diseases, selectedSymptoms: $selectedSymptoms, decisionTreeRoots: $decisionTreeRoots, currentTreeOptions: $currentTreeOptions, currentParentId: $currentParentId, lastCalculation: $lastCalculation, savedCalculations: $savedCalculations, stats: $stats, symptomComparison: $symptomComparison, synonyms: $synonyms, isLoading: $isLoading, isCalculating: $isCalculating, isImporting: $isImporting, isLoadingComparison: $isLoadingComparison, isLoadingSynonyms: $isLoadingSynonyms, error: $error)';
+    return 'WarhammerState(symptoms: $symptoms, diseases: $diseases, stats: $stats, symptomComparison: $symptomComparison, synonyms: $synonyms, isLoading: $isLoading, isCalculating: $isCalculating, isImporting: $isImporting, isLoadingComparison: $isLoadingComparison, isLoadingSynonyms: $isLoadingSynonyms, error: $error, selectedSymptoms: $selectedSymptoms, lastCalculation: $lastCalculation, savedCalculations: $savedCalculations, currentParentId: $currentParentId, currentTreeOptions: $currentTreeOptions, decisionTreeRoots: $decisionTreeRoots)';
   }
 
   @override
@@ -498,18 +497,6 @@ class _$WarhammerStateImpl implements _WarhammerState {
             other is _$WarhammerStateImpl &&
             const DeepCollectionEquality().equals(other._symptoms, _symptoms) &&
             const DeepCollectionEquality().equals(other._diseases, _diseases) &&
-            const DeepCollectionEquality()
-                .equals(other._selectedSymptoms, _selectedSymptoms) &&
-            const DeepCollectionEquality()
-                .equals(other._decisionTreeRoots, _decisionTreeRoots) &&
-            const DeepCollectionEquality()
-                .equals(other._currentTreeOptions, _currentTreeOptions) &&
-            (identical(other.currentParentId, currentParentId) ||
-                other.currentParentId == currentParentId) &&
-            (identical(other.lastCalculation, lastCalculation) ||
-                other.lastCalculation == lastCalculation) &&
-            const DeepCollectionEquality()
-                .equals(other._savedCalculations, _savedCalculations) &&
             (identical(other.stats, stats) || other.stats == stats) &&
             (identical(other.symptomComparison, symptomComparison) ||
                 other.symptomComparison == symptomComparison) &&
@@ -524,7 +511,19 @@ class _$WarhammerStateImpl implements _WarhammerState {
                 other.isLoadingComparison == isLoadingComparison) &&
             (identical(other.isLoadingSynonyms, isLoadingSynonyms) ||
                 other.isLoadingSynonyms == isLoadingSynonyms) &&
-            (identical(other.error, error) || other.error == error));
+            (identical(other.error, error) || other.error == error) &&
+            const DeepCollectionEquality()
+                .equals(other._selectedSymptoms, _selectedSymptoms) &&
+            (identical(other.lastCalculation, lastCalculation) ||
+                other.lastCalculation == lastCalculation) &&
+            const DeepCollectionEquality()
+                .equals(other._savedCalculations, _savedCalculations) &&
+            (identical(other.currentParentId, currentParentId) ||
+                other.currentParentId == currentParentId) &&
+            const DeepCollectionEquality()
+                .equals(other._currentTreeOptions, _currentTreeOptions) &&
+            const DeepCollectionEquality()
+                .equals(other._decisionTreeRoots, _decisionTreeRoots));
   }
 
   @override
@@ -532,12 +531,6 @@ class _$WarhammerStateImpl implements _WarhammerState {
       runtimeType,
       const DeepCollectionEquality().hash(_symptoms),
       const DeepCollectionEquality().hash(_diseases),
-      const DeepCollectionEquality().hash(_selectedSymptoms),
-      const DeepCollectionEquality().hash(_decisionTreeRoots),
-      const DeepCollectionEquality().hash(_currentTreeOptions),
-      currentParentId,
-      lastCalculation,
-      const DeepCollectionEquality().hash(_savedCalculations),
       stats,
       symptomComparison,
       const DeepCollectionEquality().hash(_synonyms),
@@ -546,7 +539,13 @@ class _$WarhammerStateImpl implements _WarhammerState {
       isImporting,
       isLoadingComparison,
       isLoadingSynonyms,
-      error);
+      error,
+      const DeepCollectionEquality().hash(_selectedSymptoms),
+      lastCalculation,
+      const DeepCollectionEquality().hash(_savedCalculations),
+      currentParentId,
+      const DeepCollectionEquality().hash(_currentTreeOptions),
+      const DeepCollectionEquality().hash(_decisionTreeRoots));
 
   /// Create a copy of WarhammerState
   /// with the given fields replaced by the non-null parameter values.
@@ -560,40 +559,29 @@ class _$WarhammerStateImpl implements _WarhammerState {
 
 abstract class _WarhammerState implements WarhammerState {
   const factory _WarhammerState(
-      {final List<Symptom> symptoms,
-      final List<Disease> diseases,
-      final List<String> selectedSymptoms,
-      final List<Map<String, dynamic>> decisionTreeRoots,
-      final List<Map<String, dynamic>> currentTreeOptions,
-      final int currentParentId,
-      final CalculationResponse? lastCalculation,
-      final List<SavedCalculation> savedCalculations,
-      final WarhammerStats? stats,
-      final SymptomComparison? symptomComparison,
-      final List<SymptomSynonym> synonyms,
-      final bool isLoading,
-      final bool isCalculating,
-      final bool isImporting,
-      final bool isLoadingComparison,
-      final bool isLoadingSynonyms,
-      final String? error}) = _$WarhammerStateImpl;
+          {final List<Symptom> symptoms,
+          final List<Disease> diseases,
+          final WarhammerStats? stats,
+          final SymptomComparison? symptomComparison,
+          final List<SymptomSynonym> synonyms,
+          final bool isLoading,
+          final bool isCalculating,
+          final bool isImporting,
+          final bool isLoadingComparison,
+          final bool isLoadingSynonyms,
+          final String? error,
+          final List<String> selectedSymptoms,
+          final CalculationResponse? lastCalculation,
+          final List<SavedCalculation> savedCalculations,
+          final int currentParentId,
+          final List<Map<String, dynamic>> currentTreeOptions,
+          final List<Map<String, dynamic>> decisionTreeRoots}) =
+      _$WarhammerStateImpl;
 
   @override
   List<Symptom> get symptoms;
   @override
   List<Disease> get diseases;
-  @override
-  List<String> get selectedSymptoms;
-  @override
-  List<Map<String, dynamic>> get decisionTreeRoots;
-  @override
-  List<Map<String, dynamic>> get currentTreeOptions;
-  @override
-  int get currentParentId;
-  @override
-  CalculationResponse? get lastCalculation;
-  @override
-  List<SavedCalculation> get savedCalculations;
   @override
   WarhammerStats? get stats;
   @override
@@ -612,6 +600,18 @@ abstract class _WarhammerState implements WarhammerState {
   bool get isLoadingSynonyms;
   @override
   String? get error;
+  @override
+  List<String> get selectedSymptoms;
+  @override
+  CalculationResponse? get lastCalculation;
+  @override
+  List<SavedCalculation> get savedCalculations;
+  @override
+  int get currentParentId;
+  @override
+  List<Map<String, dynamic>> get currentTreeOptions;
+  @override
+  List<Map<String, dynamic>> get decisionTreeRoots;
 
   /// Create a copy of WarhammerState
   /// with the given fields replaced by the non-null parameter values.

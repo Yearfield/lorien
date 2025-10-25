@@ -40,6 +40,22 @@ Rename/Merge troubleshooting
   - Restart API if persistent transaction issues
 - Recovery: Use search endpoint to locate parents, verify children counts, retry operation
 
+EngineShortBow troubleshooting
+
+- 400 during import: Invalid Excel file format or structure
+  - Check file is Excel (.xlsx, .xls) format
+  - Verify matrix has consistent row/column names
+  - Ensure probability values are between 0.0 and 1.0
+- 404 during navigation: Symptom not found in database
+  - Check symptoms exist: `GET /api/v1/shortbow/symptoms`
+  - Verify symptom names match exactly (case-sensitive)
+  - Import symptom matrix if no data available
+- 500 during navigation: Database query error
+  - Check API logs for specific SQLite errors
+  - Verify database integrity: `GET /api/v1/health` → `db.integrity`
+  - Check shortbow tables exist: `GET /api/v1/shortbow/stats/summary`
+- Recovery: Import sample data, verify matrix format, check symptom names match
+
 Export procedures
 
 - CSV: `GET /api/v1/tree/export` → verify the header is `D0..D6, Notes`

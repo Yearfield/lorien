@@ -51,7 +51,7 @@ class DictionarySearchNotifier extends StateNotifier<DictionarySearchState> {
       for (final term in result.items) {
         try {
           final conflicts = await _repo.getConflictsForTerm(term.term);
-          final conflictsCount = conflicts.isNotEmpty ? conflicts.first['occurrences'] as int : 0;
+          final conflictsCount = conflicts.isNotEmpty ? (conflicts.first['occurrences'] as int?) ?? 0 : 0;
           updatedItems.add(term.copyWith(conflictsCount: conflictsCount));
         } catch (e) {
           // If conflicts lookup fails, keep original term
@@ -95,7 +95,7 @@ class DictionarySearchNotifier extends StateNotifier<DictionarySearchState> {
     for (final term in state.items) {
       try {
         final conflicts = await _repo.getConflictsForTerm(term.term);
-        final conflictsCount = conflicts.isNotEmpty ? conflicts.first['occurrences'] as int : 0;
+        final conflictsCount = conflicts.isNotEmpty ? (conflicts.first['occurrences'] as int?) ?? 0 : 0;
         updatedItems.add(term.copyWith(conflictsCount: conflictsCount));
       } catch (e) {
         // If conflicts lookup fails, keep original term
@@ -138,7 +138,7 @@ class TermDetailsNotifier extends StateNotifier<TermDetailsState> {
 
       // Get conflicts for this term using the same system as Home pane
       final conflicts = await _repo.getConflictsForTerm(term.term);
-      final conflictsCount = conflicts.isNotEmpty ? conflicts.first['occurrences'] as int : 0;
+      final conflictsCount = conflicts.isNotEmpty ? (conflicts.first['occurrences'] as int?) ?? 0 : 0;
 
       // Create updated term with correct conflicts count
       final updatedTerm = term.copyWith(conflictsCount: conflictsCount);

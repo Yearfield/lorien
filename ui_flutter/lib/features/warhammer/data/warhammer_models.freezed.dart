@@ -839,19 +839,11 @@ CalculationResponse _$CalculationResponseFromJson(Map<String, dynamic> json) {
 
 /// @nodoc
 mixin _$CalculationResponse {
-  @JsonKey(name: 'calculation_id')
   int? get calculationId => throw _privateConstructorUsedError;
-  @JsonKey(name: 'input_symptoms')
   List<String> get inputSymptoms => throw _privateConstructorUsedError;
-  @JsonKey(name: 'results')
   List<DiseaseResult> get results => throw _privateConstructorUsedError;
-  @JsonKey(name: 'timestamp')
   String get timestamp => throw _privateConstructorUsedError;
-  @JsonKey(name: 'errors')
   List<String> get errors => throw _privateConstructorUsedError;
-  @JsonKey(name: 'synonym_resolutions')
-  List<Map<String, dynamic>> get synonymResolutions =>
-      throw _privateConstructorUsedError;
 
   /// Serializes this CalculationResponse to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -870,13 +862,11 @@ abstract class $CalculationResponseCopyWith<$Res> {
       _$CalculationResponseCopyWithImpl<$Res, CalculationResponse>;
   @useResult
   $Res call(
-      {@JsonKey(name: 'calculation_id') int? calculationId,
-      @JsonKey(name: 'input_symptoms') List<String> inputSymptoms,
-      @JsonKey(name: 'results') List<DiseaseResult> results,
-      @JsonKey(name: 'timestamp') String timestamp,
-      @JsonKey(name: 'errors') List<String> errors,
-      @JsonKey(name: 'synonym_resolutions')
-      List<Map<String, dynamic>> synonymResolutions});
+      {int? calculationId,
+      List<String> inputSymptoms,
+      List<DiseaseResult> results,
+      String timestamp,
+      List<String> errors});
 }
 
 /// @nodoc
@@ -899,7 +889,6 @@ class _$CalculationResponseCopyWithImpl<$Res, $Val extends CalculationResponse>
     Object? results = null,
     Object? timestamp = null,
     Object? errors = null,
-    Object? synonymResolutions = null,
   }) {
     return _then(_value.copyWith(
       calculationId: freezed == calculationId
@@ -922,10 +911,6 @@ class _$CalculationResponseCopyWithImpl<$Res, $Val extends CalculationResponse>
           ? _value.errors
           : errors // ignore: cast_nullable_to_non_nullable
               as List<String>,
-      synonymResolutions: null == synonymResolutions
-          ? _value.synonymResolutions
-          : synonymResolutions // ignore: cast_nullable_to_non_nullable
-              as List<Map<String, dynamic>>,
     ) as $Val);
   }
 }
@@ -939,13 +924,11 @@ abstract class _$$CalculationResponseImplCopyWith<$Res>
   @override
   @useResult
   $Res call(
-      {@JsonKey(name: 'calculation_id') int? calculationId,
-      @JsonKey(name: 'input_symptoms') List<String> inputSymptoms,
-      @JsonKey(name: 'results') List<DiseaseResult> results,
-      @JsonKey(name: 'timestamp') String timestamp,
-      @JsonKey(name: 'errors') List<String> errors,
-      @JsonKey(name: 'synonym_resolutions')
-      List<Map<String, dynamic>> synonymResolutions});
+      {int? calculationId,
+      List<String> inputSymptoms,
+      List<DiseaseResult> results,
+      String timestamp,
+      List<String> errors});
 }
 
 /// @nodoc
@@ -966,7 +949,6 @@ class __$$CalculationResponseImplCopyWithImpl<$Res>
     Object? results = null,
     Object? timestamp = null,
     Object? errors = null,
-    Object? synonymResolutions = null,
   }) {
     return _then(_$CalculationResponseImpl(
       calculationId: freezed == calculationId
@@ -989,10 +971,6 @@ class __$$CalculationResponseImplCopyWithImpl<$Res>
           ? _value._errors
           : errors // ignore: cast_nullable_to_non_nullable
               as List<String>,
-      synonymResolutions: null == synonymResolutions
-          ? _value._synonymResolutions
-          : synonymResolutions // ignore: cast_nullable_to_non_nullable
-              as List<Map<String, dynamic>>,
     ));
   }
 }
@@ -1001,28 +979,22 @@ class __$$CalculationResponseImplCopyWithImpl<$Res>
 @JsonSerializable()
 class _$CalculationResponseImpl implements _CalculationResponse {
   const _$CalculationResponseImpl(
-      {@JsonKey(name: 'calculation_id') this.calculationId,
-      @JsonKey(name: 'input_symptoms')
-      final List<String> inputSymptoms = const [],
-      @JsonKey(name: 'results') final List<DiseaseResult> results = const [],
-      @JsonKey(name: 'timestamp') required this.timestamp,
-      @JsonKey(name: 'errors') final List<String> errors = const [],
-      @JsonKey(name: 'synonym_resolutions')
-      final List<Map<String, dynamic>> synonymResolutions = const []})
+      {this.calculationId,
+      required final List<String> inputSymptoms,
+      required final List<DiseaseResult> results,
+      required this.timestamp,
+      final List<String> errors = const []})
       : _inputSymptoms = inputSymptoms,
         _results = results,
-        _errors = errors,
-        _synonymResolutions = synonymResolutions;
+        _errors = errors;
 
   factory _$CalculationResponseImpl.fromJson(Map<String, dynamic> json) =>
       _$$CalculationResponseImplFromJson(json);
 
   @override
-  @JsonKey(name: 'calculation_id')
   final int? calculationId;
   final List<String> _inputSymptoms;
   @override
-  @JsonKey(name: 'input_symptoms')
   List<String> get inputSymptoms {
     if (_inputSymptoms is EqualUnmodifiableListView) return _inputSymptoms;
     // ignore: implicit_dynamic_type
@@ -1031,7 +1003,6 @@ class _$CalculationResponseImpl implements _CalculationResponse {
 
   final List<DiseaseResult> _results;
   @override
-  @JsonKey(name: 'results')
   List<DiseaseResult> get results {
     if (_results is EqualUnmodifiableListView) return _results;
     // ignore: implicit_dynamic_type
@@ -1039,30 +1010,19 @@ class _$CalculationResponseImpl implements _CalculationResponse {
   }
 
   @override
-  @JsonKey(name: 'timestamp')
   final String timestamp;
   final List<String> _errors;
   @override
-  @JsonKey(name: 'errors')
+  @JsonKey()
   List<String> get errors {
     if (_errors is EqualUnmodifiableListView) return _errors;
     // ignore: implicit_dynamic_type
     return EqualUnmodifiableListView(_errors);
   }
 
-  final List<Map<String, dynamic>> _synonymResolutions;
-  @override
-  @JsonKey(name: 'synonym_resolutions')
-  List<Map<String, dynamic>> get synonymResolutions {
-    if (_synonymResolutions is EqualUnmodifiableListView)
-      return _synonymResolutions;
-    // ignore: implicit_dynamic_type
-    return EqualUnmodifiableListView(_synonymResolutions);
-  }
-
   @override
   String toString() {
-    return 'CalculationResponse(calculationId: $calculationId, inputSymptoms: $inputSymptoms, results: $results, timestamp: $timestamp, errors: $errors, synonymResolutions: $synonymResolutions)';
+    return 'CalculationResponse(calculationId: $calculationId, inputSymptoms: $inputSymptoms, results: $results, timestamp: $timestamp, errors: $errors)';
   }
 
   @override
@@ -1077,9 +1037,7 @@ class _$CalculationResponseImpl implements _CalculationResponse {
             const DeepCollectionEquality().equals(other._results, _results) &&
             (identical(other.timestamp, timestamp) ||
                 other.timestamp == timestamp) &&
-            const DeepCollectionEquality().equals(other._errors, _errors) &&
-            const DeepCollectionEquality()
-                .equals(other._synonymResolutions, _synonymResolutions));
+            const DeepCollectionEquality().equals(other._errors, _errors));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -1090,8 +1048,7 @@ class _$CalculationResponseImpl implements _CalculationResponse {
       const DeepCollectionEquality().hash(_inputSymptoms),
       const DeepCollectionEquality().hash(_results),
       timestamp,
-      const DeepCollectionEquality().hash(_errors),
-      const DeepCollectionEquality().hash(_synonymResolutions));
+      const DeepCollectionEquality().hash(_errors));
 
   /// Create a copy of CalculationResponse
   /// with the given fields replaced by the non-null parameter values.
@@ -1112,36 +1069,25 @@ class _$CalculationResponseImpl implements _CalculationResponse {
 
 abstract class _CalculationResponse implements CalculationResponse {
   const factory _CalculationResponse(
-          {@JsonKey(name: 'calculation_id') final int? calculationId,
-          @JsonKey(name: 'input_symptoms') final List<String> inputSymptoms,
-          @JsonKey(name: 'results') final List<DiseaseResult> results,
-          @JsonKey(name: 'timestamp') required final String timestamp,
-          @JsonKey(name: 'errors') final List<String> errors,
-          @JsonKey(name: 'synonym_resolutions')
-          final List<Map<String, dynamic>> synonymResolutions}) =
-      _$CalculationResponseImpl;
+      {final int? calculationId,
+      required final List<String> inputSymptoms,
+      required final List<DiseaseResult> results,
+      required final String timestamp,
+      final List<String> errors}) = _$CalculationResponseImpl;
 
   factory _CalculationResponse.fromJson(Map<String, dynamic> json) =
       _$CalculationResponseImpl.fromJson;
 
   @override
-  @JsonKey(name: 'calculation_id')
   int? get calculationId;
   @override
-  @JsonKey(name: 'input_symptoms')
   List<String> get inputSymptoms;
   @override
-  @JsonKey(name: 'results')
   List<DiseaseResult> get results;
   @override
-  @JsonKey(name: 'timestamp')
   String get timestamp;
   @override
-  @JsonKey(name: 'errors')
   List<String> get errors;
-  @override
-  @JsonKey(name: 'synonym_resolutions')
-  List<Map<String, dynamic>> get synonymResolutions;
 
   /// Create a copy of CalculationResponse
   /// with the given fields replaced by the non-null parameter values.

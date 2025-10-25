@@ -15,11 +15,11 @@ _$DictionaryTermImpl _$$DictionaryTermImplFromJson(Map<String, dynamic> json) =>
               ?.map((e) => e as String)
               .toList() ??
           const [],
-      isRedFlag: json['isRedFlag'] as bool? ?? false,
-      avgChildrenCount: (json['avgChildrenCount'] as num?)?.toInt() ?? 0,
-      conflictsCount: (json['conflictsCount'] as num?)?.toInt() ?? 0,
-      createdAt: json['createdAt'] as String,
-      updatedAt: json['updatedAt'] as String,
+      isRedFlag: json['is_red_flag'] as bool? ?? false,
+      avgChildrenCount: (json['avg_children_count'] as num?)?.toInt() ?? 0,
+      conflictsCount: (json['conflicts_count'] as num?)?.toInt() ?? 0,
+      createdAt: json['created_at'] as String,
+      updatedAt: json['updated_at'] as String,
     );
 
 Map<String, dynamic> _$$DictionaryTermImplToJson(
@@ -29,11 +29,11 @@ Map<String, dynamic> _$$DictionaryTermImplToJson(
       'term': instance.term,
       'definition': instance.definition,
       'synonyms': instance.synonyms,
-      'isRedFlag': instance.isRedFlag,
-      'avgChildrenCount': instance.avgChildrenCount,
-      'conflictsCount': instance.conflictsCount,
-      'createdAt': instance.createdAt,
-      'updatedAt': instance.updatedAt,
+      'is_red_flag': instance.isRedFlag,
+      'avg_children_count': instance.avgChildrenCount,
+      'conflicts_count': instance.conflictsCount,
+      'created_at': instance.createdAt,
+      'updated_at': instance.updatedAt,
     };
 
 _$DictionarySearchResultImpl _$$DictionarySearchResultImplFromJson(

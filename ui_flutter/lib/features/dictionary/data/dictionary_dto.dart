@@ -10,11 +10,11 @@ class DictionaryTerm with _$DictionaryTerm {
     required String term,
     String? definition,
     @Default([]) List<String> synonyms,
-    @Default(false) bool isRedFlag,
-    @Default(0) int avgChildrenCount,
-    @Default(0) int conflictsCount,
-    required String createdAt,
-    required String updatedAt,
+    @JsonKey(name: 'is_red_flag') @Default(false) bool isRedFlag,
+    @JsonKey(name: 'avg_children_count') @Default(0) int avgChildrenCount,
+    @JsonKey(name: 'conflicts_count') @Default(0) int conflictsCount,
+    @JsonKey(name: 'created_at') required String createdAt,
+    @JsonKey(name: 'updated_at') required String updatedAt,
   }) = _DictionaryTerm;
 
   factory DictionaryTerm.fromJson(Map<String, dynamic> json) =>
@@ -48,13 +48,13 @@ class DictionaryUpdateRequest with _$DictionaryUpdateRequest {
 @freezed
 class DictionaryStats with _$DictionaryStats {
   const factory DictionaryStats({
-    required int totalTerms,
-    required int redFlagTerms,
-    required int termsWithDefinitions,
-    required int termsWithSynonyms,
-    required double avgChildrenPerTerm,
-    required int totalConflicts,
-    required DictionaryCompletionRate completionRate,
+    @JsonKey(name: 'total_terms') required int totalTerms,
+    @JsonKey(name: 'red_flag_terms') required int redFlagTerms,
+    @JsonKey(name: 'terms_with_definitions') required int termsWithDefinitions,
+    @JsonKey(name: 'terms_with_synonyms') required int termsWithSynonyms,
+    @JsonKey(name: 'avg_children_per_term') required double avgChildrenPerTerm,
+    @JsonKey(name: 'total_conflicts') required int totalConflicts,
+    @JsonKey(name: 'completion_rate') required DictionaryCompletionRate completionRate,
   }) = _DictionaryStats;
 
   factory DictionaryStats.fromJson(Map<String, dynamic> json) {

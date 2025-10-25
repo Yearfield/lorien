@@ -28,6 +28,7 @@ from api.routers.dictionary import router as dictionary_router
 from api.routers.health import router as health_router
 from api.routers.import_router import router as import_router
 from api.routers.pathogens import router as pathogens_router
+from api.routers.shortbow import router as shortbow_router
 from api.routers.tree_basic import router as tree_basic_router
 from api.routers.tree_delete_restore import router as tree_delete_restore_router
 from api.routers.tree_export_router import router as export_router
@@ -159,6 +160,7 @@ app.include_router(export_router, prefix="/api/v1")
 app.include_router(conflicts_router, prefix="/api/v1")
 app.include_router(pathogens_router)
 app.include_router(warhammer_router)
+app.include_router(shortbow_router)
 app.include_router(dictionary_router)
 
 # Note: tree_basic_router already has prefix="/api/v1/tree" internally

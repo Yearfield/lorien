@@ -43,6 +43,29 @@ erDiagram
       TEXT    created_at
       TEXT    updated_at
     }
+    shortbow_symptoms {
+      INTEGER id PK
+      TEXT    symptom_name UNIQUE
+      TEXT    created_at
+      TEXT    updated_at
+    }
+    shortbow_symptom_links {
+      INTEGER id PK
+      INTEGER symptom_from_id FK
+      INTEGER symptom_to_id FK
+      REAL    probability
+      TEXT    created_at
+      TEXT    updated_at
+      UNIQUE (symptom_from_id, symptom_to_id)
+    }
+    shortbow_calculations {
+      INTEGER id PK
+      TEXT    calculation_date
+      TEXT    initial_symptom
+      TEXT    selected_symptoms
+      BOOLEAN saved
+      TEXT    created_at
+    }
     edge_meta {
       INTEGER parent_id FK
       INTEGER child_id FK
@@ -59,6 +82,8 @@ erDiagram
     nodes ||--o{ edge_meta : "parent_edge"
     nodes ||--o{ edge_meta : "child_edge"
     medical_dictionary ||--o{ nodes : "syncs_to"
+    shortbow_symptoms ||--o{ shortbow_symptom_links : "from_symptom"
+    shortbow_symptoms ||--o{ shortbow_symptom_links : "to_symptom"
 ```
 
 ## Canonical columns (CSV)

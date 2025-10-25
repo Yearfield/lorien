@@ -114,7 +114,8 @@ class DictionaryRepo {
   }
 
   Future<DictionaryStats> getStats() async {
-    final uri = Uri.parse('$base/dictionary/stats');
+    // Use tree-specific stats for more accurate assessment of decision tree terms
+    final uri = Uri.parse('$base/dictionary/stats/tree');
     final response = await http.get(uri);
 
     if (response.statusCode != 200) {
@@ -282,8 +283,10 @@ class DictionaryRepo {
 
     final allConflicts = jsonDecode(response.body) as List;
     // Filter conflicts for the specific term (case-insensitive)
-    return allConflicts.where((conflict) =>
-      conflict['label'].toString().toLowerCase() == termName.toLowerCase()
-    ).cast<Map<String, dynamic>>().toList();
+    return allConflicts.where((conflict) {
+      final label = conflict['label'];
+      if (label == null) return false;
+      return label.toString().toLowerCase() == termName.toLowerCase();
+    }).cast<Map<String, dynamic>>().toList();
   }
 }

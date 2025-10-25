@@ -71,22 +71,16 @@ Map<String, dynamic> _$$CalculationRequestImplToJson(
 _$CalculationResponseImpl _$$CalculationResponseImplFromJson(
         Map<String, dynamic> json) =>
     _$CalculationResponseImpl(
-      calculationId: (json['calculation_id'] as num?)?.toInt(),
-      inputSymptoms: (json['input_symptoms'] as List<dynamic>?)
-              ?.map((e) => e as String)
-              .toList() ??
-          const [],
-      results: (json['results'] as List<dynamic>?)
-              ?.map((e) => DiseaseResult.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          const [],
+      calculationId: (json['calculationId'] as num?)?.toInt(),
+      inputSymptoms: (json['inputSymptoms'] as List<dynamic>)
+          .map((e) => e as String)
+          .toList(),
+      results: (json['results'] as List<dynamic>)
+          .map((e) => DiseaseResult.fromJson(e as Map<String, dynamic>))
+          .toList(),
       timestamp: json['timestamp'] as String,
       errors: (json['errors'] as List<dynamic>?)
               ?.map((e) => e as String)
-              .toList() ??
-          const [],
-      synonymResolutions: (json['synonym_resolutions'] as List<dynamic>?)
-              ?.map((e) => e as Map<String, dynamic>)
               .toList() ??
           const [],
     );
@@ -94,12 +88,11 @@ _$CalculationResponseImpl _$$CalculationResponseImplFromJson(
 Map<String, dynamic> _$$CalculationResponseImplToJson(
         _$CalculationResponseImpl instance) =>
     <String, dynamic>{
-      'calculation_id': instance.calculationId,
-      'input_symptoms': instance.inputSymptoms,
+      'calculationId': instance.calculationId,
+      'inputSymptoms': instance.inputSymptoms,
       'results': instance.results,
       'timestamp': instance.timestamp,
       'errors': instance.errors,
-      'synonym_resolutions': instance.synonymResolutions,
     };
 
 _$ImportResultResponseImpl _$$ImportResultResponseImplFromJson(

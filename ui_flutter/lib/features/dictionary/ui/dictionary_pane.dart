@@ -96,6 +96,14 @@ class _DictionaryPaneState extends ConsumerState<DictionaryPane> {
         title: const Text('Medical Dictionary'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              ref.read(dictionarySearchProvider.notifier).refresh();
+              ref.read(dictionaryStatsProvider.notifier).loadStats();
+            },
+            tooltip: 'Refresh Dictionary',
+          ),
+          IconButton(
             icon: const Icon(Icons.analytics_outlined),
             onPressed: _showStats,
             tooltip: 'Dictionary Statistics',

@@ -111,6 +111,7 @@ Smoke checklist
 - VM Builder pane loads; can add a root, edit children, drill into nodes
 - "Next Incomplete" CTA navigates using `GET /api/v1/tree/next-underfilled` and shows snackbars for 204/errors
 - Busy overlay and error banner: long operations disable actions; save/import failures show error text
+- EngineShortBow: Navigation button in VM Builder opens ShortBow Navigator; can import Excel matrix and navigate symptoms
 
 More details
 

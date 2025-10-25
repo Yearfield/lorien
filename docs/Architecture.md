@@ -2,7 +2,7 @@
 
 Overview
 
-- Flutter shell with NavigationRail panes talks to a FastAPI VM Core; SQLite stores the tree. Two engines: EngineLongBow (decision trees) and EngineShelob (pathogen data).
+- Flutter shell with NavigationRail panes talks to a FastAPI VM Core; SQLite stores the tree. Three engines: EngineLongBow (decision trees), EngineShelob (pathogen data), and EngineShortBow (symptom navigation).
 
 Diagram
 
@@ -21,23 +21,25 @@ FastAPI (VM Core) — Fully Async + Security
     • Rate Limiting — Request & auth attempt limiting
     • Input Validation — XSS, SQL injection protection
     • Security Headers — HSTS, CSP, X-Frame-Options
-  Routers: health | import | export | tree_basic | dictionary | conflicts | pathogens
-        |   ^                     |                    ^                        ^
-        |   |                     v                    |                        |
-        |   |               EngineLongBow             |                EngineShelob
-        |   |           (import/preview/export)       |            (pathogen import/CRUD)
-        v   |                     |                   |                        |
-     SQLite (WAL) — Thread-Offloaded                 |                        |
-        ^                                           |                        |
-        |         medical_dictionary + sync triggers |                        |
-        |         pathogen tables + associations      |                        |
-        +-------------------------------------------+------------------------+
+  Routers: health | import | export | tree_basic | dictionary | conflicts | pathogens | shortbow
+        |   ^                     |                    ^                        ^              ^
+        |   |                     v                    |                        |              |
+        |   |               EngineLongBow             |                EngineShelob    EngineShortBow
+        |   |           (import/preview/export)       |            (pathogen import/CRUD) (symptom navigation)
+        v   |                     |                   |                        |              |
+     SQLite (WAL) — Thread-Offloaded                 |                        |              |
+        ^                                           |                        |              |
+        |         medical_dictionary + sync triggers |                        |              |
+        |         pathogen tables + associations      |                        |              |
+        |         shortbow symptoms + links + calculations |                   |              |
+        +-------------------------------------------+------------------------+--------------+
 ```
 
 State & validation
 
 - EngineLongBow: Decision tree ingest/export engine with ≤5 children enforced at service layer
 - EngineShelob: Pathogen data import/management engine with separate database tables
+- EngineShortBow: Interactive symptom navigator using probability matrices for symptom co-occurrence analysis
 - Option B: ≤5 children enforced at the service layer; DB remains flexible with unique `(parent_id, slot)` in 1..5
 - Depth 0..5, root at depth 0; slots 1..5 for children
 

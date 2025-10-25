@@ -24,10 +24,15 @@ mixin _$DictionaryTerm {
   String get term => throw _privateConstructorUsedError;
   String? get definition => throw _privateConstructorUsedError;
   List<String> get synonyms => throw _privateConstructorUsedError;
+  @JsonKey(name: 'is_red_flag')
   bool get isRedFlag => throw _privateConstructorUsedError;
+  @JsonKey(name: 'avg_children_count')
   int get avgChildrenCount => throw _privateConstructorUsedError;
+  @JsonKey(name: 'conflicts_count')
   int get conflictsCount => throw _privateConstructorUsedError;
+  @JsonKey(name: 'created_at')
   String get createdAt => throw _privateConstructorUsedError;
+  @JsonKey(name: 'updated_at')
   String get updatedAt => throw _privateConstructorUsedError;
 
   /// Serializes this DictionaryTerm to a JSON map.
@@ -51,11 +56,11 @@ abstract class $DictionaryTermCopyWith<$Res> {
       String term,
       String? definition,
       List<String> synonyms,
-      bool isRedFlag,
-      int avgChildrenCount,
-      int conflictsCount,
-      String createdAt,
-      String updatedAt});
+      @JsonKey(name: 'is_red_flag') bool isRedFlag,
+      @JsonKey(name: 'avg_children_count') int avgChildrenCount,
+      @JsonKey(name: 'conflicts_count') int conflictsCount,
+      @JsonKey(name: 'created_at') String createdAt,
+      @JsonKey(name: 'updated_at') String updatedAt});
 }
 
 /// @nodoc
@@ -137,11 +142,11 @@ abstract class _$$DictionaryTermImplCopyWith<$Res>
       String term,
       String? definition,
       List<String> synonyms,
-      bool isRedFlag,
-      int avgChildrenCount,
-      int conflictsCount,
-      String createdAt,
-      String updatedAt});
+      @JsonKey(name: 'is_red_flag') bool isRedFlag,
+      @JsonKey(name: 'avg_children_count') int avgChildrenCount,
+      @JsonKey(name: 'conflicts_count') int conflictsCount,
+      @JsonKey(name: 'created_at') String createdAt,
+      @JsonKey(name: 'updated_at') String updatedAt});
 }
 
 /// @nodoc
@@ -216,11 +221,11 @@ class _$DictionaryTermImpl implements _DictionaryTerm {
       required this.term,
       this.definition,
       final List<String> synonyms = const [],
-      this.isRedFlag = false,
-      this.avgChildrenCount = 0,
-      this.conflictsCount = 0,
-      required this.createdAt,
-      required this.updatedAt})
+      @JsonKey(name: 'is_red_flag') this.isRedFlag = false,
+      @JsonKey(name: 'avg_children_count') this.avgChildrenCount = 0,
+      @JsonKey(name: 'conflicts_count') this.conflictsCount = 0,
+      @JsonKey(name: 'created_at') required this.createdAt,
+      @JsonKey(name: 'updated_at') required this.updatedAt})
       : _synonyms = synonyms;
 
   factory _$DictionaryTermImpl.fromJson(Map<String, dynamic> json) =>
@@ -242,17 +247,19 @@ class _$DictionaryTermImpl implements _DictionaryTerm {
   }
 
   @override
-  @JsonKey()
+  @JsonKey(name: 'is_red_flag')
   final bool isRedFlag;
   @override
-  @JsonKey()
+  @JsonKey(name: 'avg_children_count')
   final int avgChildrenCount;
   @override
-  @JsonKey()
+  @JsonKey(name: 'conflicts_count')
   final int conflictsCount;
   @override
+  @JsonKey(name: 'created_at')
   final String createdAt;
   @override
+  @JsonKey(name: 'updated_at')
   final String updatedAt;
 
   @override
@@ -315,15 +322,16 @@ class _$DictionaryTermImpl implements _DictionaryTerm {
 
 abstract class _DictionaryTerm implements DictionaryTerm {
   const factory _DictionaryTerm(
-      {required final int id,
-      required final String term,
-      final String? definition,
-      final List<String> synonyms,
-      final bool isRedFlag,
-      final int avgChildrenCount,
-      final int conflictsCount,
-      required final String createdAt,
-      required final String updatedAt}) = _$DictionaryTermImpl;
+          {required final int id,
+          required final String term,
+          final String? definition,
+          final List<String> synonyms,
+          @JsonKey(name: 'is_red_flag') final bool isRedFlag,
+          @JsonKey(name: 'avg_children_count') final int avgChildrenCount,
+          @JsonKey(name: 'conflicts_count') final int conflictsCount,
+          @JsonKey(name: 'created_at') required final String createdAt,
+          @JsonKey(name: 'updated_at') required final String updatedAt}) =
+      _$DictionaryTermImpl;
 
   factory _DictionaryTerm.fromJson(Map<String, dynamic> json) =
       _$DictionaryTermImpl.fromJson;
@@ -337,14 +345,19 @@ abstract class _DictionaryTerm implements DictionaryTerm {
   @override
   List<String> get synonyms;
   @override
+  @JsonKey(name: 'is_red_flag')
   bool get isRedFlag;
   @override
+  @JsonKey(name: 'avg_children_count')
   int get avgChildrenCount;
   @override
+  @JsonKey(name: 'conflicts_count')
   int get conflictsCount;
   @override
+  @JsonKey(name: 'created_at')
   String get createdAt;
   @override
+  @JsonKey(name: 'updated_at')
   String get updatedAt;
 
   /// Create a copy of DictionaryTerm
@@ -761,12 +774,19 @@ abstract class _DictionaryUpdateRequest implements DictionaryUpdateRequest {
 
 /// @nodoc
 mixin _$DictionaryStats {
+  @JsonKey(name: 'total_terms')
   int get totalTerms => throw _privateConstructorUsedError;
+  @JsonKey(name: 'red_flag_terms')
   int get redFlagTerms => throw _privateConstructorUsedError;
+  @JsonKey(name: 'terms_with_definitions')
   int get termsWithDefinitions => throw _privateConstructorUsedError;
+  @JsonKey(name: 'terms_with_synonyms')
   int get termsWithSynonyms => throw _privateConstructorUsedError;
+  @JsonKey(name: 'avg_children_per_term')
   double get avgChildrenPerTerm => throw _privateConstructorUsedError;
+  @JsonKey(name: 'total_conflicts')
   int get totalConflicts => throw _privateConstructorUsedError;
+  @JsonKey(name: 'completion_rate')
   DictionaryCompletionRate get completionRate =>
       throw _privateConstructorUsedError;
 
@@ -784,12 +804,13 @@ abstract class $DictionaryStatsCopyWith<$Res> {
       _$DictionaryStatsCopyWithImpl<$Res, DictionaryStats>;
   @useResult
   $Res call(
-      {int totalTerms,
-      int redFlagTerms,
-      int termsWithDefinitions,
-      int termsWithSynonyms,
-      double avgChildrenPerTerm,
-      int totalConflicts,
+      {@JsonKey(name: 'total_terms') int totalTerms,
+      @JsonKey(name: 'red_flag_terms') int redFlagTerms,
+      @JsonKey(name: 'terms_with_definitions') int termsWithDefinitions,
+      @JsonKey(name: 'terms_with_synonyms') int termsWithSynonyms,
+      @JsonKey(name: 'avg_children_per_term') double avgChildrenPerTerm,
+      @JsonKey(name: 'total_conflicts') int totalConflicts,
+      @JsonKey(name: 'completion_rate')
       DictionaryCompletionRate completionRate});
 
   $DictionaryCompletionRateCopyWith<$Res> get completionRate;
@@ -871,12 +892,13 @@ abstract class _$$DictionaryStatsImplCopyWith<$Res>
   @override
   @useResult
   $Res call(
-      {int totalTerms,
-      int redFlagTerms,
-      int termsWithDefinitions,
-      int termsWithSynonyms,
-      double avgChildrenPerTerm,
-      int totalConflicts,
+      {@JsonKey(name: 'total_terms') int totalTerms,
+      @JsonKey(name: 'red_flag_terms') int redFlagTerms,
+      @JsonKey(name: 'terms_with_definitions') int termsWithDefinitions,
+      @JsonKey(name: 'terms_with_synonyms') int termsWithSynonyms,
+      @JsonKey(name: 'avg_children_per_term') double avgChildrenPerTerm,
+      @JsonKey(name: 'total_conflicts') int totalConflicts,
+      @JsonKey(name: 'completion_rate')
       DictionaryCompletionRate completionRate});
 
   @override
@@ -941,27 +963,35 @@ class __$$DictionaryStatsImplCopyWithImpl<$Res>
 
 class _$DictionaryStatsImpl implements _DictionaryStats {
   const _$DictionaryStatsImpl(
-      {required this.totalTerms,
-      required this.redFlagTerms,
+      {@JsonKey(name: 'total_terms') required this.totalTerms,
+      @JsonKey(name: 'red_flag_terms') required this.redFlagTerms,
+      @JsonKey(name: 'terms_with_definitions')
       required this.termsWithDefinitions,
-      required this.termsWithSynonyms,
-      required this.avgChildrenPerTerm,
-      required this.totalConflicts,
-      required this.completionRate});
+      @JsonKey(name: 'terms_with_synonyms') required this.termsWithSynonyms,
+      @JsonKey(name: 'avg_children_per_term') required this.avgChildrenPerTerm,
+      @JsonKey(name: 'total_conflicts') required this.totalConflicts,
+      @JsonKey(name: 'completion_rate') required this.completionRate});
 
   @override
+  @JsonKey(name: 'total_terms')
   final int totalTerms;
   @override
+  @JsonKey(name: 'red_flag_terms')
   final int redFlagTerms;
   @override
+  @JsonKey(name: 'terms_with_definitions')
   final int termsWithDefinitions;
   @override
+  @JsonKey(name: 'terms_with_synonyms')
   final int termsWithSynonyms;
   @override
+  @JsonKey(name: 'avg_children_per_term')
   final double avgChildrenPerTerm;
   @override
+  @JsonKey(name: 'total_conflicts')
   final int totalConflicts;
   @override
+  @JsonKey(name: 'completion_rate')
   final DictionaryCompletionRate completionRate;
 
   @override
@@ -1013,28 +1043,39 @@ class _$DictionaryStatsImpl implements _DictionaryStats {
 
 abstract class _DictionaryStats implements DictionaryStats {
   const factory _DictionaryStats(
-          {required final int totalTerms,
-          required final int redFlagTerms,
+          {@JsonKey(name: 'total_terms') required final int totalTerms,
+          @JsonKey(name: 'red_flag_terms') required final int redFlagTerms,
+          @JsonKey(name: 'terms_with_definitions')
           required final int termsWithDefinitions,
+          @JsonKey(name: 'terms_with_synonyms')
           required final int termsWithSynonyms,
+          @JsonKey(name: 'avg_children_per_term')
           required final double avgChildrenPerTerm,
-          required final int totalConflicts,
+          @JsonKey(name: 'total_conflicts') required final int totalConflicts,
+          @JsonKey(name: 'completion_rate')
           required final DictionaryCompletionRate completionRate}) =
       _$DictionaryStatsImpl;
 
   @override
+  @JsonKey(name: 'total_terms')
   int get totalTerms;
   @override
+  @JsonKey(name: 'red_flag_terms')
   int get redFlagTerms;
   @override
+  @JsonKey(name: 'terms_with_definitions')
   int get termsWithDefinitions;
   @override
+  @JsonKey(name: 'terms_with_synonyms')
   int get termsWithSynonyms;
   @override
+  @JsonKey(name: 'avg_children_per_term')
   double get avgChildrenPerTerm;
   @override
+  @JsonKey(name: 'total_conflicts')
   int get totalConflicts;
   @override
+  @JsonKey(name: 'completion_rate')
   DictionaryCompletionRate get completionRate;
 
   /// Create a copy of DictionaryStats

@@ -21,7 +21,11 @@ class MyApp extends ConsumerWidget {
     final settings = ref.watch(settingsProvider);
 
     return provider.ChangeNotifierProvider(
-      create: (_) => HealthState(),
+      create: (_) {
+        final healthState = HealthState();
+        healthState.setApiBaseUrl(settings.apiBaseUrl);
+        return healthState;
+      },
       child: MaterialApp(
         title: 'Lorien',
         theme: ThemeData(
